@@ -1,0 +1,12 @@
+{
+  "name": "NYC Transit Hub",
+  "short_name": "NYC Transit",
+  "description": "Real-time MTA transit info, reliability analytics, and accessibility-aware routing",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0039A6",
+  "orientation": "portrait-primary",
+  "categories": ["transportation", "utilities"],
+  "lang": "en-US"
+}
