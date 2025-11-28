@@ -614,3 +614,45 @@ tests/
 - Follow Arrange-Act-Assert pattern
 - Aim for 70% coverage minimum
 - Co-locate component tests when appropriate
+
+---
+
+## Common Configuration Gotchas
+
+### TypeScript Build Exclusions
+Always exclude test and config files from production TypeScript compilation to prevent type errors from test-only dependencies:
+```json
+// tsconfig.json
+"exclude": [
+  "node_modules",
+  "playwright.config.ts",
+  "vitest.config.ts",
+  "tests/**/*",
+  "stories/**/*"
+]
+```
+
+### JSX in Non-Component Files
+Any file containing JSX (including test setup files with mock components) must use the `.tsx` extension, not `.ts`. This applies to:
+- `vitest.setup.tsx` (if mocking components)
+- Storybook decorators
+- Test utility files
+
+### Framework-Specific Imports
+Use the correct framework-specific imports to avoid runtime and lint errors:
+```typescript
+// Storybook - use your framework package, not the generic renderer
+import type { Meta, StoryObj } from '@storybook/nextjs-vite';  // Correct
+import type { Meta, StoryObj } from '@storybook/react';         // Wrong
+
+// Preview files with JSX need .tsx extension
+// .storybook/preview.tsx (not .ts)
+```
+
+### When Configuration Fails
+If a library configuration fails after 2-3 attempts:
+1. Stop and acknowledge the gap
+2. Ask the user for help or to search for the solution
+3. Document the working solution once found
+
+This is more efficient than continuing to guess. Configuration issues often require specific knowledge not in general docs.
