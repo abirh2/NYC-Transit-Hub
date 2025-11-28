@@ -1,0 +1,219 @@
+// NYC Transit Hub - Database Schema
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================================
+// STATIONS - Static station metadata
+// ============================================================================
+
+model Station {
+  id              String   @id // MTA GTFS stop_id (e.g., "A15N" for northbound platform)
+  gtfsStopId      String   @map("gtfs_stop_id") // Base stop_id without direction
+  name            String   // Station name (e.g., "West 4 St-Wash Sq")
+  borough         String?  // Manhattan, Brooklyn, Queens, Bronx, Staten Island
+  lines           String[] // Array of route IDs that serve this station
+  latitude        Float?
+  longitude       Float?
+  
+  // Accessibility
+  adaAccessible   Boolean  @default(false) @map("ada_accessible")
+  hasElevator     Boolean  @default(false) @map("has_elevator")
+  hasEscalator    Boolean  @default(false) @map("has_escalator")
+  
+  // Metadata
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  realtimeTrips   RealtimeTrip[]
+  elevatorStatus  ElevatorStatus[]
+
+  @@map("stations")
+}
+
+// ============================================================================
+// REALTIME TRIPS - Current train positions and arrival predictions
+// ============================================================================
+
+model RealtimeTrip {
+  id              String   @id @default(cuid())
+  tripId          String   @map("trip_id")       // GTFS trip_id
+  routeId         String   @map("route_id")      // Line (e.g., "A", "F", "1")
+  
+  // Current position
+  currentStopId   String?  @map("current_stop_id")
+  currentStation  Station? @relation(fields: [currentStopId], references: [id])
+  
+  // Direction and destination
+  direction       String?  // "N" (uptown) or "S" (downtown)
+  headsign        String?  // Final destination text
+  
+  // Arrival prediction
+  nextStopId      String?  @map("next_stop_id")
+  arrivalTime     DateTime? @map("arrival_time")
+  departureTime   DateTime? @map("departure_time")
+  
+  // Status
+  delay           Int?     // Delay in seconds (negative = early)
+  isAssigned      Boolean  @default(true) @map("is_assigned") // Whether trip is assigned to a train
+  
+  // Feed metadata
+  feedTimestamp   DateTime @map("feed_timestamp") // When the feed was generated
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@unique([tripId, nextStopId])
+  @@index([routeId])
+  @@index([currentStopId])
+  @@index([nextStopId])
+  @@index([arrivalTime])
+  @@map("realtime_trips")
+}
+
+// ============================================================================
+// ALERTS - Service alerts and advisories
+// ============================================================================
+
+model Alert {
+  id              String   @id // MTA alert ID
+  
+  // Affected services
+  affectedRoutes  String[] @map("affected_routes") // ["A", "C", "E"]
+  affectedStops   String[] @map("affected_stops")  // Station IDs
+  
+  // Alert content
+  headerText      String   @map("header_text")
+  descriptionText String?  @map("description_text") @db.Text
+  
+  // Severity and type
+  severity        AlertSeverity @default(INFO)
+  alertType       AlertType     @default(OTHER) @map("alert_type")
+  
+  // Time window
+  activePeriodStart DateTime?  @map("active_period_start")
+  activePeriodEnd   DateTime?  @map("active_period_end")
+  
+  // Metadata
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([severity])
+  @@index([activePeriodStart, activePeriodEnd])
+  @@map("alerts")
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  SEVERE
+}
+
+enum AlertType {
+  DELAY
+  DETOUR
+  STATION_CLOSURE
+  PLANNED_WORK
+  SERVICE_CHANGE
+  REDUCED_SERVICE
+  SHUTTLE_BUS
+  OTHER
+}
+
+// ============================================================================
+// ELEVATOR STATUS - Elevator and escalator outages
+// ============================================================================
+
+model ElevatorStatus {
+  id              String   @id @default(cuid())
+  equipmentId     String   @unique @map("equipment_id") // MTA equipment ID
+  
+  // Location
+  stationId       String?  @map("station_id")
+  station         Station? @relation(fields: [stationId], references: [id])
+  stationName     String   @map("station_name")
+  
+  // Equipment info
+  equipmentType   EquipmentType @map("equipment_type")
+  serving         String?  // Description of what it serves (e.g., "Street to mezzanine")
+  adaCompliant    Boolean  @default(false) @map("ada_compliant")
+  
+  // Status
+  isActive        Boolean  @default(true) @map("is_active") // true = working
+  outageReason    String?  @map("outage_reason")
+  outageStartTime DateTime? @map("outage_start_time")
+  estimatedReturn DateTime? @map("estimated_return")
+  
+  // Metadata
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([stationId])
+  @@index([isActive])
+  @@map("elevator_status")
+}
+
+enum EquipmentType {
+  ELEVATOR
+  ESCALATOR
+}
+
+// ============================================================================
+// BUS TRIPS - Bus positions and arrival predictions
+// ============================================================================
+
+model BusTrip {
+  id              String   @id @default(cuid())
+  vehicleId       String   @map("vehicle_id")
+  tripId          String   @map("trip_id")
+  routeId         String   @map("route_id") // Bus route (e.g., "M15", "B63")
+  
+  // Current position
+  latitude        Float?
+  longitude       Float?
+  bearing         Float?   // Direction of travel in degrees
+  
+  // Next stop info
+  nextStopId      String?  @map("next_stop_id")
+  nextStopName    String?  @map("next_stop_name")
+  arrivalTime     DateTime? @map("arrival_time")
+  
+  // Status
+  distanceFromStop Float?  @map("distance_from_stop") // Meters
+  progressStatus  String?  @map("progress_status") // e.g., "approaching", "at stop"
+  
+  // Metadata
+  feedTimestamp   DateTime @map("feed_timestamp")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@unique([vehicleId, tripId])
+  @@index([routeId])
+  @@index([nextStopId])
+  @@map("bus_trips")
+}
+
+// ============================================================================
+// SYSTEM METADATA - Feed status and health tracking
+// ============================================================================
+
+model FeedStatus {
+  id              String   @id // Feed identifier (e.g., "subway-ace", "alerts")
+  name            String   // Human-readable name
+  lastFetch       DateTime? @map("last_fetch")
+  lastSuccess     DateTime? @map("last_success")
+  lastError       String?  @map("last_error")
+  recordCount     Int      @default(0) @map("record_count")
+  
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("feed_status")
+}

@@ -1,135 +1,110 @@
 # API Reference
 
-This document describes the API endpoints for NYC Transit Hub.
-
-> **Note:** API endpoints are planned for Phase 1. This document serves as a specification for future implementation.
+This document describes the API endpoints available in NYC Transit Hub.
 
 ---
 
 ## Base URL
 
-```
-Development: http://localhost:3000/api
-Production:  https://nyc-transit-hub.vercel.app/api
-```
+- **Development:** `http://localhost:3000/api`
+- **Production:** `https://your-domain.com/api`
 
 ---
 
 ## Authentication
 
-Most endpoints are public. User-specific endpoints (commute, preferences) will require authentication.
+Most endpoints are public and require no authentication.
 
-```
-Authorization: Bearer <token>
-```
+**Bus API** requires the `MTA_BUS_API_KEY` environment variable to be set.
 
 ---
 
 ## Endpoints
 
-### Trains
+### Stations
 
-#### Get Real-time Arrivals
+#### GET /api/stations
 
-```http
-GET /api/trains/realtime
-```
+Search and retrieve subway station information.
 
 **Query Parameters:**
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `station_id` | string | No | Filter by station ID |
-| `route` | string | No | Filter by route (e.g., "F", "A") |
-| `direction` | string | No | Filter by direction ("N" or "S") |
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `search` | string | Search stations by name (partial match) |
+| `id` | string | Get specific station by ID |
+| `limit` | number | Maximum results (default: 50) |
 
-**Response:**
+**Example Request:**
+
+```bash
+curl "http://localhost:3000/api/stations?search=times&limit=5"
+```
+
+**Example Response:**
 
 ```json
 {
-  "data": [
-    {
-      "trip_id": "123456_F..N",
-      "route_id": "F",
-      "stop_id": "D20N",
-      "arrival_time": "2025-11-28T14:30:00Z",
-      "departure_time": "2025-11-28T14:30:30Z",
-      "direction": "N",
-      "destination": "Jamaica-179 St"
-    }
-  ],
-  "timestamp": "2025-11-28T14:25:00Z"
+  "success": true,
+  "data": {
+    "stations": [
+      {
+        "id": "127",
+        "name": "Times Sq-42 St",
+        "latitude": 40.75529,
+        "longitude": -73.987495,
+        "platforms": {
+          "north": "127N",
+          "south": "127S"
+        }
+      }
+    ],
+    "totalCount": 4
+  },
+  "timestamp": "2024-01-15T12:00:00.000Z"
 }
 ```
 
 ---
 
-### Stations
+### Routes
 
-#### List All Stations
+#### GET /api/routes
 
-```http
-GET /api/stations
-```
+Get subway route/line information.
 
 **Query Parameters:**
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `line` | string | No | Filter by subway line |
-| `borough` | string | No | Filter by borough |
-| `accessible` | boolean | No | Filter by accessibility |
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | string | Get specific route by ID (e.g., "A", "1", "L") |
 
-**Response:**
+**Example Request:**
+
+```bash
+curl "http://localhost:3000/api/routes?id=A"
+```
+
+**Example Response:**
 
 ```json
 {
-  "data": [
-    {
-      "id": "D20",
-      "name": "West 4th St-Washington Sq",
-      "lines": ["A", "C", "E", "B", "D", "F", "M"],
-      "borough": "Manhattan",
-      "latitude": 40.732338,
-      "longitude": -74.000495,
-      "accessible": true
-    }
-  ]
-}
-```
-
-#### Get Station Details
-
-```http
-GET /api/stations/:id
-```
-
-**Response:**
-
-```json
-{
+  "success": true,
   "data": {
-    "id": "D20",
-    "name": "West 4th St-Washington Sq",
-    "lines": ["A", "C", "E", "B", "D", "F", "M"],
-    "borough": "Manhattan",
-    "latitude": 40.732338,
-    "longitude": -74.000495,
-    "accessible": true,
-    "entrances": [
+    "routes": [
       {
-        "type": "stairs",
-        "location": "NW corner of 6th Ave & W 4th St"
+        "id": "A",
+        "shortName": "A",
+        "longName": "8 Avenue Express",
+        "description": "Trains operate between Inwood-207 St...",
+        "color": "#0062CF",
+        "textColor": "#FFFFFF",
+        "url": "https://www.mta.info/schedules/subway/a-train"
       }
     ],
-    "elevators": [
-      {
-        "id": "EL123",
-        "status": "active",
-        "location": "Street to mezzanine"
-      }
-    ]
-  }
+    "totalCount": 1
+  },
+  "timestamp": "2024-01-15T12:00:00.000Z"
 }
 ```
 
@@ -137,218 +112,344 @@ GET /api/stations/:id
 
 ### Alerts
 
-#### Get Service Alerts
+#### GET /api/alerts
 
-```http
-GET /api/alerts
-```
+Get active service alerts from MTA.
 
 **Query Parameters:**
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `route` | string | No | Filter by route |
-| `severity` | string | No | Filter by severity (major, minor, info) |
-| `active` | boolean | No | Only active alerts (default: true) |
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `routeId` | string | Filter by route (e.g., "A", "F") |
+| `severity` | string | Filter by severity: "INFO", "WARNING", "SEVERE" |
+| `limit` | number | Maximum results |
 
-**Response:**
+**Example Request:**
+
+```bash
+curl "http://localhost:3000/api/alerts?limit=3"
+```
+
+**Example Response:**
 
 ```json
 {
-  "data": [
-    {
-      "id": "alert_123",
-      "header": "F train delays",
-      "description": "Delays due to signal problems at 34th St-Penn Station",
-      "routes": ["F"],
-      "severity": "major",
-      "effect": "SIGNIFICANT_DELAYS",
-      "start_time": "2025-11-28T10:00:00Z",
-      "end_time": null,
-      "updated_at": "2025-11-28T14:00:00Z"
-    }
-  ],
-  "count": 1
+  "success": true,
+  "data": {
+    "alerts": [
+      {
+        "id": "lmm:alert:123456",
+        "affectedRoutes": ["A", "C", "E"],
+        "affectedStops": ["A15"],
+        "headerText": "Delays on A/C/E due to signal problems",
+        "descriptionText": "Expect delays of up to 15 minutes",
+        "severity": "WARNING",
+        "alertType": "DELAY",
+        "activePeriodStart": "2024-01-15T10:00:00.000Z",
+        "activePeriodEnd": null
+      }
+    ],
+    "totalCount": 3,
+    "lastUpdated": "2024-01-15T12:00:00.000Z"
+  },
+  "timestamp": "2024-01-15T12:00:00.000Z"
 }
 ```
+
+**Alert Severity Levels:**
+
+| Level | Description |
+|-------|-------------|
+| `INFO` | Minor advisory, normal service |
+| `WARNING` | Delays or service changes |
+| `SEVERE` | Suspended service or major disruption |
+
+**Alert Types:**
+
+- `DELAY` - Trains running with delays
+- `DETOUR` - Service rerouted
+- `STATION_CLOSURE` - Station bypassed or closed
+- `PLANNED_WORK` - Scheduled maintenance
+- `SERVICE_CHANGE` - Route modifications
+- `REDUCED_SERVICE` - Fewer trains running
+- `SHUTTLE_BUS` - Bus replacement service
+- `OTHER` - Other alerts
 
 ---
 
 ### Elevators
 
-#### Get Elevator Status
+#### GET /api/elevators
 
-```http
-GET /api/elevators
-```
+Get elevator and escalator outage information.
 
 **Query Parameters:**
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `station_id` | string | No | Filter by station |
-| `status` | string | No | Filter by status (active, outage) |
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `stationName` | string | Filter by station name (partial match) |
+| `line` | string | Filter by subway line |
+| `equipmentType` | string | "ELEVATOR" or "ESCALATOR" |
+| `adaOnly` | boolean | Only ADA-compliant equipment |
+| `limit` | number | Maximum results |
 
-**Response:**
+**Example Request:**
+
+```bash
+curl "http://localhost:3000/api/elevators?line=A&adaOnly=true"
+```
+
+**Example Response:**
 
 ```json
 {
-  "data": [
-    {
-      "id": "EL123",
-      "station_id": "D20",
-      "station_name": "West 4th St-Washington Sq",
-      "type": "elevator",
-      "status": "active",
-      "description": "Street to mezzanine",
-      "ada_compliant": true,
-      "outage_start": null,
-      "estimated_return": null
-    }
-  ],
-  "outage_count": 0
-}
-```
-
----
-
-### Metrics
-
-#### Get Reliability Metrics
-
-```http
-GET /api/metrics/reliability
-```
-
-**Query Parameters:**
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `route` | string | No | Filter by route |
-| `period` | string | No | Time period (today, 7d, 30d) |
-
-**Response:**
-
-```json
-{
-  "data": [
-    {
-      "route_id": "F",
-      "on_time_percentage": 78.5,
-      "average_delay_seconds": 120,
-      "total_trips": 450,
-      "delayed_trips": 97,
-      "period": "7d"
-    }
-  ]
-}
-```
-
-#### Get Crowding Estimates
-
-```http
-GET /api/metrics/crowding
-```
-
-**Query Parameters:**
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `route` | string | No | Filter by route |
-
-**Response:**
-
-```json
-{
-  "data": [
-    {
-      "route_id": "F",
-      "direction": "N",
-      "crowding_level": "medium",
-      "headway_seconds": 360,
-      "timestamp": "2025-11-28T14:25:00Z"
-    }
-  ]
-}
-```
-
----
-
-### Commute (Authenticated)
-
-#### Get Commute Summary
-
-```http
-GET /api/commute/summary
-```
-
-**Headers:**
-```
-Authorization: Bearer <token>
-```
-
-**Response:**
-
-```json
-{
+  "success": true,
   "data": {
-    "home_station": "D20",
-    "work_station": "R15",
-    "recommended_departure": "2025-11-28T08:15:00Z",
-    "estimated_arrival": "2025-11-28T08:49:00Z",
-    "estimated_duration_minutes": 34,
-    "route": ["F", "A"],
-    "status": "on_time",
-    "alerts": []
-  }
+    "equipment": [
+      {
+        "equipmentId": "EL001",
+        "stationName": "Jay St-MetroTech",
+        "borough": "Brooklyn",
+        "equipmentType": "ELEVATOR",
+        "serving": "Street to platform",
+        "adaCompliant": true,
+        "isActive": false,
+        "outageReason": "Capital Replacement",
+        "outageStartTime": "2024-01-10T08:00:00.000Z",
+        "estimatedReturn": "2024-06-01T00:00:00.000Z",
+        "trainLines": ["A", "C", "F", "R"]
+      }
+    ],
+    "totalOutages": 1,
+    "lastUpdated": "2024-01-15T12:00:00.000Z"
+  },
+  "timestamp": "2024-01-15T12:00:00.000Z"
 }
 ```
+
+---
+
+### Train Arrivals
+
+#### GET /api/trains/realtime
+
+Get real-time train arrival predictions.
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `stationId` | string | Filter by station/platform ID |
+| `routeId` | string | Filter by route (e.g., "A", "1") |
+| `direction` | string | "N" (uptown) or "S" (downtown) |
+| `limit` | number | Maximum results (default: 20) |
+
+**Example Request:**
+
+```bash
+curl "http://localhost:3000/api/trains/realtime?routeId=A&limit=5"
+```
+
+**Example Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "arrivals": [
+      {
+        "tripId": "123456_A..N",
+        "routeId": "A",
+        "direction": "N",
+        "headsign": "Inwood-207 St",
+        "stopId": "A15N",
+        "stationName": "",
+        "arrivalTime": "2024-01-15T12:05:00.000Z",
+        "departureTime": "2024-01-15T12:05:30.000Z",
+        "delay": 0,
+        "isAssigned": true,
+        "minutesAway": 3
+      }
+    ],
+    "lastUpdated": "2024-01-15T12:02:00.000Z"
+  },
+  "timestamp": "2024-01-15T12:02:00.000Z"
+}
+```
+
+---
+
+### Bus Arrivals
+
+#### GET /api/buses/realtime
+
+Get real-time bus arrival predictions.
+
+**Requires:** `MTA_BUS_API_KEY` environment variable
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `routeId` | string | Filter by bus route (e.g., "M15") |
+| `stopId` | string | Filter by stop ID |
+| `limit` | number | Maximum results (default: 20) |
+
+**Example Request:**
+
+```bash
+curl "http://localhost:3000/api/buses/realtime?routeId=M15&limit=5"
+```
+
+**Example Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "arrivals": [
+      {
+        "vehicleId": "1234",
+        "tripId": "trip_001",
+        "routeId": "M15",
+        "headsign": null,
+        "latitude": 40.7128,
+        "longitude": -74.0060,
+        "bearing": 180.5,
+        "nextStopId": "stop_123",
+        "nextStopName": null,
+        "arrivalTime": "2024-01-15T12:08:00.000Z",
+        "distanceFromStop": null,
+        "progressStatus": null,
+        "minutesAway": 6
+      }
+    ],
+    "lastUpdated": "2024-01-15T12:02:00.000Z"
+  },
+  "timestamp": "2024-01-15T12:02:00.000Z"
+}
+```
+
+**Error Response (No API Key):**
+
+```json
+{
+  "success": false,
+  "data": null,
+  "error": "Bus API not configured. Set MTA_BUS_API_KEY environment variable.",
+  "timestamp": "2024-01-15T12:02:00.000Z"
+}
+```
+
+---
+
+### System Status
+
+#### GET /api/status
+
+Get overall system health and feed status.
+
+**Example Request:**
+
+```bash
+curl "http://localhost:3000/api/status"
+```
+
+**Example Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "feeds": [
+      {
+        "id": "subway",
+        "name": "Subway GTFS-RT",
+        "lastFetch": null,
+        "lastSuccess": null,
+        "lastError": null,
+        "recordCount": 0,
+        "isHealthy": true
+      },
+      {
+        "id": "alerts",
+        "name": "Service Alerts",
+        "isHealthy": true
+      },
+      {
+        "id": "elevators",
+        "name": "Elevator/Escalator Status",
+        "isHealthy": true
+      },
+      {
+        "id": "buses",
+        "name": "Bus GTFS-RT",
+        "lastError": "API key not configured",
+        "isHealthy": false
+      }
+    ],
+    "overallHealth": "degraded",
+    "lastUpdated": "2024-01-15T12:00:00.000Z"
+  },
+  "timestamp": "2024-01-15T12:00:00.000Z"
+}
+```
+
+**Health Status:**
+
+| Status | Description |
+|--------|-------------|
+| `healthy` | All feeds operational |
+| `degraded` | Some feeds have issues |
+| `down` | All feeds unavailable |
 
 ---
 
 ## Error Responses
 
-All endpoints return errors in this format:
+All endpoints return errors in a consistent format:
 
 ```json
 {
-  "error": {
-    "code": "INVALID_PARAMETER",
-    "message": "Invalid station_id provided",
-    "details": {
-      "parameter": "station_id",
-      "value": "invalid"
-    }
-  }
+  "success": false,
+  "data": null,
+  "error": "Error message describing what went wrong",
+  "timestamp": "2024-01-15T12:00:00.000Z"
 }
 ```
 
-### Error Codes
+**Common HTTP Status Codes:**
 
-| Code | HTTP Status | Description |
-|------|-------------|-------------|
-| `INVALID_PARAMETER` | 400 | Invalid request parameter |
-| `NOT_FOUND` | 404 | Resource not found |
-| `UNAUTHORIZED` | 401 | Authentication required |
-| `RATE_LIMITED` | 429 | Too many requests |
-| `FEED_UNAVAILABLE` | 503 | MTA feed unavailable |
-| `INTERNAL_ERROR` | 500 | Server error |
+| Code | Description |
+|------|-------------|
+| 200 | Success |
+| 400 | Bad request (invalid parameters) |
+| 500 | Server error |
+| 503 | Service unavailable (feed down or not configured) |
 
 ---
 
 ## Rate Limiting
 
-| Endpoint | Limit |
-|----------|-------|
-| Public endpoints | 100 requests/minute |
-| Authenticated endpoints | 300 requests/minute |
+Currently no rate limiting is implemented. MTA feeds are cached:
+
+| Feed | Cache Duration |
+|------|----------------|
+| Trains | 30 seconds |
+| Alerts | 60 seconds |
+| Elevators | 5 minutes |
+| Buses | 30 seconds |
 
 ---
 
-## Webhooks (Future)
+## Development Scripts
 
-Planned webhook support for:
-- Service alert notifications
-- Commute reminders
-- Elevator outage alerts
+Test all APIs with the included test script:
 
+```bash
+# Start dev server first
+npm run dev
+
+# In another terminal
+node scripts/test-all-apis.mjs
+```

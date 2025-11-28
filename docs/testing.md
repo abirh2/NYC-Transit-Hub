@@ -19,17 +19,23 @@ This document describes the testing strategy and tools for NYC Transit Hub.
 
 ```
 tests/
-├── unit/                    # Unit tests
-│   └── utils/              # Utility function tests
-├── components/              # Component tests
-│   ├── ui/                 # UI component tests
-│   └── dashboard/          # Dashboard component tests
-├── e2e/                     # End-to-end tests
-│   ├── home.spec.ts        # Home page tests
-│   └── navigation.spec.ts  # Navigation tests
-└── setup/                   # Test configuration
-    ├── vitest.setup.ts     # Vitest setup
-    └── playwright.setup.ts # Playwright setup
+├── unit/                         # Unit tests
+│   ├── gtfs-parser.test.ts      # GTFS static data parser
+│   ├── mta-alerts.test.ts       # MTA alerts parser
+│   └── mta-elevators.test.ts    # MTA elevator status parser
+├── components/                   # Component tests
+│   ├── SubwayBullet.test.tsx    # Subway bullet component
+│   └── ThemeToggle.test.tsx     # Theme toggle component
+├── e2e/                          # End-to-end tests
+│   └── home.spec.ts             # Home page tests
+└── setup/                        # Test configuration
+    └── vitest.setup.tsx         # Vitest setup with mocks
+
+scripts/                          # Development test scripts
+├── test-all-apis.mjs            # API integration test suite
+├── test-mta-apis.mjs            # Raw MTA API response tester
+├── test-gtfs-parser.mjs         # GTFS file parsing tester
+└── test-our-parsers.mjs         # Parser verification
 ```
 
 ---

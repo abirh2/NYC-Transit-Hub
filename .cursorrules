@@ -365,6 +365,8 @@ Use specialized tools for file operations instead of bash commands when possible
 - Use absolute paths for file operations (avoids "which directory am I in?" confusion)
 - Run independent operations in parallel when you can
 - Don't use commands that hang indefinitely (tail -f, pm2 logs without limits) - use bounded alternatives or background jobs
+- **Batch repetitive operations into scripts** - If you need to run 5+ similar commands (API tests, file checks, etc.), create a temporary script file instead of prompting the user repeatedly. This reduces friction and allows rerunning later.
+- **Clean up background processes** - After using dev servers or background jobs, kill them before moving to unrelated tasks. Check for running processes with `lsof -i :PORT` before starting new servers.
 
 ---
 
@@ -486,6 +488,30 @@ Before considering work complete:
 
 ---
 
+## External API Integration
+
+### Verify Before You Parse
+
+**NEVER write parsing code, Zod schemas, or data transformations for external APIs without first fetching and inspecting actual response samples.**
+
+This is a critical failure mode: assuming API structures leads to parsers that silently fail or produce incorrect data.
+
+**Required workflow for any external API integration:**
+1. **Fetch a real sample** - Use curl, a test script, or the browser to get actual API responses
+2. **Inspect the structure** - Check field names (camelCase vs snake_case), nesting, optional fields
+3. **Save sample data** - Store in `scripts/sample-*.json` for reference and test fixtures
+4. **Then write parsers** - Build Zod schemas and transformations based on verified structures
+5. **Test against real data** - Verify parsers work with actual API responses, not just assumptions
+
+**Common API assumption failures:**
+- Field naming conventions (snake_case in JSON, camelCase in code)
+- Nested vs flat structures
+- Array wrappers vs direct objects
+- Optional fields that are sometimes missing entirely
+- Extension fields in protobuf (e.g., MTA's `transit_realtime.mercury_alert`)
+
+---
+
 ## MTA-Specific Guidelines
 
 ### GTFS Data Handling
@@ -501,6 +527,15 @@ Before considering work complete:
 - Show "last updated" timestamps
 - Handle stale data indicators
 - Graceful degradation when feeds are down
+
+### MTA API Field Conventions
+
+MTA JSON APIs use `snake_case` field names, not camelCase:
+- `header_text`, `description_text` (not headerText, descriptionText)
+- `active_period`, `informed_entity` (not activePeriod, informedEntity)
+- `equipment` field in elevator API (not `equipmentno`)
+
+The alerts API uses a custom extension: `transit_realtime.mercury_alert` containing MTA-specific fields like `alert_type`, `human_readable_active_period`, etc.
 
 ### Station & Line Data
 

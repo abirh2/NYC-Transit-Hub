@@ -66,32 +66,46 @@ nvm use 20.19.5 && npm run dev
 
 ## Environment Variables
 
-Create a `.env.local` file in the project root:
+Create a `.env` file in the project root:
 
 ```bash
-# Copy the example file
-cp .env.example .env.local
+touch .env
 ```
 
 ### Required Variables
 
 ```env
-# Database (Supabase)
-DATABASE_URL="postgresql://..."
-DIRECT_URL="postgresql://..."
-
-# MTA API (optional - feeds are public)
-MTA_API_KEY="your-api-key"
+# Database (Supabase) - Required for data ingestion/analytics
+# Get from: Supabase Dashboard > Project Settings > Database > Connection string
+# Use the "Session pooler" connection (not direct connection)
+DATABASE_URL="postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres"
 ```
 
 ### Optional Variables
 
 ```env
-# Analytics (optional)
-NEXT_PUBLIC_ANALYTICS_ID=""
+# MTA Bus API Key - Required for bus arrival data
+# Get from: https://api.mta.info/#/signup
+MTA_BUS_API_KEY="your-api-key-here"
+```
 
-# Feature Flags
-NEXT_PUBLIC_ENABLE_ACCESSIBILITY=true
+> **Note:** Subway feeds, alerts, and elevator status do NOT require an API key.
+
+### Supabase Setup
+
+1. Create a free account at [supabase.com](https://supabase.com)
+2. Create a new project
+3. Go to **Project Settings** > **Database**
+4. Copy the **Session pooler** connection string
+5. Add to `.env` as `DATABASE_URL`
+6. Run `npx prisma db push` to create tables
+
+### Verifying Setup
+
+```bash
+# Test all APIs
+nvm use 20.19.5 && npm run dev &
+sleep 10 && node scripts/test-all-apis.mjs
 ```
 
 ---

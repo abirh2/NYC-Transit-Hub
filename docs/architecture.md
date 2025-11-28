@@ -25,9 +25,10 @@ NYC Transit Hub is a Next.js application that consumes MTA real-time data feeds 
 │  └─────────────────────────────────────────────────────────┘    │
 │  ┌─────────────────────────────────────────────────────────┐    │
 │  │              API Routes (/api/*)                         │    │
-│  │   - /api/trains/realtime                                │    │
-│  │   - /api/alerts                                         │    │
-│  │   - /api/elevators                                      │    │
+│  │   - /api/trains/realtime    - /api/alerts               │    │
+│  │   - /api/elevators          - /api/stations             │    │
+│  │   - /api/buses/realtime     - /api/routes               │    │
+│  │   - /api/status             - /api/ingest/*             │    │
 │  └─────────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────────┘
           │                │                │
@@ -35,8 +36,8 @@ NYC Transit Hub is a Next.js application that consumes MTA real-time data feeds 
 ┌─────────────────────────────────────────────────────────────────┐
 │                      Data Layer                                  │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
-│  │   MTA GTFS   │  │   Database   │  │    Cache     │          │
-│  │    Feeds     │  │  (Supabase)  │  │   (Redis?)   │          │
+│  │   MTA GTFS   │  │   Database   │  │  GTFS Static │          │
+│  │  RT Feeds    │  │  (Supabase)  │  │    Files     │          │
 │  └──────────────┘  └──────────────┘  └──────────────┘          │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -51,65 +52,133 @@ NYC-Transit-Hub/
 │   ├── layout.tsx             # Root layout (providers, shell)
 │   ├── page.tsx               # Home dashboard
 │   ├── globals.css            # Global styles + Tailwind config
-│   ├── hero.ts                # HeroUI theme configuration
+│   ├── api/                   # API routes
+│   │   ├── alerts/            # Service alerts endpoint
+│   │   ├── buses/realtime/    # Bus arrivals endpoint
+│   │   ├── elevators/         # Elevator status endpoint
+│   │   ├── ingest/            # Data ingestion endpoints
+│   │   │   ├── alerts/
+│   │   │   ├── buses/
+│   │   │   ├── elevators/
+│   │   │   └── subway/
+│   │   ├── routes/            # Route info endpoint
+│   │   ├── stations/          # Station search endpoint
+│   │   ├── status/            # System health endpoint
+│   │   └── trains/realtime/   # Train arrivals endpoint
 │   ├── accessibility/
-│   │   └── page.tsx           # Accessibility status page
 │   ├── board/
-│   │   └── page.tsx           # Station board page
 │   ├── commute/
-│   │   └── page.tsx           # Commute assistant page
 │   ├── crowding/
-│   │   └── page.tsx           # Crowding estimates page
 │   ├── incidents/
-│   │   └── page.tsx           # Incident explorer page
 │   ├── realtime/
-│   │   └── page.tsx           # Live tracker page
 │   └── reliability/
-│       └── page.tsx           # Reliability metrics page
 │
 ├── components/                 # React components
 │   ├── dashboard/             # Dashboard card components
-│   │   ├── AlertsCard.tsx
-│   │   ├── CommuteCard.tsx
-│   │   ├── CrowdingCard.tsx
-│   │   ├── IncidentsCard.tsx
-│   │   ├── LiveTrackerCard.tsx
-│   │   ├── ReliabilityCard.tsx
-│   │   ├── StationCard.tsx
-│   │   ├── SystemStatusCard.tsx
-│   │   └── index.ts
 │   ├── layout/                # Layout components
-│   │   ├── AppShell.tsx       # Main app shell
-│   │   ├── Navbar.tsx         # Top navigation
-│   │   ├── Sidebar.tsx        # Side navigation
-│   │   ├── ThemeToggle.tsx    # Dark/light toggle
-│   │   └── index.ts
 │   ├── ui/                    # Reusable UI components
-│   │   ├── DashboardCard.tsx
-│   │   ├── PlaceholderCard.tsx
-│   │   ├── StatusCard.tsx
-│   │   ├── SubwayBullet.tsx   # MTA line icons
-│   │   └── index.ts
 │   └── Providers.tsx          # Context providers
 │
 ├── lib/                       # Utilities and helpers
-│   ├── api/                   # API client functions
-│   ├── hooks/                 # Custom React hooks
-│   └── utils/                 # Utility functions
+│   ├── db.ts                  # Prisma client singleton
+│   ├── generated/prisma/      # Generated Prisma client
+│   ├── gtfs/                  # GTFS static data parser
+│   │   ├── parser.ts          # CSV parsing and station lookup
+│   │   └── index.ts
+│   └── mta/                   # MTA feed clients
+│       ├── config.ts          # Feed URLs and configuration
+│       ├── gtfs-rt.ts         # Protobuf parser for subway
+│       ├── alerts.ts          # Service alerts (JSON)
+│       ├── elevators.ts       # Elevator status (JSON)
+│       ├── buses.ts           # Bus feeds (protobuf)
+│       └── index.ts
 │
 ├── types/                     # TypeScript definitions
-│   ├── gtfs.ts               # GTFS data types
-│   ├── station.ts            # Station types
+│   ├── gtfs.ts               # GTFS-RT message types
+│   ├── mta.ts                # MTA-specific types
+│   ├── api.ts                # API request/response types
 │   └── index.ts
 │
+├── data/                      # Static data files
+│   └── gtfs/                  # MTA GTFS static feed
+│       ├── stops.txt          # Station data (496 stations)
+│       └── routes.txt         # Route data (29 routes)
+│
+├── prisma/                    # Database schema
+│   └── schema.prisma          # Prisma schema definition
+│
 ├── public/                    # Static assets
-│   ├── icons/subway/         # MTA bullet SVGs
-│   └── manifest.json         # PWA manifest
+│   └── icons/subway/          # MTA bullet SVGs
+│
+├── scripts/                   # Development scripts
+│   ├── test-all-apis.mjs      # API test suite
+│   ├── test-mta-apis.mjs      # Raw MTA API tester
+│   └── test-gtfs-parser.mjs   # GTFS parser tester
+│
+├── tests/                     # Test files
+│   ├── unit/                  # Unit tests
+│   ├── components/            # Component tests
+│   └── e2e/                   # End-to-end tests
 │
 ├── docs/                      # Documentation
-├── tests/                     # Test files
 └── stories/                   # Storybook stories
 ```
+
+---
+
+## API Endpoints
+
+### Public Read APIs
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/stations` | GET | Search stations by name, get by ID |
+| `/api/routes` | GET | Get subway route info and colors |
+| `/api/alerts` | GET | Get active service alerts (live) |
+| `/api/elevators` | GET | Get elevator/escalator outages (live) |
+| `/api/trains/realtime` | GET | Get train arrivals (live GTFS-RT) |
+| `/api/buses/realtime` | GET | Get bus arrivals (requires API key) |
+| `/api/status` | GET | Get system health status |
+
+### Ingestion APIs (Database)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/ingest/subway` | POST | Ingest subway GTFS-RT data |
+| `/api/ingest/alerts` | POST | Ingest service alerts |
+| `/api/ingest/elevators` | POST | Ingest elevator status |
+| `/api/ingest/buses` | POST | Ingest bus data |
+
+---
+
+## Data Sources
+
+### MTA GTFS-Realtime Feeds
+
+| Feed | Format | Auth Required |
+|------|--------|---------------|
+| Subway (8 feeds) | Protobuf | No |
+| Alerts | JSON | No |
+| Elevator/Escalator | JSON | No |
+| Buses | Protobuf | Yes (API key) |
+
+### Static GTFS Data
+
+- **stops.txt** - 496 subway stations with coordinates
+- **routes.txt** - 29 subway routes with colors
+
+---
+
+## Database Schema (Supabase)
+
+| Table | Purpose |
+|-------|---------|
+| `stations` | Station metadata and accessibility |
+| `realtime_trips` | Train positions and arrivals |
+| `alerts` | Service alerts |
+| `elevator_status` | Elevator/escalator outages |
+| `bus_trips` | Bus positions and arrivals |
+| `feed_status` | Feed health tracking |
 
 ---
 
@@ -123,66 +192,33 @@ We use the App Router (not Pages Router) for:
 - **Nested Layouts** - Shared UI across routes
 - **Built-in SEO** - Metadata API
 
-### 2. Server Components by Default
+### 2. Direct MTA Feed Access
 
-Components are Server Components unless they need:
-- Browser APIs (window, localStorage)
-- Event handlers (onClick, onChange)
-- React hooks (useState, useEffect)
-- Third-party client libraries
+Public APIs fetch directly from MTA feeds in real-time:
+- No database required for basic functionality
+- Always fresh data (30-60 second cache)
+- Database used for historical analytics
 
-Mark Client Components with `"use client"` directive.
+### 3. GTFS Static Data as Files
 
-### 3. HeroUI + Tailwind CSS
+Station and route data loaded from GTFS text files:
+- Faster than database queries for static data
+- Easy to update by replacing files
+- No network latency for lookups
 
-- **HeroUI** - Accessible, customizable component library
-- **Tailwind CSS v4** - CSS-first configuration
-- **MTA Theme** - Custom colors matching official MTA palette
+### 4. Prisma + Supabase
 
-### 4. Data Fetching Strategy
+Database layer for:
+- Historical data storage (analytics)
+- User preferences (future)
+- Caching heavy computations
 
-| Data Type | Strategy | Caching |
-|-----------|----------|---------|
-| Static GTFS | Build-time | Long (days) |
-| Real-time feeds | Server fetch | Short (30s) |
-| User preferences | Client-side | localStorage |
-| Historical data | Database | Medium (hours) |
+### 5. Zod Validation
 
----
-
-## Component Architecture
-
-### Component Categories
-
-```
-Components
-├── Layout Components     # App structure (Navbar, Sidebar)
-├── Dashboard Cards       # Feature preview cards
-├── UI Primitives        # Reusable atoms (SubwayBullet, StatusCard)
-└── Feature Components   # Page-specific components
-```
-
-### Component Guidelines
-
-1. **Single Responsibility** - Each component does one thing well
-2. **Composition** - Build complex UIs from simple components
-3. **Props Interface** - All props are explicitly typed
-4. **Colocation** - Keep related files together
-
----
-
-## State Management
-
-### Client State
-
-- **React useState** - Local component state
-- **React Context** - Theme, user preferences
-- **URL State** - Filters, selected items
-
-### Server State
-
-- **Server Components** - Initial data
-- **TanStack Query** - Client-side caching and refetching (future)
+All external API responses validated with Zod schemas:
+- Type-safe parsing
+- Graceful error handling
+- Self-documenting API contracts
 
 ---
 
@@ -191,47 +227,46 @@ Components
 ### Real-time Train Data
 
 ```
-MTA GTFS-RT Feed
+MTA GTFS-RT Feed (Protobuf)
+       │
+       ▼
+┌──────────────┐
+│  lib/mta/    │  Parse protobuf
+│  gtfs-rt.ts  │  Extract arrivals
+└──────┬───────┘
        │
        ▼
 ┌──────────────┐
 │  API Route   │  /api/trains/realtime
-│  (Server)    │
-└──────┬───────┘
-       │ Parse protobuf
-       │ Transform to JSON
-       ▼
-┌──────────────┐
-│   Database   │  Store for analytics
-│  (Optional)  │
+│              │  Filter, sort, limit
 └──────┬───────┘
        │
        ▼
 ┌──────────────┐
-│   Client     │  Display in UI
+│   Client     │  Display arrivals
 │  Component   │
 └──────────────┘
 ```
 
-### User Preferences
+### Station Search
 
 ```
-User Action (select station)
+Client Request
        │
        ▼
 ┌──────────────┐
-│ localStorage │  Persist preference
+│  API Route   │  /api/stations?search=...
 └──────┬───────┘
        │
        ▼
 ┌──────────────┐
-│   Context    │  Share across app
-│   Provider   │
+│  lib/gtfs/   │  Parse stops.txt (cached)
+│  parser.ts   │  Search stations
 └──────┬───────┘
        │
        ▼
 ┌──────────────┐
-│  Components  │  React to changes
+│   Response   │  Station list
 └──────────────┘
 ```
 
@@ -239,38 +274,47 @@ User Action (select station)
 
 ## Performance Considerations
 
+### Caching Strategy
+
+| Data Type | Cache Duration | Location |
+|-----------|----------------|----------|
+| Static GTFS | Permanent (in-memory) | Server |
+| Train arrivals | 30 seconds | Next.js cache |
+| Alerts | 60 seconds | Next.js cache |
+| Elevator status | 5 minutes | Next.js cache |
+| Routes/Stations | 1 hour+ | Next.js cache |
+
 ### Optimization Strategies
 
-1. **Code Splitting** - Dynamic imports for heavy components
-2. **Image Optimization** - next/image for automatic optimization
-3. **Caching** - Appropriate cache headers on API routes
-4. **Streaming** - Suspense boundaries for progressive loading
-
-### Monitoring
-
-- Core Web Vitals tracking
-- Error boundary logging
-- API response time monitoring
+1. **Parallel Feed Fetching** - All subway feeds fetched concurrently
+2. **In-Memory GTFS Cache** - Static data parsed once, cached in memory
+3. **Incremental Compilation** - Turbopack for fast dev server
+4. **Code Splitting** - Dynamic imports for heavy components
 
 ---
 
 ## Security
 
+### Environment Variables
+
+```env
+DATABASE_URL=...        # Supabase connection (server only)
+MTA_BUS_API_KEY=...     # Bus API key (server only)
+```
+
 ### Best Practices
 
-1. **Environment Variables** - Secrets never in client code
-2. **Input Validation** - Zod schemas for external data
-3. **CORS** - Restricted API access
-4. **CSP** - Content Security Policy headers
+1. **Server-only secrets** - Never exposed to client
+2. **Input validation** - Zod schemas for all external data
+3. **Parameterized queries** - Prisma prevents SQL injection
+4. **CORS** - Restricted API access
 
 ---
 
-## Future Considerations
+## Future Improvements
 
-### Planned Improvements
-
-- [ ] PWA support with offline caching
-- [ ] WebSocket for real-time updates
-- [ ] Background sync for commute notifications
-- [ ] Database for user accounts and preferences
-
+- [ ] WebSocket for real-time updates (eliminate polling)
+- [ ] PWA with offline support
+- [ ] User authentication (NextAuth)
+- [ ] Push notifications for alerts
+- [ ] Background sync for commute tracking
