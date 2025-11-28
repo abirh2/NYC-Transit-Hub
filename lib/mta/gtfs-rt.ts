@@ -380,11 +380,30 @@ export function extractArrivals(
 /**
  * Extract headsign from trip ID (MTA encodes destination in trip ID)
  * Format: tripId like "073850_A..N03R" where N03R is the destination
+ * 
+ * Note: The extracted code is often an internal terminal ID like "N05R" 
+ * which is not user-friendly. We return null in those cases to allow
+ * the UI to fall back to a friendly terminal name lookup.
  */
 function extractHeadsign(tripId: string): string | null {
   // MTA trip IDs often contain the terminal station code after ".."
   const match = tripId.match(/\.\.([A-Z0-9]+)/);
-  return match ? match[1] : null;
+  if (!match) return null;
+  
+  const code = match[1];
+  
+  // Internal terminal codes look like "N05R", "S05R", "N03R" etc.
+  // These are direction (N/S) + stop number + route indicator
+  // Also filter out bare direction letters like "N" or "S"
+  // They're not user-friendly, so return null to use default headsigns
+  if (
+    /^[NS]$/.test(code) ||           // Just "N" or "S"
+    /^[NS]\d{2}[A-Z]?$/.test(code)   // "N05R", "S05R", etc.
+  ) {
+    return null;
+  }
+  
+  return code;
 }
 
 /**

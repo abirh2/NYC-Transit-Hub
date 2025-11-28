@@ -108,12 +108,20 @@ describe('GTFS Parser', () => {
   });
 
   describe('getStationById', () => {
-    it('returns station by exact ID', () => {
+    it('returns station by exact ID with allIds and allPlatforms', () => {
       const stations = getStations();
       const firstStation = Array.from(stations.values())[0];
       
       const found = getStationById(firstStation.id);
-      expect(found).toEqual(firstStation);
+      expect(found).not.toBeNull();
+      expect(found?.id).toBe(firstStation.id);
+      expect(found?.name).toBe(firstStation.name);
+      expect(found?.latitude).toBe(firstStation.latitude);
+      expect(found?.longitude).toBe(firstStation.longitude);
+      
+      // getStationById now returns allIds and allPlatforms
+      expect(found?.allIds).toContain(firstStation.id);
+      expect(found?.allPlatforms).toBeDefined();
     });
 
     it('returns station from platform ID', () => {
@@ -125,6 +133,7 @@ describe('GTFS Parser', () => {
       if (stationWithPlatform?.platforms.north) {
         const found = getStationById(stationWithPlatform.platforms.north);
         expect(found?.id).toBe(stationWithPlatform.id);
+        expect(found?.allPlatforms?.north).toContain(stationWithPlatform.platforms.north);
       }
     });
 

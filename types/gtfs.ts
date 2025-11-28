@@ -164,7 +164,7 @@ export type GtfsAlertEffect =
 export interface NyctTripDescriptor {
   trainId?: string;
   isAssigned?: boolean;
-  direction?: "N" | "S"; // North/South or Uptown/Downtown
+  direction?: "NORTH" | "SOUTH" | "EAST" | "WEST"; // From GTFS-RT protobuf enum
 }
 
 export interface NyctStopTimeUpdate {

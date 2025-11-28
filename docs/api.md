@@ -33,12 +33,20 @@ Search and retrieve subway station information.
 |-----------|------|-------------|
 | `search` | string | Search stations by name (partial match) |
 | `id` | string | Get specific station by ID |
-| `limit` | number | Maximum results (default: 50) |
+| `near` | string | Find nearby stations by coordinates (format: `lat,lon`) |
+| `radius` | number | Search radius in miles when using `near` (default: 1, max: 5) |
+| `limit` | number | Maximum results (default: 50, max: 100) |
 
-**Example Request:**
+**Example Request - Search:**
 
 ```bash
 curl "http://localhost:3000/api/stations?search=times&limit=5"
+```
+
+**Example Request - Nearby:**
+
+```bash
+curl "http://localhost:3000/api/stations?near=40.758,-73.985&radius=0.5&limit=5"
 ```
 
 **Example Response:**
@@ -56,13 +64,34 @@ curl "http://localhost:3000/api/stations?search=times&limit=5"
         "platforms": {
           "north": "127N",
           "south": "127S"
+        },
+        "allIds": ["127", "725", "902", "A27"],
+        "allPlatforms": {
+          "north": ["127N", "725N", "902N", "A27N"],
+          "south": ["127S", "725S", "902S", "A27S"]
         }
       }
     ],
-    "totalCount": 4
+    "totalCount": 1
   },
   "timestamp": "2024-01-15T12:00:00.000Z"
 }
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Primary station ID |
+| `name` | string | Station name |
+| `latitude` | number | Station latitude |
+| `longitude` | number | Station longitude |
+| `platforms.north` | string\|null | Primary northbound platform ID |
+| `platforms.south` | string\|null | Primary southbound platform ID |
+| `allIds` | string[] | All station complex IDs sharing this name (for multi-complex stations like Times Sq) |
+| `allPlatforms.north` | string[] | All northbound platform IDs across all complexes |
+| `allPlatforms.south` | string[] | All southbound platform IDs across all complexes |
+| `distance` | number | Distance in miles (only present when using `near` parameter)
 ```
 
 ---

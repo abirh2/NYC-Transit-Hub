@@ -45,6 +45,13 @@ export interface Station {
     north: string | null;
     south: string | null;
   };
+  /** All station complex IDs that share this name (e.g., Times Sq has 4) */
+  allIds?: string[];
+  /** All platform IDs across all complexes */
+  allPlatforms?: {
+    north: string[];
+    south: string[];
+  };
 }
 
 // ============================================================================
@@ -203,17 +210,51 @@ export function getStations(): Map<string, Station> {
 
 /**
  * Search stations by name
+ * Merges station complexes that share the same name (e.g., Times Sq-42 St has 4 complexes)
+ * Returns stations with allIds and allPlatforms populated
  */
 export function searchStations(query: string, limit = 20): Station[] {
   const stations = getStations();
   const queryLower = query.toLowerCase();
   
-  const results: Station[] = [];
+  // Group matching stations by name
+  const stationsByName = new Map<string, Station[]>();
+  
   for (const station of stations.values()) {
     if (station.name.toLowerCase().includes(queryLower)) {
-      results.push(station);
-      if (results.length >= limit) break;
+      const existing = stationsByName.get(station.name) || [];
+      existing.push(station);
+      stationsByName.set(station.name, existing);
     }
+  }
+  
+  // Merge stations with the same name
+  const results: Station[] = [];
+  for (const [, stationsWithName] of stationsByName) {
+    if (results.length >= limit) break;
+    
+    // Use the first station as the base
+    const primary = stationsWithName[0];
+    
+    // Collect all IDs and platforms
+    const allIds: string[] = [];
+    const allNorthPlatforms: string[] = [];
+    const allSouthPlatforms: string[] = [];
+    
+    for (const s of stationsWithName) {
+      allIds.push(s.id);
+      if (s.platforms.north) allNorthPlatforms.push(s.platforms.north);
+      if (s.platforms.south) allSouthPlatforms.push(s.platforms.south);
+    }
+    
+    results.push({
+      ...primary,
+      allIds,
+      allPlatforms: {
+        north: allNorthPlatforms,
+        south: allSouthPlatforms,
+      },
+    });
   }
   
   return results;
@@ -221,22 +262,62 @@ export function searchStations(query: string, limit = 20): Station[] {
 
 /**
  * Get station by ID
+ * Merges all station complexes that share the same name (e.g., Times Sq)
+ * Returns a station with allIds and allPlatforms populated
  */
 export function getStationById(stationId: string): Station | null {
   const stations = getStations();
   
   // Try exact match first
-  if (stations.has(stationId)) {
-    return stations.get(stationId)!;
-  }
+  let station: Station | undefined = stations.get(stationId);
   
   // If given a platform ID (e.g., "A15N"), find the parent station
-  const baseId = stationId.replace(/[NS]$/, "");
-  if (stations.has(baseId)) {
-    return stations.get(baseId)!;
+  if (!station) {
+    const baseId = stationId.replace(/[NS]$/, "");
+    station = stations.get(baseId);
   }
   
-  return null;
+  if (!station) return null;
+  
+  // Find all stations with the same name (for multi-complex stations like Times Sq)
+  const stationsWithSameName: Station[] = [];
+  for (const s of stations.values()) {
+    if (s.name === station.name) {
+      stationsWithSameName.push(s);
+    }
+  }
+  
+  // If only one station with this name, return it with allPlatforms
+  if (stationsWithSameName.length === 1) {
+    return {
+      ...station,
+      allIds: [station.id],
+      allPlatforms: {
+        north: station.platforms.north ? [station.platforms.north] : [],
+        south: station.platforms.south ? [station.platforms.south] : [],
+      },
+    };
+  }
+  
+  // Merge all stations with the same name
+  const allIds: string[] = [];
+  const allNorthPlatforms: string[] = [];
+  const allSouthPlatforms: string[] = [];
+  
+  for (const s of stationsWithSameName) {
+    allIds.push(s.id);
+    if (s.platforms.north) allNorthPlatforms.push(s.platforms.north);
+    if (s.platforms.south) allSouthPlatforms.push(s.platforms.south);
+  }
+  
+  return {
+    ...station,
+    allIds,
+    allPlatforms: {
+      north: allNorthPlatforms,
+      south: allSouthPlatforms,
+    },
+  };
 }
 
 /**

@@ -85,6 +85,11 @@ NYC-Transit-Hub/
 │   ├── gtfs/                  # GTFS static data parser
 │   │   ├── parser.ts          # CSV parsing and station lookup
 │   │   └── index.ts
+│   ├── hooks/                 # React hooks
+│   │   ├── useStationPreferences.ts  # Favorite stations (localStorage)
+│   │   └── useGeolocation.ts         # Browser geolocation
+│   ├── utils/                 # Utility functions
+│   │   └── distance.ts        # Haversine distance calculations
 │   └── mta/                   # MTA feed clients
 │       ├── config.ts          # Feed URLs and configuration
 │       ├── gtfs-rt.ts         # Protobuf parser for subway
@@ -219,6 +224,23 @@ All external API responses validated with Zod schemas:
 - Type-safe parsing
 - Graceful error handling
 - Self-documenting API contracts
+
+### 6. Custom React Hooks
+
+Encapsulate complex state logic in reusable hooks:
+
+| Hook | Purpose |
+|------|---------|
+| `useStationPreferences` | Manage favorite stations in localStorage |
+| `useGeolocation` | Browser geolocation with permission handling |
+
+### 7. Multi-Complex Station Handling
+
+Some stations (like Times Sq-42 St) span multiple GTFS station complexes. The system handles this by:
+- Merging stations with identical names when searching
+- Returning `allIds` and `allPlatforms` for all platform IDs
+- Fetching arrivals from all platforms in parallel
+- Deduplicating results by trip ID
 
 ---
 

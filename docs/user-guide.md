@@ -49,12 +49,26 @@ The home dashboard provides an at-a-glance view of:
 
 View detailed departure information for any station:
 
-1. Click "Your Station" on the dashboard
-2. Search for a station by name
-3. Select lines to display
-4. View upcoming departures in real-time
+1. Click "Your Station" on the dashboard or navigate to "Station Board" in the sidebar
+2. Use the search box to find a station by name
+3. View arrivals organized by direction (Uptown/Downtown)
+4. Click the star icon to save a station as your favorite
 
-**Tip:** Save your favorite stations for quick access.
+**Features:**
+- **Favorite Station** - Your primary station is saved and shown on the dashboard
+- **Nearby Stations** - Enable location to see stations within 1 mile
+- **Multi-Platform Support** - Stations like Times Sq show all lines automatically
+- **Auto-Refresh** - Data updates every 30 seconds
+
+**Understanding Arrivals:**
+
+| Display | Meaning |
+|---------|---------|
+| "3 min" | Train arriving in 3 minutes |
+| "Now" | Train arriving or at platform |
+| "Delayed" | Train is delayed (time shown may be inaccurate) |
+
+**Tip:** Your favorite station is saved in your browser. It will persist across sessions.
 
 ### Live Tracker
 
@@ -176,10 +190,12 @@ Manage your favorite stations:
 
 NYC Transit Hub:
 
-- **Does not** collect personal data
-- **Does not** track your location
+- **Does not** collect or store personal data on our servers
 - **Does not** require an account for basic features
-- Stores preferences locally in your browser
+- Uses **browser localStorage** to save your favorite stations (stored locally, never uploaded)
+- **Optional location access** - Only used to find nearby stations, never stored or sent to our servers
+
+Your location is only accessed when you click "Enable Location" on the Station Board page. The coordinates are sent directly to our API to find nearby stations and are not logged or stored.
 
 ---
 

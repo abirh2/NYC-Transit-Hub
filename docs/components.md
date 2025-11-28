@@ -8,6 +8,7 @@ This document describes the React components available in NYC Transit Hub.
 
 ```
 components/
+├── board/           # Station board components
 ├── dashboard/       # Dashboard-specific cards
 ├── layout/          # App structure components
 ├── ui/              # Reusable UI primitives
@@ -178,11 +179,138 @@ import { ThemeToggle } from "@/components/layout";
 
 ---
 
+## Board Components
+
+### StationBoard
+
+The main station board component for viewing train arrivals.
+
+```tsx
+import { StationBoard } from "@/components/board";
+
+// Basic usage - loads from user's saved station
+<StationBoard />
+
+// With initial station
+<StationBoard initialStationId="127" />
+
+// Custom refresh settings
+<StationBoard 
+  autoRefresh={true} 
+  refreshInterval={30} 
+/>
+```
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `initialStationId` | string | undefined | Pre-select a station by ID |
+| `autoRefresh` | boolean | true | Enable auto-refresh |
+| `refreshInterval` | number | 30 | Refresh interval in seconds |
+
+**Features:**
+- Station search with autocomplete
+- Direction tabs (Uptown/Downtown)
+- Favorite station support (saved to localStorage)
+- Auto-refresh with manual refresh option
+- Handles multi-complex stations (e.g., Times Sq has 4 station complexes)
+
+---
+
+### StationSearch
+
+Autocomplete search input for finding stations.
+
+```tsx
+import { StationSearch } from "@/components/board";
+
+<StationSearch
+  onSelect={(id, name) => console.log(`Selected: ${name}`)}
+  selectedId="127"
+  placeholder="Search stations..."
+  favoriteIds={["127", "A27"]}
+/>
+```
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `onSelect` | function | required | Callback when station selected |
+| `selectedId` | string | undefined | Currently selected station ID |
+| `placeholder` | string | "Search for a station..." | Input placeholder |
+| `compact` | boolean | false | Use compact styling |
+| `favoriteIds` | string[] | [] | Station IDs to mark with star icon |
+
+---
+
+### ArrivalsList
+
+Displays train arrivals for a single direction.
+
+```tsx
+import { ArrivalsList } from "@/components/board";
+
+<ArrivalsList
+  arrivals={northboundArrivals}
+  isLoading={false}
+/>
+```
+
+**Props:**
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `arrivals` | TrainArrival[] | Array of train arrivals |
+| `isLoading` | boolean | Show loading skeleton |
+
+**Displays:**
+- Subway line bullet
+- Destination (headsign)
+- Minutes until arrival
+- Delay indicators
+
+---
+
+### NearbyStations
+
+Shows stations near the user's location.
+
+```tsx
+import { NearbyStations } from "@/components/board";
+
+<NearbyStations 
+  radiusMiles={1}
+  limit={5}
+  onStationSelect={(id, name) => {}}
+  onFavorite={(id, name) => {}}
+  favoriteIds={["127"]}
+/>
+```
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `radiusMiles` | number | 1 | Search radius |
+| `limit` | number | 5 | Max stations to show |
+| `onStationSelect` | function | undefined | Callback when station clicked |
+| `onFavorite` | function | undefined | Callback to toggle favorite |
+| `favoriteIds` | string[] | [] | Currently favorited station IDs |
+
+**Features:**
+- Requests geolocation permission
+- Shows distance from user
+- Graceful handling of permission denied
+
+---
+
 ## Dashboard Components
 
 ### StationCard
 
-Displays upcoming train departures for user's station.
+Displays upcoming train departures for user's saved station.
 
 ```tsx
 import { StationCard } from "@/components/dashboard";
@@ -190,7 +318,13 @@ import { StationCard } from "@/components/dashboard";
 <StationCard />
 ```
 
-Currently displays mock data. Will integrate with real-time API.
+**Features:**
+- Reads primary station from `useStationPreferences` hook
+- Fetches real-time arrivals from `/api/trains/realtime`
+- Handles multi-complex stations (fetches all platforms)
+- Auto-refreshes every 30 seconds
+- Shows "Set My Station" prompt if no favorite set
+- Links to `/board` for full station board view
 
 ---
 
@@ -274,6 +408,105 @@ System connection status indicator.
 import { SystemStatusCard } from "@/components/dashboard";
 
 <SystemStatusCard />
+```
+
+---
+
+## React Hooks
+
+### useStationPreferences
+
+Manages favorite stations with localStorage persistence.
+
+```tsx
+import { useStationPreferences } from "@/lib/hooks/useStationPreferences";
+
+function MyComponent() {
+  const {
+    favorites,        // StationPreference[]
+    primaryStation,   // StationPreference | null (first favorite)
+    isLoaded,         // boolean - true after localStorage loaded
+    addFavorite,      // (stationId, stationName) => void
+    removeFavorite,   // (stationId) => void
+    isFavorite,       // (stationId) => boolean
+    setPrimary,       // (stationId) => void
+    clearFavorites,   // () => void
+  } = useStationPreferences();
+
+  return (
+    <button onClick={() => addFavorite("127", "Times Sq-42 St")}>
+      Add Favorite
+    </button>
+  );
+}
+```
+
+**Storage:** Data stored in `localStorage` under key `nyc-transit-favorites`.
+
+---
+
+### useGeolocation
+
+Accesses browser geolocation with permission handling.
+
+```tsx
+import { useGeolocation } from "@/lib/hooks/useGeolocation";
+
+function MyComponent() {
+  const {
+    location,         // { latitude, longitude, accuracy, timestamp } | null
+    error,            // { code, message } | null
+    isLoading,        // boolean
+    permissionState,  // "granted" | "denied" | "prompt" | "unsupported"
+    requestLocation,  // () => void
+    clearLocation,    // () => void
+    isSupported,      // boolean
+  } = useGeolocation({ autoRequest: false });
+
+  return (
+    <button 
+      onClick={requestLocation}
+      disabled={permissionState === "denied"}
+    >
+      {permissionState === "denied" ? "Location Denied" : "Enable Location"}
+    </button>
+  );
+}
+```
+
+**Options:**
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enableHighAccuracy` | boolean | false | Request high accuracy |
+| `maximumAge` | number | 60000 | Cache duration in ms |
+| `timeout` | number | 10000 | Request timeout in ms |
+| `autoRequest` | boolean | false | Auto-request on mount |
+
+---
+
+## Utility Functions
+
+### Distance Utilities
+
+```tsx
+import { 
+  haversineDistance, 
+  findNearbyStations,
+  formatDistance,
+  formatWalkingTime 
+} from "@/lib/utils/distance";
+
+// Calculate distance between two points (in miles)
+const distance = haversineDistance(40.758, -73.985, 40.751, -73.977);
+
+// Find stations within radius
+const nearby = findNearbyStations(allStations, userLat, userLon, 1.0);
+
+// Format for display
+formatDistance(0.5);      // "0.5 mi"
+formatDistance(0.08);     // "422 ft"
+formatWalkingTime(0.25);  // "5 min walk"
 ```
 
 ---

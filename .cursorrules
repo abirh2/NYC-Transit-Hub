@@ -309,8 +309,16 @@ Don't assume. Trace the actual path of actual data through the actual system.
 
 Think end-to-end: Who else affected? Ensure whole system remains consistent. Found one instance? Search for similar issues. Map dependencies and side effects before changing.
 
+**When fixing, ALWAYS grep for identical patterns:**
+```bash
+# Found bug in StationBoard.tsx fetching with wrong platform ID?
+# Immediately search for the same pattern everywhere:
+grep -r "fetch.*stationId" components/
+grep -r "api/trains/realtime" .
+```
+
 **When fixing, check:**
-- Similar patterns elsewhere? (Search the codebase)
+- Similar patterns elsewhere? (grep the codebase - this is non-negotiable)
 - Will fix affect other components? (Check imports/references)
 - Symptom of deeper architectural issue?
 - Should pattern be abstracted for reuse?
@@ -544,6 +552,18 @@ The alerts API uses a custom extension: `transit_realtime.mercury_alert` contain
 - Handle express vs local distinctions
 - Account for service changes and reroutes
 
+### Multi-Complex Stations (Critical)
+
+**Some station names map to multiple GTFS station IDs.** Times Sq-42 St has FOUR separate station complexes (127, 725, 902, A27), each serving different lines.
+
+**When working with stations:**
+1. Search returns deduplicated results by name
+2. Each result includes `allIds` (all complex IDs) and `allPlatforms` (all platform IDs)
+3. To get ALL trains at a station, fetch arrivals for ALL platforms, not just one
+4. Deduplicate arrivals by `tripId` to avoid showing the same train multiple times
+
+**Example:** To show all trains at Times Sq, fetch from `127N`, `127S`, `725N`, `725S`, `902N`, `902S`, `A27N`, `A27S` - not just `127N` and `127S`.
+
 ---
 
 ## Performance Considerations
@@ -568,6 +588,54 @@ The alerts API uses a custom extension: `transit_realtime.mercury_alert` contain
 - Use proper HTTP caching headers
 - Implement pagination for list endpoints
 - Version APIs when making breaking changes
+
+---
+
+## React Patterns & State Management
+
+### Async Functions Should Be Self-Contained
+
+**Don't depend on React state that may not be set when an async function runs.**
+
+Race conditions occur when an async effect sets state, and another effect that depends on that state runs before it's populated.
+
+**BAD:**
+```tsx
+const [config, setConfig] = useState(null);
+
+useEffect(() => {
+  fetchConfig().then(setConfig); // Sets config asynchronously
+}, []);
+
+const doWork = useCallback(async () => {
+  // BUG: config may be null if doWork runs before fetchConfig resolves
+  const result = await process(config);
+}, [config]);
+
+useEffect(() => {
+  doWork(); // Runs immediately, before config is set
+}, [doWork]);
+```
+
+**GOOD:**
+```tsx
+const doWork = useCallback(async () => {
+  // Self-contained: fetch what you need, don't depend on state
+  const config = await fetchConfig();
+  const result = await process(config);
+}, []);
+```
+
+### Test the Full User Journey
+
+Don't just test the happy path. Verify behavior across all entry points:
+- **Direct navigation** (user types URL)
+- **Internal navigation** (link from another page)
+- **Hard refresh** (Cmd+Shift+R)
+- **Load from saved state** (localStorage, URL params)
+- **Back/forward navigation**
+
+If data loads correctly via search but not on refresh, you have a state initialization bug.
 
 ---
 
