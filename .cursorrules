@@ -129,6 +129,7 @@ Always use the latest stable versions of all libraries and frameworks. Do not pi
 - Implement proper loading and error states
 - Set appropriate cache/revalidation strategies
 - Handle stale data gracefully
+- **Deduplicate before rendering:** APIs often return per-relation data (e.g., one arrival per station per train). Always deduplicate by primary identifier (e.g., `tripId`) before rendering lists to avoid duplicate keys and inflated counts.
 
 ---
 
@@ -332,6 +333,8 @@ Don't just fix immediate issue - fix class of issues. Investigate all related co
 **Design:** Future scale, implement what's needed today. Separate concerns, abstract at right level. Balance performance, maintainability, cost, security, delivery. Prefer clarity and reversibility.
 
 **DRY & Simplicity:** Don't repeat yourself. Before implementing new features, search for existing similar implementations - leverage and expand existing code instead of creating duplicates. When expanding existing code, trace all dependencies first to ensure changes won't break other things. Keep solutions simple. Avoid over-engineering.
+
+**Complex Visual Features:** For features with significant visual complexity (diagrams, graphs, multi-element layouts), start with the simplest working version and validate with user before elaborating. Visual correctness cannot be verified programmatically - what works algorithmically may look "awful" to users. Build incrementally: simple version → user feedback → iterate. Don't build complex graph algorithms or multi-column layouts without first confirming the basic visual approach is acceptable.
 
 **Improve in place:** Enhance and optimize existing code. Understand current approach and dependencies. Improve incrementally.
 
