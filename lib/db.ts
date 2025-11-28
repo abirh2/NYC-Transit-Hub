@@ -1,39 +1,55 @@
-// Note: Prisma 7.x requires database adapter configuration.
-// The database connection is not yet configured for this project.
-// Ingestion routes will work once Supabase/PostgreSQL adapter is set up.
-// For now, throw a clear error if db is accessed without configuration.
+/**
+ * Database Client Singleton
+ * 
+ * Provides a singleton PrismaClient instance for database operations.
+ * Uses the PostgreSQL adapter for Prisma 7.x compatibility with Supabase.
+ */
 
 import { PrismaClient } from "@/lib/generated/prisma";
+import { PrismaPg } from "@prisma/adapter-pg";
+import pg from "pg";
 
-const prismaInstance: PrismaClient | null = null;
+// Extend globalThis to store the Prisma instance
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+};
 
 /**
- * Get the Prisma database client.
- * Throws an error if the database is not configured.
+ * Create a PostgreSQL connection pool and Prisma client.
  */
-export function getDb(): PrismaClient {
-  if (!prismaInstance) {
-    // Check if database URL is configured
-    if (!process.env.DATABASE_URL) {
-      throw new Error(
-        "Database not configured. Set DATABASE_URL environment variable to use database features."
-      );
-    }
-    
-    // Prisma 7.x with Supabase requires adapter configuration
-    // This will be implemented when database connection is set up
+function createPrismaClient(): PrismaClient {
+  // Check if DATABASE_URL is configured
+  if (!process.env.DATABASE_URL) {
     throw new Error(
-      "Database adapter not configured. Prisma 7.x requires adapter configuration for Supabase."
+      "DATABASE_URL environment variable is not set. " +
+      "Get your connection string from Supabase Dashboard > Settings > Database > Connection string."
     );
   }
-  
-  return prismaInstance;
+
+  // Create a PostgreSQL connection pool
+  const pool = new pg.Pool({
+    connectionString: process.env.DATABASE_URL,
+  });
+
+  // Create the Prisma adapter
+  const adapter = new PrismaPg(pool);
+
+  // Create and return the Prisma client with the adapter
+  return new PrismaClient({
+    adapter,
+    log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
+  }) as PrismaClient;
 }
 
-// Legacy export for compatibility (will throw if used without configuration)
-export const db = new Proxy({} as PrismaClient, {
-  get(_target, prop) {
-    const client = getDb();
-    return (client as unknown as Record<string | symbol, unknown>)[prop];
-  },
-});
+// Create the singleton instance
+export const db = globalForPrisma.prisma ?? createPrismaClient();
+
+// Preserve instance across hot reloads in development
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = db;
+}
+
+// Legacy function export for compatibility
+export function getDb(): PrismaClient {
+  return db;
+}
