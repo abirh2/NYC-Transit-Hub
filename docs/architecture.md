@@ -74,8 +74,15 @@ NYC-Transit-Hub/
 │   └── reliability/
 │
 ├── components/                 # React components
+│   ├── board/                 # Station board components
 │   ├── dashboard/             # Dashboard card components
 │   ├── layout/                # Layout components
+│   ├── realtime/              # Live train tracker components
+│   │   ├── LineSelector.tsx   # Multi-select line picker
+│   │   ├── LineDiagram.tsx    # Vertical track diagram
+│   │   ├── TrainMarker.tsx    # Train position indicator
+│   │   ├── TrainDetailPopover.tsx # Train info popover
+│   │   └── index.ts
 │   ├── ui/                    # Reusable UI components
 │   └── Providers.tsx          # Context providers
 │
@@ -84,6 +91,7 @@ NYC-Transit-Hub/
 │   ├── generated/prisma/      # Generated Prisma client
 │   ├── gtfs/                  # GTFS static data parser
 │   │   ├── parser.ts          # CSV parsing and station lookup
+│   │   ├── line-stations.ts   # Ordered station sequences per line
 │   │   └── index.ts
 │   ├── hooks/                 # React hooks
 │   │   ├── useStationPreferences.ts  # Favorite stations (localStorage)
@@ -107,7 +115,8 @@ NYC-Transit-Hub/
 ├── data/                      # Static data files
 │   └── gtfs/                  # MTA GTFS static feed
 │       ├── stops.txt          # Station data (496 stations)
-│       └── routes.txt         # Route data (29 routes)
+│       ├── routes.txt         # Route data (29 routes)
+│       └── line-stations.json # Ordered station sequences per line
 │
 ├── prisma/                    # Database schema
 │   └── schema.prisma          # Prisma schema definition
@@ -171,6 +180,7 @@ NYC-Transit-Hub/
 
 - **stops.txt** - 496 subway stations with coordinates
 - **routes.txt** - 29 subway routes with colors
+- **line-stations.json** - Ordered station sequences for all 26 subway lines
 
 ---
 
@@ -290,6 +300,48 @@ Client Request
 ┌──────────────┐
 │   Response   │  Station list
 └──────────────┘
+```
+
+### Live Train Tracker
+
+```
+User Selects Lines (A, C, E)
+       │
+       ▼
+┌──────────────────┐
+│  LineSelector    │  Multi-select by trunk
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│  LineDiagram     │  Fetches per-line data
+└────────┬─────────┘
+         │
+   ┌─────┴─────┐
+   ▼           ▼
+┌────────┐  ┌────────────────┐
+│ Static │  │  /api/trains/  │
+│ line-  │  │  realtime      │
+│stations│  │  ?routeId=A    │
+│.json   │  └───────┬────────┘
+└───┬────┘          │
+    │               │
+    ▼               ▼
+┌───────────────────────────────┐
+│       LineDiagram renders:     │
+│  - Station sequence (static)   │
+│  - Train markers (realtime)    │
+│  - Direction indicators        │
+│  - ETA badges                  │
+└───────────────────────────────┘
+         │
+         ▼ (click train)
+┌───────────────────────────────┐
+│     TrainDetailPopover        │
+│  - Destination                │
+│  - ETA / Delay status         │
+│  - Trip ID                    │
+└───────────────────────────────┘
 ```
 
 ---

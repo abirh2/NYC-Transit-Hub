@@ -19,19 +19,28 @@ This document describes the testing strategy and tools for NYC Transit Hub.
 
 ```
 tests/
-├── unit/                         # Unit tests
-│   ├── gtfs-parser.test.ts      # GTFS static data parser
-│   ├── mta-alerts.test.ts       # MTA alerts parser
-│   └── mta-elevators.test.ts    # MTA elevator status parser
-├── components/                   # Component tests
-│   ├── SubwayBullet.test.tsx    # Subway bullet component
-│   └── ThemeToggle.test.tsx     # Theme toggle component
-├── e2e/                          # End-to-end tests
-│   └── home.spec.ts             # Home page tests
-└── setup/                        # Test configuration
-    └── vitest.setup.tsx         # Vitest setup with mocks
+├── unit/                            # Unit tests
+│   ├── distance.test.ts            # Distance calculation utilities
+│   ├── gtfs-parser.test.ts         # GTFS static data parser
+│   ├── mta-alerts.test.ts          # MTA alerts parser
+│   ├── mta-elevators.test.ts       # MTA elevator status parser
+│   └── hooks/                      # Hook unit tests
+│       ├── useGeolocation.test.ts
+│       └── useStationPreferences.test.ts
+├── components/                      # Component tests
+│   ├── ArrivalsList.test.tsx       # Train arrivals list
+│   ├── LineDiagram.test.tsx        # Live tracker diagram
+│   ├── LineSelector.test.tsx       # Line selection component
+│   ├── SubwayBullet.test.tsx       # Subway bullet component
+│   ├── ThemeToggle.test.tsx        # Theme toggle component
+│   ├── TrainDetailPopover.test.tsx # Train detail modal
+│   └── TrainMarker.test.tsx        # Train position marker
+├── e2e/                             # End-to-end tests
+│   └── home.spec.ts                # Home page tests
+└── setup/                           # Test configuration
+    └── vitest.setup.tsx            # Vitest setup with mocks
 
-scripts/                          # Development test scripts
+scripts/                             # Development test scripts
 ├── test-all-apis.mjs            # API integration test suite
 ├── test-mta-apis.mjs            # Raw MTA API response tester
 ├── test-gtfs-parser.mjs         # GTFS file parsing tester

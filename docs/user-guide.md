@@ -72,12 +72,43 @@ View detailed departure information for any station:
 
 ### Live Tracker
 
-Watch trains move in real-time:
+Watch trains move in real-time along subway lines:
 
 1. Navigate to "Realtime" from the sidebar
-2. Select a subway line
-3. View the line diagram with train positions
-4. Click a train to see its destination and stops
+2. Click "Select Line" and choose a subway line
+3. View the vertical line diagram with all stations
+4. Watch train markers showing current positions
+5. Click any train marker to see detailed information
+
+**Understanding the Diagram:**
+
+| Symbol | Meaning |
+|--------|---------|
+| Large dot | Terminal station (end of line) |
+| Medium dot | Express stop |
+| Small dot | Local stop |
+| Green ↑ arrow | Northbound/Uptown train |
+| Red ↓ arrow | Southbound/Downtown train |
+| "NOW" badge | Train arriving within 1 minute |
+| Line bullets below station | Available transfers to other lines |
+
+**Train Details:**
+
+Click any train marker to see:
+- Destination (where the train is going)
+- Next stop with station name
+- Exact arrival time
+- Delay status (on time, minor delay, significant delay)
+
+**Auto-Refresh:**
+
+- Data updates automatically every 30 seconds
+- Toggle auto-refresh on/off with the switch
+- Click "Refresh" for manual updates
+
+**Legend:**
+
+Click the "Legend" button in the top-right to see a visual guide explaining all diagram elements.
 
 ### Service Alerts
 

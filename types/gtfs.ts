@@ -188,3 +188,114 @@ export interface MtaFeedMessage extends Omit<GtfsFeedMessage, "entity"> {
   entity: MtaFeedEntity[];
 }
 
+// ============================================================================
+// Multi-Track Graph Types (for multi-line diagram rendering)
+// ============================================================================
+
+/**
+ * A column in the multi-track graph, representing one subway line
+ */
+export interface TrackColumn {
+  /** Line ID (e.g., "4", "5", "6") */
+  lineId: string;
+  /** Column index (0, 1, 2...) from left to right */
+  columnIndex: number;
+  /** Line color */
+  color: string;
+  /** Stations on this column with their row indices */
+  stations: ColumnStation[];
+}
+
+/**
+ * A station within a track column
+ */
+export interface ColumnStation {
+  /** Station ID */
+  id: string;
+  /** Station name */
+  name: string;
+  /** Row index in the unified grid */
+  rowIndex: number;
+  /** Is this a terminal station? */
+  isTerminal: boolean;
+  /** Is this an express stop? */
+  isExpress: boolean;
+}
+
+/**
+ * A row in the unified grid (represents a vertical position)
+ */
+export interface GraphRow {
+  /** Row index (0 = top) */
+  index: number;
+  /** Is this a junction where multiple lines meet? */
+  isJunction: boolean;
+  /** The shared station ID if this is a junction */
+  junctionStationId?: string;
+  /** Station name for junctions */
+  junctionStationName?: string;
+  /** Which lines meet at this junction */
+  junctionLines?: string[];
+  /** Colors of lines at this junction (for rendering) */
+  junctionColors?: string[];
+}
+
+/**
+ * A junction point where multiple lines converge
+ */
+export interface Junction {
+  /** Row index where junction occurs */
+  rowIndex: number;
+  /** Station ID at the junction */
+  stationId: string;
+  /** Station name */
+  stationName: string;
+  /** Lines that meet at this junction */
+  lines: string[];
+  /** Column indices that connect to this junction */
+  columnIndices: number[];
+  /** Colors of the connecting lines */
+  colors: string[];
+}
+
+/**
+ * Complete multi-track layout for rendering
+ */
+export interface MultiTrackLayout {
+  /** Track columns (one per selected line) */
+  columns: TrackColumn[];
+  /** Unified row grid */
+  rows: GraphRow[];
+  /** Junction points where lines converge */
+  junctions: Junction[];
+  /** Total number of rows */
+  totalRows: number;
+}
+
+// Legacy types for backwards compatibility
+export interface TrackSegment {
+  id: string;
+  type: "trunk" | "branch";
+  lines: string[];
+  stations: TrackSegmentStation[];
+  colors: string[];
+  xOffset: number;
+  connectsFrom?: string;
+  connectsTo?: string;
+}
+
+export interface TrackSegmentStation {
+  id: string;
+  name: string;
+  type?: "terminal";
+  express?: boolean;
+  servedBy: string[];
+  globalIndex: number;
+}
+
+export interface TrackLayout {
+  segments: TrackSegment[];
+  totalPositions: number;
+  stationLineMap: Map<string, string[]>;
+}
+

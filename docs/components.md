@@ -11,6 +11,7 @@ components/
 ├── board/           # Station board components
 ├── dashboard/       # Dashboard-specific cards
 ├── layout/          # App structure components
+├── realtime/        # Live train tracker components
 ├── ui/              # Reusable UI primitives
 └── Providers.tsx    # Context providers
 ```
@@ -176,6 +177,151 @@ import { ThemeToggle } from "@/components/layout";
 
 <ThemeToggle />
 ```
+
+---
+
+## Realtime Components
+
+Components for the live train tracker page (`/realtime`).
+
+### LineSelector
+
+Single-select line picker for the live train tracker, organized by color family.
+
+```tsx
+import { LineSelector } from "@/components/realtime";
+
+const [selectedLine, setSelectedLine] = useState<LineId | null>(null);
+
+<LineSelector
+  selectedLine={selectedLine}
+  onSelectionChange={setSelectedLine}
+/>
+```
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `selectedLine` | LineId \| null | required | Currently selected line ID |
+| `onSelectionChange` | (line: LineId \| null) => void | required | Callback when selection changes |
+| `compact` | boolean | false | Use smaller button size |
+
+**Features:**
+- Lines grouped by color family (Broadway-7th Ave, 8th Ave, etc.)
+- Visual subway bullet icons for selection
+- Shows selected line with clear button
+- Popover picker with all available lines
+
+**Note:** Multi-line selection is planned for a future update with branching track visualization.
+
+---
+
+### LineDiagram
+
+Displays a vertical line diagram with stations and live train positions for a single line.
+
+```tsx
+import { LineDiagram } from "@/components/realtime";
+
+<LineDiagram
+  selectedLine="A"
+  trains={trainArrivals}
+  isLoading={false}
+  error={null}
+  height={600}
+/>
+```
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `selectedLine` | LineId \| null | required | The line to display |
+| `trains` | TrainArrival[] | required | Array of train arrivals from API |
+| `isLoading` | boolean | false | Whether data is loading |
+| `error` | string \| null | null | Error message to display |
+| `height` | number | 600 | Height of the diagram container in pixels |
+
+**Features:**
+- Vertical scrollable track with all stations
+- Train markers positioned based on next stop and ETA
+- Station dots differentiated by type (terminal, express, local)
+- Transfer line indicators at each station
+- Click train markers to see detailed popover
+- Train count summary in footer
+- Gradient fade at bottom for visual polish
+
+**Station Types:**
+- **Terminal** (large dot): End of line stations
+- **Express** (medium dot): Express stops
+- **Local** (small dot): Local-only stops
+
+---
+
+### TrainMarker
+
+Interactive train position indicator on the line diagram.
+
+```tsx
+import { TrainMarker } from "@/components/realtime";
+
+<TrainMarker
+  train={trainArrival}
+  isSelected={false}
+  onClick={(train) => setSelectedTrain(train)}
+  size="md"
+/>
+```
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `train` | TrainArrival | required | Train arrival data |
+| `isSelected` | boolean | false | Whether this train is selected |
+| `onClick` | (train: TrainArrival) => void | - | Click handler |
+| `size` | "sm" \| "md" | "md" | Size variant |
+
+**Features:**
+- Subway bullet icon showing line
+- Direction arrow (green ↑ for northbound, red ↓ for southbound)
+- "NOW" indicator when train is arriving within 1 minute
+- Ring highlight when selected
+- Hover tooltip with destination
+
+---
+
+### TrainDetailPopover
+
+Modal/popover showing detailed train information when a marker is clicked.
+
+```tsx
+import { TrainDetailPopover } from "@/components/realtime";
+
+<TrainDetailPopover 
+  train={selectedTrain} 
+  onClose={() => setSelectedTrain(null)}
+/>
+```
+
+**Props:**
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `train` | TrainArrival | Train to display details for |
+| `onClose` | () => void | Callback when popover should close |
+
+**Displays:**
+- Destination as heading (from headsign)
+- Next stop with station name
+- Arrival time (prominent display)
+- Delay status (on time, minor delay, significant delay)
+- Trip ID for debugging/tracking
+
+**Mobile Behavior:**
+- Renders as bottom sheet modal on mobile
+- Centered modal on desktop
 
 ---
 

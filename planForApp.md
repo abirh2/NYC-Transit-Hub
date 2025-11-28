@@ -431,6 +431,16 @@ Visual “Where’s my train?” style view by line.
 * WebSocket or long-polling for smoother updates.
 * Animations when train positions update.
 
+**Future Enhancement – Multi-Line View:**
+
+* Currently: Single-line view with transfer info shown at stations
+* Planned: Multi-line view with branching/merging track visualization
+  * Each selected line gets its own vertical column
+  * Lines converge at shared stations (junctions)
+  * Visual should resemble a tree/graph structure (like official MTA maps)
+  * Adaptive coloring: same-color lines = single track; different colors = multi-track
+* This requires more complex station graph algorithms to determine trunk/branch segments
+
 ---
 
 ### Phase 3 – Reliability & Incidents
