@@ -212,25 +212,58 @@ export function getStations(): Map<string, Station> {
  * Search stations by name
  * Merges station complexes that share the same name (e.g., Times Sq-42 St has 4 complexes)
  * Returns stations with allIds and allPlatforms populated
+ * 
+ * Results are sorted by relevance:
+ * 1. Exact name match (case-insensitive)
+ * 2. Name starts with query
+ * 3. Name contains query
  */
 export function searchStations(query: string, limit = 20): Station[] {
   const stations = getStations();
-  const queryLower = query.toLowerCase();
+  const queryLower = query.toLowerCase().trim();
   
-  // Group matching stations by name
-  const stationsByName = new Map<string, Station[]>();
+  // Group matching stations by name, tracking match quality
+  const stationsByName = new Map<string, { stations: Station[]; matchScore: number }>();
   
   for (const station of stations.values()) {
-    if (station.name.toLowerCase().includes(queryLower)) {
-      const existing = stationsByName.get(station.name) || [];
-      existing.push(station);
-      stationsByName.set(station.name, existing);
+    const nameLower = station.name.toLowerCase();
+    
+    // Check if name matches the query
+    if (!nameLower.includes(queryLower)) continue;
+    
+    // Calculate match score (higher = better match)
+    let matchScore = 1; // Contains query
+    if (nameLower.startsWith(queryLower)) matchScore = 2; // Starts with query
+    if (nameLower === queryLower) matchScore = 3; // Exact match
+    
+    const existing = stationsByName.get(station.name);
+    if (existing) {
+      existing.stations.push(station);
+      // Keep the best match score for this name group
+      existing.matchScore = Math.max(existing.matchScore, matchScore);
+    } else {
+      stationsByName.set(station.name, { stations: [station], matchScore });
     }
   }
   
+  // Sort by match score (best first), then alphabetically
+  const sortedEntries = Array.from(stationsByName.entries())
+    .sort((a, b) => {
+      // Higher score = better match, comes first
+      if (b[1].matchScore !== a[1].matchScore) {
+        return b[1].matchScore - a[1].matchScore;
+      }
+      // Tie-breaker: shorter names first (more specific)
+      if (a[0].length !== b[0].length) {
+        return a[0].length - b[0].length;
+      }
+      // Final tie-breaker: alphabetical
+      return a[0].localeCompare(b[0]);
+    });
+  
   // Merge stations with the same name
   const results: Station[] = [];
-  for (const [, stationsWithName] of stationsByName) {
+  for (const [, { stations: stationsWithName }] of sortedEntries) {
     if (results.length >= limit) break;
     
     // Use the first station as the base
