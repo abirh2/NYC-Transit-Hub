@@ -57,6 +57,37 @@ export interface AlertsResponse {
 }
 
 // ============================================================================
+// Incidents API
+// ============================================================================
+
+export interface IncidentsRequest {
+  routeId?: string;
+  alertType?: "DELAY" | "DETOUR" | "STATION_CLOSURE" | "PLANNED_WORK" | "SERVICE_CHANGE" | "REDUCED_SERVICE" | "SHUTTLE_BUS" | "OTHER";
+  severity?: "INFO" | "WARNING" | "SEVERE";
+  from?: string; // ISO date string
+  to?: string;   // ISO date string
+  activeOnly?: boolean;
+  limit?: number;
+}
+
+export interface IncidentStats {
+  total: number;
+  byLine: Array<{ line: string; count: number }>;
+  byType: Array<{ type: string; count: number }>;
+  bySeverity: {
+    severe: number;
+    warning: number;
+    info: number;
+  };
+}
+
+export interface IncidentsResponse {
+  incidents: ServiceAlert[];
+  stats: IncidentStats;
+  lastUpdated: string;
+}
+
+// ============================================================================
 // Elevator/Escalator API
 // ============================================================================
 
@@ -139,6 +170,76 @@ export interface FeedStatusInfo {
 export interface SystemStatusResponse {
   feeds: FeedStatusInfo[];
   overallHealth: "healthy" | "degraded" | "down";
+  lastUpdated: string;
+}
+
+// ============================================================================
+// Reliability API
+// ============================================================================
+
+export interface DailyLineMetricsData {
+  date: string; // ISO date string
+  routeId: string;
+  totalIncidents: number;
+  delayCount: number;
+  severeCount: number;
+  serviceChangeCount: number;
+  plannedWorkCount: number;
+  amRushIncidents: number;
+  middayIncidents: number;
+  pmRushIncidents: number;
+  eveningIncidents: number;
+  nightIncidents: number;
+}
+
+export interface LineReliabilitySummary {
+  routeId: string;
+  totalIncidents: number;
+  delayCount: number;
+  severeCount: number;
+  avgIncidentsPerDay: number;
+  reliabilityScore: number; // 0-100, higher is better
+}
+
+export interface TimeOfDayBreakdown {
+  period: "amRush" | "midday" | "pmRush" | "evening" | "night";
+  label: string;
+  totalIncidents: number;
+  hours: string;
+}
+
+export interface ReliabilityRequest {
+  routeId?: string;
+  days?: number; // default 30
+}
+
+export interface ReliabilityResponse {
+  // Summary stats
+  totalIncidents: number;
+  periodDays: number;
+  dataStartDate: string | null;
+  hasHistoricalData: boolean;
+  
+  // Per-line breakdown
+  byLine: LineReliabilitySummary[];
+  
+  // Time-of-day breakdown (aggregated across all lines or filtered line)
+  byTimeOfDay: TimeOfDayBreakdown[];
+  
+  // Daily trend data (for charts)
+  dailyTrend: Array<{
+    date: string;
+    totalIncidents: number;
+    delayCount: number;
+    severeCount: number;
+  }>;
+  
+  // Live alerts fallback (when no historical data)
+  liveAlerts?: {
+    total: number;
+    byLine: Array<{ line: string; count: number }>;
+  };
+  
   lastUpdated: string;
 }
 

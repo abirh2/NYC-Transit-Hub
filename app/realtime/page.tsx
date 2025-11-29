@@ -342,7 +342,7 @@ export default function RealtimePage() {
               How to use the Live Tracker
             </h3>
             <ol className="text-foreground/70 text-sm space-y-2 max-w-md mx-auto text-left list-decimal list-inside">
-              <li>Click "Select Line" above to choose a subway line</li>
+              <li>Click &quot;Select Line&quot; above to choose a subway line</li>
               <li>Watch trains appear on the line diagram in real-time</li>
               <li>Stations show available transfers to other lines</li>
               <li>Click any train marker to see details like destination and ETA</li>

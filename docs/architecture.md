@@ -76,12 +76,20 @@ NYC-Transit-Hub/
 ├── components/                 # React components
 │   ├── board/                 # Station board components
 │   ├── dashboard/             # Dashboard card components
+│   ├── incidents/             # Incident explorer components
 │   ├── layout/                # Layout components
 │   ├── realtime/              # Live train tracker components
 │   │   ├── LineSelector.tsx   # Multi-select line picker
 │   │   ├── LineDiagram.tsx    # Vertical track diagram
 │   │   ├── TrainMarker.tsx    # Train position indicator
 │   │   ├── TrainDetailPopover.tsx # Train info popover
+│   │   └── index.ts
+│   ├── reliability/           # Line reliability components
+│   │   ├── ReliabilityClient.tsx    # Main client component
+│   │   ├── ReliabilitySummaryCards.tsx # Summary stats
+│   │   ├── LinePerformanceCard.tsx  # Per-line scores
+│   │   ├── ReliabilityChart.tsx     # Trend chart
+│   │   ├── TimeOfDayChart.tsx       # Time-of-day analysis
 │   │   └── index.ts
 │   ├── ui/                    # Reusable UI components
 │   └── Providers.tsx          # Context providers
@@ -149,9 +157,11 @@ NYC-Transit-Hub/
 | `/api/stations` | GET | Search stations by name, get by ID |
 | `/api/routes` | GET | Get subway route info and colors |
 | `/api/alerts` | GET | Get active service alerts (live) |
+| `/api/incidents` | GET | Get incidents with stats and filtering |
 | `/api/elevators` | GET | Get elevator/escalator outages (live) |
 | `/api/trains/realtime` | GET | Get train arrivals (live GTFS-RT) |
 | `/api/buses/realtime` | GET | Get bus arrivals (requires API key) |
+| `/api/reliability` | GET | Get line reliability metrics (30-day history) |
 | `/api/status` | GET | Get system health status |
 
 ### Ingestion APIs (Database)
@@ -162,6 +172,7 @@ NYC-Transit-Hub/
 | `/api/ingest/alerts` | POST | Ingest service alerts |
 | `/api/ingest/elevators` | POST | Ingest elevator status |
 | `/api/ingest/buses` | POST | Ingest bus data |
+| `/api/ingest/reliability` | POST | Aggregate alerts into daily metrics + cleanup |
 
 ---
 
@@ -194,6 +205,15 @@ NYC-Transit-Hub/
 | `elevator_status` | Elevator/escalator outages |
 | `bus_trips` | Bus positions and arrivals |
 | `feed_status` | Feed health tracking |
+| `daily_line_metrics` | Aggregated reliability metrics per line per day |
+
+### Data Retention
+
+| Table | Retention Policy |
+|-------|------------------|
+| `realtime_trips` | 2 hours (auto-cleanup during ingestion) |
+| `alerts` | Current only (deleted when inactive) |
+| `daily_line_metrics` | 30 days (auto-cleanup during ingestion) |
 
 ---
 

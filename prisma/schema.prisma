@@ -217,3 +217,36 @@ model FeedStatus {
 
   @@map("feed_status")
 }
+
+// ============================================================================
+// DAILY LINE METRICS - Aggregated reliability data per line per day
+// ============================================================================
+
+model DailyLineMetrics {
+  id              String   @id @default(cuid())
+  date            DateTime @db.Date  // The day these metrics are for
+  routeId         String   @map("route_id") // Subway line (e.g., "A", "F", "1")
+  
+  // Incident counts
+  totalIncidents  Int      @default(0) @map("total_incidents")
+  delayCount      Int      @default(0) @map("delay_count")
+  severeCount     Int      @default(0) @map("severe_count")
+  serviceChangeCount Int   @default(0) @map("service_change_count")
+  plannedWorkCount Int     @default(0) @map("planned_work_count")
+  
+  // Time-of-day breakdown
+  amRushIncidents  Int     @default(0) @map("am_rush_incidents")   // 6-10am
+  middayIncidents  Int     @default(0) @map("midday_incidents")    // 10am-2pm
+  pmRushIncidents  Int     @default(0) @map("pm_rush_incidents")   // 2-6pm
+  eveningIncidents Int     @default(0) @map("evening_incidents")   // 6-10pm
+  nightIncidents   Int     @default(0) @map("night_incidents")     // 10pm-6am
+  
+  // Metadata
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@unique([date, routeId])
+  @@index([routeId])
+  @@index([date])
+  @@map("daily_line_metrics")
+}

@@ -22,7 +22,6 @@ import {
   getLineStations,
   getLineColor,
   type LineId,
-  type LineStation,
 } from "@/lib/gtfs/line-stations";
 import type { TrainArrival } from "@/types/mta";
 

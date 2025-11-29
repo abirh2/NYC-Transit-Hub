@@ -5,7 +5,7 @@
  * Uses the PostgreSQL adapter for Prisma 7.x compatibility with Supabase.
  */
 
-import { PrismaClient } from "@/lib/generated/prisma";
+import { PrismaClient } from "@/lib/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
 

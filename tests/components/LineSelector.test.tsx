@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { LineSelector } from '@/components/realtime/LineSelector';
-import type { LineId } from '@/lib/gtfs/line-stations';
 
 describe('LineSelector', () => {
   it('renders "No line selected" when no line is selected', () => {
@@ -132,7 +131,7 @@ describe('LineSelector', () => {
   });
 
   it('renders in compact mode', () => {
-    const { container } = render(
+    render(
       <LineSelector 
         selectedLine={null} 
         onSelectionChange={() => {}} 

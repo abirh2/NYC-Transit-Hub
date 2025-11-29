@@ -1,11 +1,53 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, ReactNode } from "react";
 import { Card, CardBody, CardHeader, Chip, Spinner } from "@heroui/react";
 import { AlertCircle, ArrowRight, AlertTriangle, Info } from "lucide-react";
 import Link from "next/link";
 import { SubwayBullet } from "@/components/ui";
 import type { ServiceAlert, AlertSeverity } from "@/types/mta";
+
+// Valid train line identifiers for parsing [X] references
+const TRAIN_LINES = new Set([
+  "1", "2", "3", "4", "5", "6", "7",
+  "A", "C", "E", "B", "D", "F", "M",
+  "G", "J", "Z", "L", "N", "Q", "R", "W", "S", "SI", "SIR"
+]);
+
+/**
+ * Parse text and replace [X] train references with SubwayBullet icons
+ */
+function parseTrainReferences(text: string): ReactNode[] {
+  const regex = /\[([A-Z0-9]+)\]/gi;
+  const parts: ReactNode[] = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+
+    const line = match[1].toUpperCase();
+    if (TRAIN_LINES.has(line)) {
+      parts.push(
+        <span key={`${match.index}-${line}`} className="inline-flex align-middle mx-0.5">
+          <SubwayBullet line={line} size="sm" />
+        </span>
+      );
+    } else {
+      parts.push(match[0]);
+    }
+
+    lastIndex = regex.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return parts.length > 0 ? parts : [text];
+}
 
 interface AlertsApiResponse {
   success: boolean;
@@ -154,9 +196,9 @@ export function AlertsCard() {
                     {getSeverityLabel(alert.severity)}
                   </Chip>
                 </div>
-                <p className="text-sm text-foreground/80 line-clamp-2">
-                  {alert.headerText}
-                </p>
+                <div className="text-sm text-foreground/80 line-clamp-2">
+                  {parseTrainReferences(alert.headerText)}
+                </div>
               </div>
             ))}
           </div>

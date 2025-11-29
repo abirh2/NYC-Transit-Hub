@@ -10,8 +10,10 @@ This document describes the React components available in NYC Transit Hub.
 components/
 ├── board/           # Station board components
 ├── dashboard/       # Dashboard-specific cards
+├── incidents/       # Incident explorer components
 ├── layout/          # App structure components
 ├── realtime/        # Live train tracker components
+├── reliability/     # Line reliability components
 ├── ui/              # Reusable UI primitives
 └── Providers.tsx    # Context providers
 ```
@@ -452,6 +454,288 @@ import { NearbyStations } from "@/components/board";
 
 ---
 
+## Incidents Components
+
+Components for the incident explorer page (`/incidents`).
+
+### IncidentStats
+
+Displays summary statistics for incidents including total count, severity breakdown (with tooltip explanation), most affected lines, and top incident types.
+
+```tsx
+import { IncidentStats } from "@/components/incidents";
+
+<IncidentStats
+  stats={incidentStats}
+  isLoading={false}
+  activeTab="active"
+/>
+```
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `stats` | IncidentStats \| null | required | Stats object from API |
+| `isLoading` | boolean | false | Show loading skeleton |
+| `activeTab` | "active" \| "upcoming" | "active" | Controls label text ("Active Incidents" vs "Scheduled Changes") |
+
+**Displays:**
+- Total incidents count (label changes based on activeTab)
+- Severity breakdown with info tooltip explaining each level
+- Top 5 most affected subway lines
+- Top 3 incident types with counts
+
+---
+
+### IncidentFilters
+
+Filter controls for the incident explorer with multi-select line, type, and severity filters plus sort options.
+
+```tsx
+import { IncidentFilters, IncidentFiltersState, SortOption } from "@/components/incidents";
+
+const [filters, setFilters] = useState<IncidentFiltersState>({
+  routeIds: [],      // Multi-select arrays
+  alertTypes: [],
+  severities: [],
+  sortBy: "severity",
+});
+
+<IncidentFilters
+  filters={filters}
+  onFiltersChange={setFilters}
+  onRefresh={() => refetch()}
+  isLoading={false}
+  activeTab="active"
+/>
+```
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `filters` | IncidentFiltersState | required | Current filter state |
+| `onFiltersChange` | (filters: IncidentFiltersState) => void | required | Filter change callback |
+| `onRefresh` | () => void | required | Manual refresh callback |
+| `isLoading` | boolean | false | Show loading state on refresh button |
+| `activeTab` | "active" \| "upcoming" | required | Controls available sort options |
+
+**Filter Options:**
+- **Lines**: Multi-select subway lines (A-Z, 1-7, SI/SIR)
+- **Types**: Multi-select alert types (Delay, Planned Work, Service Change, etc.)
+- **Severity**: Multi-select severity levels (Major, Delays, Info)
+- **Sort By**: 
+  - Active tab: "Severity" (default), "Most Recent"
+  - Upcoming tab: "Soonest" (default), "Severity"
+
+---
+
+### IncidentTimeline
+
+Displays a scrollable list of incident cards with expandable details and train icon parsing.
+
+```tsx
+import { IncidentTimeline } from "@/components/incidents";
+
+<IncidentTimeline
+  incidents={incidents}
+  isLoading={false}
+  error={null}
+  emptyMessage="No active incidents right now."
+/>
+```
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `incidents` | ServiceAlert[] | required | Array of incidents to display |
+| `isLoading` | boolean | false | Show loading spinner |
+| `error` | string \| null | null | Error message to display |
+| `emptyMessage` | string | "There are no service incidents matching your filters." | Custom empty state message |
+
+**Features:**
+- Expandable incident cards with full description
+- **Train icon parsing**: `[E]`, `[4]`, `[SIR]` in text converted to SubwayBullet icons
+- Color-coded severity indicators (left border)
+- Affected lines shown as subway bullets
+- Severity and type badges
+- Status indicator: Active (green), Upcoming (blue), Resolved (gray)
+- Formatted descriptions with headers, list items, and paragraphs
+- Time since incident started
+- Empty state when no incidents match filters
+
+**Incident Card Displays:**
+- Affected subway lines (up to 6, with overflow indicator)
+- Severity badge (Major/Delays/Info)
+- Alert type badge (Delay/Planned Work/etc.)
+- Active/Resolved status
+- Header text (incident summary)
+- Start time and optional end time
+- Expandable description (click chevron)
+
+---
+
+## Reliability Components
+
+Components for the line reliability page (`/reliability`).
+
+### ReliabilityClient
+
+Main client component that orchestrates the reliability page. Manages data fetching, filtering, and coordinates child components.
+
+```tsx
+import { ReliabilityClient } from "@/components/reliability";
+
+// Used in app/reliability/page.tsx
+export default function ReliabilityPage() {
+  return <ReliabilityClient />;
+}
+```
+
+**Features:**
+- Auto-refresh toggle (60-second interval)
+- Line filtering (click lines to filter)
+- Chart metric selection (total/delays/severe)
+- Live alerts fallback when no historical data
+- Loading, error, and empty states
+
+---
+
+### ReliabilitySummaryCards
+
+Summary statistics displayed as a 4-card grid.
+
+```tsx
+import { ReliabilitySummaryCards } from "@/components/reliability";
+
+<ReliabilitySummaryCards
+  totalIncidents={145}
+  periodDays={30}
+  byLine={lineMetrics}
+  hasHistoricalData={true}
+  isLoading={false}
+/>
+```
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `totalIncidents` | number | required | Total incidents in period |
+| `periodDays` | number | required | Number of days in period |
+| `byLine` | LineReliabilitySummary[] | required | Per-line metrics |
+| `hasHistoricalData` | boolean | required | Whether historical data exists |
+| `isLoading` | boolean | false | Show loading skeleton |
+
+**Displays:**
+- Total incidents with period label
+- System-wide reliability score (0-100)
+- Most reliable line (highest score)
+- Most affected line (lowest score)
+
+---
+
+### LinePerformanceCard
+
+Interactive list of all lines with reliability scores and progress bars.
+
+```tsx
+import { LinePerformanceCard } from "@/components/reliability";
+
+<LinePerformanceCard
+  lines={lineMetrics}
+  isLoading={false}
+  selectedLine="A"
+  onSelectLine={(routeId) => setSelectedLine(routeId)}
+/>
+```
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `lines` | LineReliabilitySummary[] | required | Line metrics |
+| `isLoading` | boolean | false | Show loading skeleton |
+| `selectedLine` | string | undefined | Currently selected line |
+| `onSelectLine` | (routeId: string \| undefined) => void | - | Selection callback |
+
+**Features:**
+- Lines sorted by reliability score (best first)
+- Color-coded progress bars (green/yellow/red)
+- Click to filter by line
+- Clear filter button when line is selected
+- Legend showing score thresholds
+
+---
+
+### ReliabilityChart
+
+Line chart showing incident trends over time using Recharts.
+
+```tsx
+import { ReliabilityChart } from "@/components/reliability";
+
+<ReliabilityChart
+  data={dailyTrend}
+  isLoading={false}
+  selectedMetric="totalIncidents"
+  onMetricChange={(metric) => setMetric(metric)}
+/>
+```
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `data` | DailyDataPoint[] | required | Daily trend data |
+| `isLoading` | boolean | false | Show loading skeleton |
+| `selectedMetric` | "totalIncidents" \| "delayCount" \| "severeCount" | required | Which metric to display |
+| `onMetricChange` | (metric) => void | required | Metric change callback |
+
+**Features:**
+- Dropdown to switch between metrics (All/Delays/Severe)
+- Responsive chart sizing
+- Custom tooltip with date formatting
+- Empty state when no data
+
+---
+
+### TimeOfDayChart
+
+Bar chart showing incident distribution across time periods.
+
+```tsx
+import { TimeOfDayChart } from "@/components/reliability";
+
+<TimeOfDayChart
+  data={timeOfDayData}
+  isLoading={false}
+/>
+```
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `data` | TimeOfDayBreakdown[] | required | Time-of-day data |
+| `isLoading` | boolean | false | Show loading skeleton |
+
+**Time Periods:**
+- AM Rush (6am - 10am) - Red
+- Midday (10am - 2pm) - Green
+- PM Rush (2pm - 6pm) - Amber
+- Evening (6pm - 10pm) - Blue
+- Night (10pm - 6am) - Indigo
+
+**Features:**
+- Color-coded bars per period
+- Insight text (rush hour vs off-peak comparison)
+- Empty state when no data
+
+---
+
 ## Dashboard Components
 
 ### StationCard
@@ -512,13 +796,21 @@ import { CommuteCard } from "@/components/dashboard";
 
 ### IncidentsCard
 
-Summary of active incidents.
+Summary of active incidents with real-time data.
 
 ```tsx
 import { IncidentsCard } from "@/components/dashboard";
 
 <IncidentsCard />
 ```
+
+**Features:**
+- Fetches real-time incident data from `/api/incidents`
+- Shows total active incident count
+- Displays top 3 incident types with counts
+- Color-coded by severity (danger for severe, warning otherwise)
+- Auto-refreshes every 60 seconds
+- Links to full `/incidents` page
 
 ---
 

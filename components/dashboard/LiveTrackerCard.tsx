@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardBody, CardHeader, Spinner } from "@heroui/react";
 import { Radio, ArrowRight, Train } from "lucide-react";
 import Link from "next/link";

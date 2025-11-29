@@ -555,6 +555,33 @@ The alerts API uses a custom extension: `transit_realtime.mercury_alert` contain
 - Handle express vs local distinctions
 - Account for service changes and reroutes
 
+### Train References in Text
+
+MTA alert text contains train references in bracket notation like `[E]`, `[4]`, `[SIR]`. When rendering alert text:
+
+1. **Parse and replace with icons**: Convert `[X]` patterns to `SubwayBullet` components for visual consistency
+2. **Apply everywhere text is rendered**: Header text, description text, dashboard cards - not just the "main" location
+3. **Handle SI/SIR aliases**: MTA uses "SI" as the route ID but "SIR" in text. Both should render the same Staten Island Railway icon
+
+**When adding text transformation features:**
+- Grep the codebase for ALL places the same text type is rendered
+- Dashboard cards often mirror detail page content - update both
+- Header text and description text may need the same transformation
+
+### Active vs Upcoming Incidents
+
+MTA alerts include future planned work with start dates in the future. When filtering for "active" incidents:
+
+**An incident is "active" if:**
+- `activePeriodStart` is null OR `activePeriodStart <= now` (has started)
+- AND `activePeriodEnd` is null OR `activePeriodEnd > now` (hasn't ended)
+
+**An incident is "upcoming" if:**
+- `activePeriodStart > now` (hasn't started yet)
+- Typically only relevant for PLANNED_WORK, REDUCED_SERVICE, SERVICE_CHANGE types
+
+**Common mistake:** Filtering only by `activePeriodEnd > now` will include future planned work as "active".
+
 ### Multi-Complex Stations (Critical)
 
 **Some station names map to multiple GTFS station IDs.** Times Sq-42 St has FOUR separate station complexes (127, 725, 902, A27), each serving different lines.

@@ -206,6 +206,87 @@ curl "http://localhost:3000/api/alerts?limit=3"
 
 ---
 
+### Incidents
+
+#### GET /api/incidents
+
+Get service incidents with filtering, sorting, and statistics. Extends the alerts endpoint with computed stats and status-based filtering.
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `status` | string | Filter by status: "active" (currently happening) or "upcoming" (future planned work) |
+| `routeId` | string | Filter by route (e.g., "A", "F") |
+| `alertType` | string | Filter by type (see Alert Types above) |
+| `severity` | string | Filter by severity: "INFO", "WARNING", "SEVERE" |
+| `from` | string | Filter by start date (ISO 8601) |
+| `to` | string | Filter by end date (ISO 8601) |
+| `activeOnly` | boolean | Legacy: filter to not-yet-ended incidents |
+| `limit` | number | Maximum results |
+
+**Example Request - Active Incidents:**
+
+```bash
+curl "http://localhost:3000/api/incidents?status=active"
+```
+
+**Example Request - Upcoming Planned Work:**
+
+```bash
+curl "http://localhost:3000/api/incidents?status=upcoming"
+```
+
+**Example Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "incidents": [
+      {
+        "id": "lmm:alert:123456",
+        "affectedRoutes": ["A", "C", "E"],
+        "affectedStops": ["A15"],
+        "headerText": "Delays on A/C/E due to signal problems",
+        "descriptionText": "Expect delays of up to 15 minutes",
+        "severity": "WARNING",
+        "alertType": "DELAY",
+        "activePeriodStart": "2024-01-15T10:00:00.000Z",
+        "activePeriodEnd": null
+      }
+    ],
+    "stats": {
+      "total": 5,
+      "byLine": [
+        { "line": "A", "count": 3 },
+        { "line": "F", "count": 2 }
+      ],
+      "byType": [
+        { "type": "DELAY", "count": 3 },
+        { "type": "PLANNED_WORK", "count": 2 }
+      ],
+      "bySeverity": {
+        "severe": 1,
+        "warning": 3,
+        "info": 1
+      }
+    },
+    "lastUpdated": "2024-01-15T12:00:00.000Z"
+  },
+  "timestamp": "2024-01-15T12:00:00.000Z"
+}
+```
+
+**Status Filter:**
+
+| Status | Description |
+|--------|-------------|
+| `active` | Incidents that have started AND not ended (currently affecting service) |
+| `upcoming` | Future planned work that hasn't started yet |
+
+---
+
 ### Elevators
 
 #### GET /api/elevators
@@ -369,6 +450,90 @@ curl "http://localhost:3000/api/buses/realtime?routeId=M15&limit=5"
   "timestamp": "2024-01-15T12:02:00.000Z"
 }
 ```
+
+---
+
+### Reliability
+
+#### GET /api/reliability
+
+Get line reliability metrics based on historical incident data.
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `routeId` | string | Filter by subway line (e.g., "A", "F") |
+| `days` | number | Number of days to include (default: 30, max: 30) |
+
+**Example Request:**
+
+```bash
+curl "http://localhost:3000/api/reliability?days=7"
+```
+
+**Example Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "totalIncidents": 145,
+    "periodDays": 7,
+    "dataStartDate": "2024-01-08",
+    "hasHistoricalData": true,
+    "byLine": [
+      {
+        "routeId": "A",
+        "totalIncidents": 25,
+        "delayCount": 15,
+        "severeCount": 3,
+        "avgIncidentsPerDay": 3.57,
+        "reliabilityScore": 72
+      }
+    ],
+    "byTimeOfDay": [
+      { "period": "amRush", "label": "AM Rush", "hours": "6am - 10am", "totalIncidents": 45 },
+      { "period": "midday", "label": "Midday", "hours": "10am - 2pm", "totalIncidents": 20 },
+      { "period": "pmRush", "label": "PM Rush", "hours": "2pm - 6pm", "totalIncidents": 50 },
+      { "period": "evening", "label": "Evening", "hours": "6pm - 10pm", "totalIncidents": 18 },
+      { "period": "night", "label": "Night", "hours": "10pm - 6am", "totalIncidents": 12 }
+    ],
+    "dailyTrend": [
+      { "date": "2024-01-08", "totalIncidents": 22, "delayCount": 12, "severeCount": 3 },
+      { "date": "2024-01-09", "totalIncidents": 18, "delayCount": 10, "severeCount": 2 }
+    ],
+    "liveAlerts": null,
+    "lastUpdated": "2024-01-15T12:00:00.000Z"
+  },
+  "timestamp": "2024-01-15T12:00:00.000Z"
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `totalIncidents` | number | Total incidents in the time period |
+| `periodDays` | number | Number of days in the query |
+| `dataStartDate` | string\|null | Earliest date with data |
+| `hasHistoricalData` | boolean | Whether historical data exists |
+| `byLine` | array | Per-line reliability metrics |
+| `byTimeOfDay` | array | Incidents by time of day |
+| `dailyTrend` | array | Daily incident counts for charting |
+| `liveAlerts` | object\|null | Current alerts (fallback when no historical data) |
+
+**Reliability Score:**
+
+Calculated as `100 - (avgIncidentsPerDay * 20)`, clamped to 0-100.
+
+| Score | Label |
+|-------|-------|
+| 90-100 | Excellent |
+| 80-89 | Good |
+| 70-79 | Fair |
+| 60-69 | Poor |
+| 0-59 | Very Poor |
 
 ---
 

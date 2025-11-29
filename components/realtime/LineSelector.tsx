@@ -13,7 +13,7 @@ import { useState, useCallback } from "react";
 import { Button, Popover, PopoverTrigger, PopoverContent } from "@heroui/react";
 import { ChevronDown, Check } from "lucide-react";
 import { SubwayBullet } from "@/components/ui";
-import { LINE_GROUPS, type LineId, type LineGroupId } from "@/lib/gtfs/line-stations";
+import { LINE_GROUPS, type LineId } from "@/lib/gtfs/line-stations";
 
 interface LineSelectorProps {
   /** Currently selected line ID */

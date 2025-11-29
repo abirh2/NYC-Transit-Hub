@@ -38,14 +38,19 @@ const lineColors: Record<string, { bg: string; text: string }> = {
   "7": { bg: "#B933AD", text: "#fff" },
   // Shuttles (Gray)
   S: { bg: "#808183", text: "#fff" },
-  // Staten Island Railway (Blue)
+  // Staten Island Railway (Blue) - MTA uses both "SI" and "SIR"
+  SI: { bg: "#0039A6", text: "#fff" },
   SIR: { bg: "#0039A6", text: "#fff" },
   // Second Avenue (future - Turquoise)
   T: { bg: "#00ADD0", text: "#fff" },
 };
 
 // Map line names to SVG filenames (lowercase)
+// Normalize aliases like "SI" -> "sir"
 function getIconFilename(line: string): string {
+  const normalized = line.toUpperCase();
+  // SI is the route ID, but icon file is named "sir"
+  if (normalized === "SI") return "sir";
   return line.toLowerCase();
 }
 

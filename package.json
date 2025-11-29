@@ -31,6 +31,7 @@
     "protobufjs": "^7.5.4",
     "react": "19.2.0",
     "react-dom": "19.2.0",
+    "recharts": "^3.5.1",
     "zod": "^4.1.13"
   },
   "devDependencies": {
@@ -52,6 +53,7 @@
     "@vitest/browser-playwright": "^4.0.14",
     "@vitest/coverage-v8": "^4.0.14",
     "babel-plugin-react-compiler": "1.0.0",
+    "baseline-browser-mapping": "^2.8.32",
     "eslint": "^9",
     "eslint-config-next": "16.0.5",
     "eslint-plugin-storybook": "^10.1.0",

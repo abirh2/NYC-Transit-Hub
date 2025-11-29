@@ -482,7 +482,9 @@ function getSegmentColors(lineIds: LineId[]): string[] {
   return Array.from(colors);
 }
 
-export function getStationXOffset(stationId: string, layout: TrackLayout): number {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function getStationXOffset(_stationId: string, _layout: TrackLayout): number {
+  // TODO: Implement X offset calculation for multi-line view
   return 0;
 }
 
