@@ -36,8 +36,16 @@ const lineColors: Record<string, { bg: string; text: string }> = {
   "6": { bg: "#00933C", text: "#fff" },
   // IRT Flushing Line (Purple)
   "7": { bg: "#B933AD", text: "#fff" },
+  "7X": { bg: "#B933AD", text: "#fff" }, // 7 Express
+  // IRT Lexington Express variants
+  "6X": { bg: "#00933C", text: "#fff" }, // 6 Express
+  "5X": { bg: "#00933C", text: "#fff" }, // 5 Express
   // Shuttles (Gray)
   S: { bg: "#808183", text: "#fff" },
+  GS: { bg: "#808183", text: "#fff" }, // Grand Central Shuttle
+  FS: { bg: "#808183", text: "#fff" }, // Franklin Avenue Shuttle
+  RS: { bg: "#808183", text: "#fff" }, // Rockaway Shuttle
+  SR: { bg: "#808183", text: "#fff" }, // Rockaway Shuttle (alternate)
   // Staten Island Railway (Blue) - MTA uses both "SI" and "SIR"
   SI: { bg: "#0039A6", text: "#fff" },
   SIR: { bg: "#0039A6", text: "#fff" },
@@ -46,11 +54,23 @@ const lineColors: Record<string, { bg: string; text: string }> = {
 };
 
 // Map line names to SVG filenames (lowercase)
-// Normalize aliases like "SI" -> "sir"
+// Handles express variants, shuttles, and aliases
 function getIconFilename(line: string): string {
   const normalized = line.toUpperCase();
-  // SI is the route ID, but icon file is named "sir"
-  if (normalized === "SI") return "sir";
+  
+  // Express variants use diamond icons
+  if (normalized === "7X") return "7d";  // 7 Express
+  if (normalized === "6X") return "6d";  // 6 Express (Pelham Express)
+  if (normalized === "5X") return "5";   // 5 Express (no special icon)
+  
+  // Shuttle mappings
+  if (normalized === "GS") return "s";   // Grand Central Shuttle (42nd St)
+  if (normalized === "FS") return "sf";  // Franklin Avenue Shuttle
+  if (normalized === "RS" || normalized === "SR") return "sr"; // Rockaway Shuttle
+  
+  // Staten Island Railway
+  if (normalized === "SI" || normalized === "SIR") return "sir";
+  
   return line.toLowerCase();
 }
 
