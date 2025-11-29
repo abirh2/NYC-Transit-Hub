@@ -1,9 +1,12 @@
 "use client";
 
-import { Card, CardBody, CardHeader, Progress } from "@heroui/react";
-import { BarChart3 } from "lucide-react";
+import { useState } from "react";
+import { Card, CardBody, CardHeader, Progress, Button } from "@heroui/react";
+import { BarChart3, ChevronDown, ChevronUp } from "lucide-react";
 import { SubwayBullet } from "@/components/ui";
 import type { LineReliabilitySummary } from "@/types/api";
+
+const COLLAPSED_COUNT = 5;
 
 interface LinePerformanceCardProps {
   lines: LineReliabilitySummary[];
@@ -64,8 +67,12 @@ export function LinePerformanceCard({
     );
   }
 
+  const [isExpanded, setIsExpanded] = useState(false);
+
   // Sort by reliability score (highest first for display)
   const sortedLines = [...lines].sort((a, b) => b.reliabilityScore - a.reliabilityScore);
+  const displayedLines = isExpanded ? sortedLines : sortedLines.slice(0, COLLAPSED_COUNT);
+  const hiddenCount = sortedLines.length - COLLAPSED_COUNT;
 
   return (
     <Card className="h-full">
@@ -87,7 +94,7 @@ export function LinePerformanceCard({
       </CardHeader>
       <CardBody className="pt-0">
         <div className="space-y-3">
-          {sortedLines.map((line) => {
+          {displayedLines.map((line) => {
             const isSelected = selectedLine === line.routeId;
             return (
               <button
@@ -125,6 +132,19 @@ export function LinePerformanceCard({
             );
           })}
         </div>
+
+        {/* Expand/Collapse Button */}
+        {hiddenCount > 0 && (
+          <Button
+            variant="light"
+            size="sm"
+            onPress={() => setIsExpanded(!isExpanded)}
+            className="w-full mt-3"
+            startContent={isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          >
+            {isExpanded ? "Show less" : `Show ${hiddenCount} more lines`}
+          </Button>
+        )}
         
         {/* Legend */}
         <div className="mt-4 pt-4 border-t border-divider flex items-center justify-center gap-4 text-xs text-foreground/50">

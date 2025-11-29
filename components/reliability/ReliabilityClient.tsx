@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Card, CardBody, Switch, Chip, Alert, Tabs, Tab } from "@heroui/react";
-import { TrendingUp, Clock, Wifi, WifiOff, AlertTriangle, Info } from "lucide-react";
+import { Card, CardBody, Switch, Chip, Alert, Tabs, Tab, Button } from "@heroui/react";
+import { TrendingUp, Clock, Wifi, WifiOff, AlertTriangle, Info, ChevronDown, ChevronUp } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { SubwayBullet } from "@/components/ui";
 import { ReliabilitySummaryCards } from "./ReliabilitySummaryCards";
@@ -30,6 +30,7 @@ export function ReliabilityClient() {
   const [selectedLine, setSelectedLine] = useState<string | undefined>(undefined);
   const [chartMetric, setChartMetric] = useState<"totalIncidents" | "delayCount" | "severeCount">("totalIncidents");
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("30");
+  const [isTableExpanded, setIsTableExpanded] = useState(false);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -234,50 +235,69 @@ export function ReliabilityClient() {
       />
 
       {/* Detailed Line Stats Table */}
-      {data?.byLine && data.byLine.length > 0 && (
-        <Card>
-          <CardBody>
-            <h3 className="font-semibold mb-4">Detailed Line Statistics</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-divider">
-                    <th className="text-left py-2 px-2">Line</th>
-                    <th className="text-right py-2 px-2">Score</th>
-                    <th className="text-right py-2 px-2">Total</th>
-                    <th className="text-right py-2 px-2">Delays</th>
-                    <th className="text-right py-2 px-2">Severe</th>
-                    <th className="text-right py-2 px-2">Avg/Day</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.byLine.map((line) => (
-                    <tr 
-                      key={line.routeId} 
-                      className="border-b border-divider/50 hover:bg-default-50 transition-colors cursor-pointer"
-                      onClick={() => setSelectedLine(selectedLine === line.routeId ? undefined : line.routeId)}
-                    >
-                      <td className="py-2 px-2">
-                        <SubwayBullet line={line.routeId} size="sm" />
-                      </td>
-                      <td className={`text-right py-2 px-2 font-semibold ${
-                        line.reliabilityScore >= 80 ? "text-success" :
-                        line.reliabilityScore >= 60 ? "text-warning" : "text-danger"
-                      }`}>
-                        {line.reliabilityScore}
-                      </td>
-                      <td className="text-right py-2 px-2">{line.totalIncidents}</td>
-                      <td className="text-right py-2 px-2">{line.delayCount}</td>
-                      <td className="text-right py-2 px-2 text-danger">{line.severeCount}</td>
-                      <td className="text-right py-2 px-2">{line.avgIncidentsPerDay}</td>
+      {data?.byLine && data.byLine.length > 0 && (() => {
+        const TABLE_COLLAPSED_COUNT = 5;
+        const displayedLines = isTableExpanded ? data.byLine : data.byLine.slice(0, TABLE_COLLAPSED_COUNT);
+        const hiddenCount = data.byLine.length - TABLE_COLLAPSED_COUNT;
+        
+        return (
+          <Card>
+            <CardBody>
+              <h3 className="font-semibold mb-4">Detailed Line Statistics</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-divider">
+                      <th className="text-left py-2 px-2">Line</th>
+                      <th className="text-right py-2 px-2">Score</th>
+                      <th className="text-right py-2 px-2">Total</th>
+                      <th className="text-right py-2 px-2">Delays</th>
+                      <th className="text-right py-2 px-2">Severe</th>
+                      <th className="text-right py-2 px-2">Avg/Day</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CardBody>
-        </Card>
-      )}
+                  </thead>
+                  <tbody>
+                    {displayedLines.map((line) => (
+                      <tr 
+                        key={line.routeId} 
+                        className="border-b border-divider/50 hover:bg-default-50 transition-colors cursor-pointer"
+                        onClick={() => setSelectedLine(selectedLine === line.routeId ? undefined : line.routeId)}
+                      >
+                        <td className="py-2 px-2">
+                          <SubwayBullet line={line.routeId} size="sm" />
+                        </td>
+                        <td className={`text-right py-2 px-2 font-semibold ${
+                          line.reliabilityScore >= 80 ? "text-success" :
+                          line.reliabilityScore >= 60 ? "text-warning" : "text-danger"
+                        }`}>
+                          {line.reliabilityScore}
+                        </td>
+                        <td className="text-right py-2 px-2">{line.totalIncidents}</td>
+                        <td className="text-right py-2 px-2">{line.delayCount}</td>
+                        <td className="text-right py-2 px-2 text-danger">{line.severeCount}</td>
+                        <td className="text-right py-2 px-2">{line.avgIncidentsPerDay}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              
+              {/* Expand/Collapse Button */}
+              {hiddenCount > 0 && (
+                <Button
+                  variant="light"
+                  size="sm"
+                  onPress={() => setIsTableExpanded(!isTableExpanded)}
+                  className="w-full mt-3"
+                  startContent={isTableExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                >
+                  {isTableExpanded ? "Show less" : `Show ${hiddenCount} more lines`}
+                </Button>
+              )}
+            </CardBody>
+          </Card>
+        );
+      })()}
     </div>
   );
 }
