@@ -27,6 +27,8 @@ export function LinePerformanceCard({
   selectedLine,
   onSelectLine,
 }: LinePerformanceCardProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
   if (isLoading) {
     return (
       <Card className="h-full">
@@ -66,8 +68,6 @@ export function LinePerformanceCard({
       </Card>
     );
   }
-
-  const [isExpanded, setIsExpanded] = useState(false);
 
   // Sort by reliability score (highest first for display)
   const sortedLines = [...lines].sort((a, b) => b.reliabilityScore - a.reliabilityScore);
