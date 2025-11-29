@@ -9,9 +9,10 @@ import { PrismaClient } from "@/lib/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
 
-// Extend globalThis to store the Prisma instance
+// Extend globalThis to store both the Prisma instance AND the pool
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
+  pool: pg.Pool | undefined;
 };
 
 /**
@@ -26,13 +27,19 @@ function createPrismaClient(): PrismaClient {
     );
   }
 
-  // Create a PostgreSQL connection pool
-  const pool = new pg.Pool({
-    connectionString: process.env.DATABASE_URL,
-  });
+  // Reuse existing pool or create a new one with conservative limits
+  // Supabase Session mode limits connections, so keep pool small
+  if (!globalForPrisma.pool) {
+    globalForPrisma.pool = new pg.Pool({
+      connectionString: process.env.DATABASE_URL,
+      max: 5, // Keep pool small for Supabase Session mode
+      idleTimeoutMillis: 30000, // Close idle connections after 30s
+      connectionTimeoutMillis: 10000, // Timeout after 10s if can't connect
+    });
+  }
 
-  // Create the Prisma adapter
-  const adapter = new PrismaPg(pool);
+  // Create the Prisma adapter with the shared pool
+  const adapter = new PrismaPg(globalForPrisma.pool);
 
   // Create and return the Prisma client with the adapter
   return new PrismaClient({
