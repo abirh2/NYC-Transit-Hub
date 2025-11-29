@@ -38,18 +38,18 @@ export async function GET(
       activeOnly: true,
     });
 
-    // Apply limit
-    if (limit && limit > 0) {
-      alerts = alerts.slice(0, limit);
-    }
-
-    // Sort by severity (SEVERE first, then WARNING, then INFO)
+    // Sort by severity FIRST (SEVERE first, then WARNING, then INFO)
     const severityOrder: Record<AlertSeverity, number> = {
       SEVERE: 0,
       WARNING: 1,
       INFO: 2,
     };
     alerts.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+
+    // Apply limit AFTER sorting so we get the most important alerts
+    if (limit && limit > 0) {
+      alerts = alerts.slice(0, limit);
+    }
 
     return NextResponse.json({
       success: true,
