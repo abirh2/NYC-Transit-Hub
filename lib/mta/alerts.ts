@@ -318,9 +318,11 @@ export function filterAlerts(
   if (options?.activeOnly) {
     const now = new Date();
     filtered = filtered.filter(a => {
-      // No end time means still active
-      if (!a.activePeriodEnd) return true;
-      return a.activePeriodEnd > now;
+      // Must have started (or no start time means already active)
+      const hasStarted = !a.activePeriodStart || a.activePeriodStart <= now;
+      // Must not have ended (or no end time means still active)
+      const hasEnded = a.activePeriodEnd && a.activePeriodEnd <= now;
+      return hasStarted && !hasEnded;
     });
   }
   
