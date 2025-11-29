@@ -74,6 +74,16 @@ function calculateReliabilityScore(avgIncidentsPerDay: number): number {
   return Math.round(score);
 }
 
+/**
+ * Get current date in NYC timezone
+ */
+function getTodayInNYC(): Date {
+  const nycTime = new Date().toLocaleString("en-US", { timeZone: "America/New_York" });
+  const nycDate = new Date(nycTime);
+  nycDate.setHours(0, 0, 0, 0);
+  return nycDate;
+}
+
 export async function GET(
   request: NextRequest
 ): Promise<NextResponse<ApiResponse<ReliabilityResponse> | ApiErrorResponse>> {
@@ -85,12 +95,18 @@ export async function GET(
   const days = Math.min(30, Math.max(1, daysParam ? parseInt(daysParam, 10) : 30));
 
   try {
-    // Calculate date range
-    const endDate = new Date();
+    // Calculate date range in NYC timezone
+    // days=1 means "today only", days=7 means "past 7 days including today"
+    const todayNYC = getTodayInNYC();
+    
+    const endDate = new Date(todayNYC);
     endDate.setHours(23, 59, 59, 999);
     
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
+    const startDate = new Date(todayNYC);
+    // Subtract (days - 1) to include today in the count
+    // days=1 -> subtract 0 days (today only)
+    // days=7 -> subtract 6 days (7 days including today)
+    startDate.setDate(startDate.getDate() - (days - 1));
     startDate.setHours(0, 0, 0, 0);
 
     // Fetch historical data from database
