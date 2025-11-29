@@ -10,7 +10,9 @@ import {
   ChevronUp,
   Clock,
   CheckCircle2,
-  Calendar
+  Calendar,
+  Bus,
+  Accessibility
 } from "lucide-react";
 import { SubwayBullet } from "@/components/ui";
 import { formatDistanceToNow, format } from "date-fns";
@@ -108,12 +110,15 @@ const TRAIN_LINES = new Set([
 ]);
 
 /**
- * Parse text and replace [X] train references with SubwayBullet icons
- * Example: "Take the [E] train" -> "Take the <SubwayBullet line="E" /> train"
+ * Parse text and replace [X] train references and special icons with actual components
+ * Handles:
+ * - [E], [7], etc. -> SubwayBullet icons
+ * - [shuttle bus icon] -> Bus icon
+ * - [accessibility icon] -> Accessibility icon
  */
 function parseTrainReferences(text: string): ReactNode[] {
-  // Match [X] where X is a valid train line
-  const regex = /\[([A-Z0-9]+)\]/gi;
+  // Match [X] patterns including special icons
+  const regex = /\[(shuttle bus icon|accessibility icon|[A-Z0-9]+)\]/gi;
   const parts: ReactNode[] = [];
   let lastIndex = 0;
   let match;
@@ -124,17 +129,36 @@ function parseTrainReferences(text: string): ReactNode[] {
       parts.push(text.slice(lastIndex, match.index));
     }
 
-    const line = match[1].toUpperCase();
-    if (TRAIN_LINES.has(line)) {
-      // Replace with subway bullet wrapped in span for valid HTML
+    const content = match[1].toLowerCase();
+    
+    if (content === "shuttle bus icon") {
+      // Shuttle bus icon
       parts.push(
-        <span key={`${match.index}-${line}`} className="inline-flex align-middle mx-0.5">
-          <SubwayBullet line={line} size="sm" />
+        <span key={`${match.index}-bus`} className="inline-flex items-center align-middle mx-0.5 px-1.5 py-0.5 bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded text-xs font-medium">
+          <Bus className="h-3.5 w-3.5 mr-1" />
+          Shuttle
+        </span>
+      );
+    } else if (content === "accessibility icon") {
+      // Accessibility icon
+      parts.push(
+        <span key={`${match.index}-ada`} className="inline-flex items-center align-middle mx-0.5">
+          <Accessibility className="h-4 w-4 text-blue-500" />
         </span>
       );
     } else {
-      // Keep original text if not a valid train line
-      parts.push(match[0]);
+      const line = content.toUpperCase();
+      if (TRAIN_LINES.has(line)) {
+        // Replace with subway bullet wrapped in span for valid HTML
+        parts.push(
+          <span key={`${match.index}-${line}`} className="inline-flex align-middle mx-0.5">
+            <SubwayBullet line={line} size="sm" />
+          </span>
+        );
+      } else {
+        // Keep original text if not a valid train line
+        parts.push(match[0]);
+      }
     }
 
     lastIndex = regex.lastIndex;
