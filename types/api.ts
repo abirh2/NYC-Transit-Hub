@@ -243,3 +243,83 @@ export interface ReliabilityResponse {
   lastUpdated: string;
 }
 
+// ============================================================================
+// Accessible Routing API
+// ============================================================================
+
+export interface AccessibleRouteRequest {
+  fromStation: string;
+  toStation: string;
+  departureTime?: string; // ISO date string, defaults to now
+  requireAccessible?: boolean; // If true, only return fully accessible routes
+}
+
+export interface RouteSegment {
+  fromStationId: string;
+  fromStationName: string;
+  toStationId: string;
+  toStationName: string;
+  line: string;
+  isExpress: boolean;
+  travelMinutes: number;
+  isAccessible: boolean;
+  hasElevatorOutage: boolean;
+  // Real-time timing (when available)
+  departureTime?: string; // ISO string
+  arrivalTime?: string;   // ISO string
+}
+
+export interface AccessibleRoute {
+  segments: RouteSegment[];
+  totalMinutes: number;
+  isFullyAccessible: boolean;
+  blockedStations: Array<{
+    stationId: string;
+    stationName: string;
+    outageReason: string | null;
+  }>;
+  transferCount: number;
+  // Real-time timing for entire route (when available)
+  departureTime?: string; // ISO string - when to catch the first train
+  arrivalTime?: string;   // ISO string - estimated arrival at destination
+}
+
+export interface RealtimeDeparture {
+  line: string;
+  direction: string;
+  destination: string;
+  departureTime: string; // ISO string
+  minutesAway: number;
+  isRealtime: boolean;
+}
+
+export interface AccessibleRouteResponse {
+  primary: AccessibleRoute | null;
+  alternatives: AccessibleRoute[];
+  warnings: string[];
+  fromStation: {
+    id: string;
+    name: string;
+  };
+  toStation: {
+    id: string;
+    name: string;
+  };
+  // Real-time departures from origin station
+  departures?: RealtimeDeparture[];
+  lastUpdated: string;
+}
+
+// ============================================================================
+// Outage Stats for Accessibility Page
+// ============================================================================
+
+export interface OutageStats {
+  totalOutages: number;
+  elevatorOutages: number;
+  escalatorOutages: number;
+  adaImpactingOutages: number;
+  byBorough: Array<{ borough: string; count: number }>;
+  byLine: Array<{ line: string; count: number }>;
+}
+

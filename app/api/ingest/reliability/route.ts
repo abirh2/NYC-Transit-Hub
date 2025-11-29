@@ -16,7 +16,30 @@ import type { ServiceAlert } from "@/types/mta";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
-// Time period boundaries (in hours, NYC timezone approximation using UTC-5)
+/**
+ * Get current date in NYC timezone (America/New_York)
+ * Returns a Date object set to midnight NYC time
+ */
+function getTodayInNYC(): Date {
+  // Get current time in NYC
+  const nycTime = new Date().toLocaleString("en-US", { timeZone: "America/New_York" });
+  const nycDate = new Date(nycTime);
+  
+  // Set to midnight
+  nycDate.setHours(0, 0, 0, 0);
+  
+  return nycDate;
+}
+
+/**
+ * Get NYC hour from a UTC date
+ */
+function getNYCHour(date: Date): number {
+  const nycTime = new Date(date.toLocaleString("en-US", { timeZone: "America/New_York" }));
+  return nycTime.getHours();
+}
+
+// Time period boundaries (in hours, NYC timezone)
 const TIME_PERIODS = {
   amRush: { start: 6, end: 10 },    // 6am - 10am
   midday: { start: 10, end: 14 },   // 10am - 2pm
@@ -31,8 +54,8 @@ const TIME_PERIODS = {
 function getTimePeriod(alertStartTime: Date | null): keyof typeof TIME_PERIODS {
   if (!alertStartTime) return "midday"; // Default if no start time
   
-  // Approximate NYC time (UTC-5)
-  const hour = (alertStartTime.getUTCHours() - 5 + 24) % 24;
+  // Get hour in NYC timezone
+  const hour = getNYCHour(alertStartTime);
   
   if (hour >= TIME_PERIODS.amRush.start && hour < TIME_PERIODS.amRush.end) return "amRush";
   if (hour >= TIME_PERIODS.midday.start && hour < TIME_PERIODS.midday.end) return "midday";
@@ -163,10 +186,9 @@ export async function POST(): Promise<NextResponse<IngestResponse>> {
   let recordsDeleted = 0;
 
   try {
-    // Step 1: Clean up old data (older than 30 days)
-    const thirtyDaysAgo = new Date();
+    // Step 1: Clean up old data (older than 30 days in NYC timezone)
+    const thirtyDaysAgo = getTodayInNYC();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    thirtyDaysAgo.setHours(0, 0, 0, 0);
 
     const deleteResult = await db.dailyLineMetrics.deleteMany({
       where: { date: { lt: thirtyDaysAgo } },
@@ -181,9 +203,8 @@ export async function POST(): Promise<NextResponse<IngestResponse>> {
     // Step 3: Compute metrics by route
     const metricsByRoute = computeMetricsByRoute(activeAlerts);
 
-    // Step 4: Upsert daily metrics for today
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Step 4: Upsert daily metrics for today (NYC timezone)
+    const today = getTodayInNYC();
 
     for (const [routeId, metrics] of metricsByRoute) {
       try {

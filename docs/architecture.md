@@ -74,6 +74,13 @@ NYC-Transit-Hub/
 │   └── reliability/
 │
 ├── components/                 # React components
+│   ├── accessibility/         # Elevator outage and route components
+│   │   ├── OutageStats.tsx    # Summary statistics
+│   │   ├── OutageFilters.tsx  # Filter controls
+│   │   ├── OutageList.tsx     # Outage card list
+│   │   ├── RouteFinder.tsx    # Route planning UI
+│   │   ├── RouteResults.tsx   # Route display
+│   │   └── index.ts
 │   ├── board/                 # Station board components
 │   ├── dashboard/             # Dashboard card components
 │   ├── incidents/             # Incident explorer components
@@ -106,12 +113,16 @@ NYC-Transit-Hub/
 │   │   └── useGeolocation.ts         # Browser geolocation
 │   ├── utils/                 # Utility functions
 │   │   └── distance.ts        # Haversine distance calculations
-│   └── mta/                   # MTA feed clients
-│       ├── config.ts          # Feed URLs and configuration
-│       ├── gtfs-rt.ts         # Protobuf parser for subway
-│       ├── alerts.ts          # Service alerts (JSON)
-│       ├── elevators.ts       # Elevator status (JSON)
-│       ├── buses.ts           # Bus feeds (protobuf)
+│   ├── mta/                   # MTA feed clients
+│   │   ├── config.ts          # Feed URLs and configuration
+│   │   ├── gtfs-rt.ts         # Protobuf parser for subway
+│   │   ├── alerts.ts          # Service alerts (JSON)
+│   │   ├── elevators.ts       # Elevator status (JSON)
+│   │   ├── buses.ts           # Bus feeds (protobuf)
+│   │   └── index.ts
+│   └── routing/               # Accessible route pathfinding
+│       ├── graph.ts           # Station graph + Dijkstra algorithm
+│       ├── realtime.ts        # Real-time travel time integration
 │       └── index.ts
 │
 ├── types/                     # TypeScript definitions
@@ -156,9 +167,11 @@ NYC-Transit-Hub/
 |----------|--------|-------------|
 | `/api/stations` | GET | Search stations by name, get by ID |
 | `/api/routes` | GET | Get subway route info and colors |
+| `/api/routes/accessible` | GET | Calculate accessible routes between stations |
 | `/api/alerts` | GET | Get active service alerts (live) |
 | `/api/incidents` | GET | Get incidents with stats and filtering |
 | `/api/elevators` | GET | Get elevator/escalator outages (live) |
+| `/api/elevators/upcoming` | GET | Get planned elevator/escalator outages |
 | `/api/trains/realtime` | GET | Get train arrivals (live GTFS-RT) |
 | `/api/buses/realtime` | GET | Get bus arrivals (requires API key) |
 | `/api/reliability` | GET | Get line reliability metrics (30-day history) |
@@ -363,6 +376,68 @@ User Selects Lines (A, C, E)
 │  - Trip ID                    │
 └───────────────────────────────┘
 ```
+
+### Accessible Route Finding
+
+```
+User enters origin + destination
+         │
+         ▼
+┌───────────────────┐
+│   RouteFinder     │  Station selection UI
+│   Component       │
+└────────┬──────────┘
+         │
+         ▼
+┌───────────────────┐
+│  /api/routes/     │  API endpoint
+│  accessible       │
+└────────┬──────────┘
+         │
+    ┌────┴────┐
+    ▼         ▼
+┌────────┐  ┌────────────────┐
+│  GTFS  │  │  /api/         │
+│ Static │  │  elevators     │
+│  Data  │  │  (outages)     │
+└───┬────┘  └───────┬────────┘
+    │               │
+    ▼               ▼
+┌───────────────────────────────┐
+│       lib/routing/graph.ts    │
+│                               │
+│  1. Build station graph       │
+│  2. Mark inaccessible nodes   │
+│     (elevator outages)        │
+│  3. Run Dijkstra's algorithm  │
+│  4. Calculate travel times    │
+│     (static + express/local)  │
+└───────────────────────────────┘
+         │
+         ▼
+┌───────────────────────────────┐
+│     RouteResults Component    │
+│  - Route summary              │
+│  - Segment details            │
+│  - Accessibility status       │
+│  - Alternative routes         │
+└───────────────────────────────┘
+```
+
+**Graph Structure:**
+
+| Element | Source |
+|---------|--------|
+| Nodes (Stations) | GTFS stops.txt + line-stations.json |
+| Edges (Train segments) | line-stations.json (ordered stops per line) |
+| Edge weights | Estimated travel time (2-3 min/stop, 1.5 min express) |
+| Accessibility | Real-time elevator outages from /api/elevators |
+
+**Algorithm:**
+- Uses Dijkstra's shortest-path algorithm
+- Edge weights are travel time in minutes
+- Transfer penalty: 3-5 minutes per platform change
+- Filters out inaccessible paths when `requireAccessible=true`
 
 ---
 

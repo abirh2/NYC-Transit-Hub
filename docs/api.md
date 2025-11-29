@@ -337,6 +337,125 @@ curl "http://localhost:3000/api/elevators?line=A&adaOnly=true"
 }
 ```
 
+#### GET /api/elevators/upcoming
+
+Get planned/upcoming elevator and escalator outages.
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `stationName` | string | Filter by station name (partial match) |
+| `line` | string | Filter by subway line |
+| `equipmentType` | string | "ELEVATOR" or "ESCALATOR" |
+| `adaOnly` | boolean | Only ADA-compliant equipment |
+| `limit` | number | Maximum results |
+
+**Example Request:**
+
+```bash
+curl "http://localhost:3000/api/elevators/upcoming?adaOnly=true"
+```
+
+**Example Response:**
+
+Same format as `/api/elevators`, but returns planned future outages.
+
+---
+
+### Accessible Routes
+
+#### GET /api/routes/accessible
+
+Find accessible routes between subway stations, accounting for elevator outages.
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `from` | string | **Required.** Origin station ID |
+| `to` | string | **Required.** Destination station ID |
+| `requireAccessible` | boolean | Only return fully accessible routes (default: false) |
+
+**Example Request:**
+
+```bash
+curl "http://localhost:3000/api/routes/accessible?from=127&to=A15&requireAccessible=true"
+```
+
+**Example Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "primary": {
+      "segments": [
+        {
+          "fromStationId": "127",
+          "fromStationName": "Times Sq-42 St",
+          "toStationId": "A28",
+          "toStationName": "34 St-Penn Station",
+          "line": "A",
+          "isExpress": false,
+          "travelMinutes": 3.5,
+          "isAccessible": true,
+          "hasElevatorOutage": false
+        }
+      ],
+      "totalMinutes": 12.5,
+      "isFullyAccessible": true,
+      "blockedStations": [],
+      "transferCount": 1
+    },
+    "alternatives": [
+      {
+        "segments": [...],
+        "totalMinutes": 15,
+        "isFullyAccessible": true,
+        "blockedStations": [],
+        "transferCount": 2
+      }
+    ],
+    "warnings": [],
+    "fromStation": {
+      "id": "127",
+      "name": "Times Sq-42 St"
+    },
+    "toStation": {
+      "id": "A15",
+      "name": "Jay St-MetroTech"
+    },
+    "lastUpdated": "2024-01-15T12:00:00.000Z"
+  },
+  "timestamp": "2024-01-15T12:00:00.000Z"
+}
+```
+
+**Route Segment Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `fromStationId` | string | Origin station ID for this segment |
+| `fromStationName` | string | Origin station name |
+| `toStationId` | string | Destination station ID for this segment |
+| `toStationName` | string | Destination station name |
+| `line` | string | Subway line (or "TRANSFER" for walking transfer) |
+| `isExpress` | boolean | Whether this is an express segment |
+| `travelMinutes` | number | Estimated travel time in minutes |
+| `isAccessible` | boolean | Whether this segment is wheelchair accessible |
+| `hasElevatorOutage` | boolean | Whether destination has elevator outage |
+
+**Route Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `primary` | object\|null | Recommended route (fastest) |
+| `alternatives` | array | Alternative routes, sorted by accessibility and time |
+| `warnings` | array | Any warnings (e.g., "No accessible route available") |
+| `fromStation` | object | Origin station info |
+| `toStation` | object | Destination station info |
+
 ---
 
 ### Train Arrivals

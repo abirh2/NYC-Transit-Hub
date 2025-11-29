@@ -8,6 +8,7 @@ This document describes the React components available in NYC Transit Hub.
 
 ```
 components/
+├── accessibility/   # Elevator outage and accessible route components
 ├── board/           # Station board components
 ├── dashboard/       # Dashboard-specific cards
 ├── incidents/       # Incident explorer components
@@ -733,6 +734,195 @@ import { TimeOfDayChart } from "@/components/reliability";
 - Color-coded bars per period
 - Insight text (rush hour vs off-peak comparison)
 - Empty state when no data
+
+---
+
+## Accessibility Components
+
+Components for elevator/escalator outage tracking and accessible route finding.
+
+### OutageStats
+
+Summary statistics for equipment outages displayed as a 4-card grid.
+
+```tsx
+import { OutageStats } from "@/components/accessibility";
+
+<OutageStats
+  stats={{
+    totalOutages: 42,
+    elevatorOutages: 28,
+    escalatorOutages: 14,
+    adaImpactingOutages: 18,
+    topBoroughs: [
+      { borough: "Manhattan", count: 15 },
+      { borough: "Brooklyn", count: 12 }
+    ]
+  }}
+  isLoading={false}
+/>
+```
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `stats` | OutageStatsData \| null | required | Stats object from API |
+| `isLoading` | boolean | false | Show loading skeleton |
+
+**Displays:**
+- Total outages with elevator icon
+- Equipment type breakdown (elevator vs escalator count)
+- ADA-impacting outages count
+- Top affected boroughs (up to 3)
+
+---
+
+### OutageFilters
+
+Filter and sort controls for outage lists.
+
+```tsx
+import { OutageFilters, OutageFiltersState } from "@/components/accessibility";
+
+const [filters, setFilters] = useState<OutageFiltersState>({
+  stationSearch: "",
+  lines: [],
+  equipmentTypes: [],
+  adaOnly: false,
+  sortBy: "station",
+});
+
+<OutageFilters
+  filters={filters}
+  onFiltersChange={setFilters}
+  onRefresh={handleRefresh}
+  isLoading={false}
+  activeTab="current"
+/>
+```
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `filters` | OutageFiltersState | required | Current filter state |
+| `onFiltersChange` | (filters) => void | required | Filter change callback |
+| `onRefresh` | () => void | required | Refresh button callback |
+| `isLoading` | boolean | false | Show loading spinner on refresh |
+| `activeTab` | "current" \| "upcoming" | optional | Controls filter context |
+
+**Filter State:**
+
+```ts
+interface OutageFiltersState {
+  stationSearch: string;   // Station name search
+  lines: string[];         // Filter by subway lines
+  equipmentTypes: EquipmentType[]; // ELEVATOR, ESCALATOR
+  adaOnly: boolean;        // Only ADA-impacting outages
+  sortBy: OutageSortOption; // Sort order
+}
+```
+
+---
+
+### OutageList
+
+Expandable card list showing equipment outages.
+
+```tsx
+import { OutageList } from "@/components/accessibility";
+
+<OutageList
+  outages={filteredOutages}
+  isLoading={false}
+  error={null}
+  emptyMessage="No outages found"
+  isUpcoming={false}
+/>
+```
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `outages` | EquipmentOutage[] | required | Outages to display |
+| `isLoading` | boolean | false | Show loading spinner |
+| `error` | string \| null | null | Error message to display |
+| `emptyMessage` | string | optional | Custom empty state message |
+| `isUpcoming` | boolean | false | Whether showing planned outages |
+
+**Outage Card Displays:**
+- Affected subway lines (SubwayBullet icons)
+- Station name
+- Equipment type badge (Elevator/Escalator)
+- ADA badge if applicable
+- Status (Out of Service / Upcoming)
+- Duration and estimated return date
+- Expandable details (serving areas, reason)
+
+---
+
+### RouteFinder
+
+Station selection UI for accessible route planning.
+
+```tsx
+import { RouteFinder } from "@/components/accessibility";
+
+<RouteFinder
+  onSearch={handleRouteSearch}
+  isLoading={routeLoading}
+/>
+```
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `onSearch` | (from: string, to: string, requireAccessible: boolean) => void | required | Search callback |
+| `isLoading` | boolean | false | Show loading state on button |
+
+**Features:**
+- From/To station inputs using StationSearch component
+- "Require Accessible Route" toggle switch
+- "Swap Stations" button
+- Loading state during route calculation
+
+---
+
+### RouteResults
+
+Displays calculated accessible routes with segment details.
+
+```tsx
+import { RouteResults } from "@/components/accessibility";
+
+<RouteResults
+  result={routeResult}
+  isLoading={false}
+  error={null}
+/>
+```
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `result` | AccessibleRouteResult \| null | null | Route result from API |
+| `isLoading` | boolean | false | Show loading skeleton |
+| `error` | string \| null | null | Error message to display |
+
+**Displays:**
+- Primary route summary (total time, transfers, accessibility status)
+- Route segments with:
+  - Subway line icons
+  - Station names
+  - Travel time per segment
+  - Accessibility warnings for each segment
+- Alternative routes (if available)
+- Blocked stations warning
+- Empty state when no route found
 
 ---
 
