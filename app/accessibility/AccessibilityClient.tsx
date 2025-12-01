@@ -17,13 +17,12 @@ import {
   OutageFilters, 
   OutageList,
   RouteFinder,
-  RouteResults,
   type OutageFiltersState,
   type OutageTab,
   type OutageSortOption,
 } from "@/components/accessibility";
 import type { EquipmentOutage } from "@/types/mta";
-import type { OutageStats as OutageStatsType, AccessibleRouteResponse } from "@/types/api";
+import type { OutageStats as OutageStatsType } from "@/types/api";
 
 const REFRESH_INTERVAL = 60; // seconds
 
@@ -165,10 +164,6 @@ export function AccessibilityClient() {
     adaOnly: false,
     sortBy: "station",
   });
-  
-  // Route finder state
-  const [routeData, setRouteData] = useState<AccessibleRouteResponse | null>(null);
-  const [routeLoading, setRouteLoading] = useState(false);
 
   // Fetch outages
   const fetchOutages = useCallback(async () => {
@@ -406,35 +401,7 @@ export function AccessibilityClient() {
 
       {/* Route Finder Tab Content */}
       {mainTab === "routes" && (
-        <div className="space-y-6">
-          {/* Route Finder */}
-          <RouteFinder
-            onRouteFound={setRouteData}
-            isLoading={routeLoading}
-            setIsLoading={setRouteLoading}
-          />
-
-          {/* Route Results */}
-          {routeData && (
-            <RouteResults routeData={routeData} />
-          )}
-
-          {/* Instructions when no route searched */}
-          {!routeData && !routeLoading && (
-            <Card>
-              <CardBody className="py-8 text-center">
-                <Navigation className="h-12 w-12 mx-auto text-primary/30 mb-4" />
-                <p className="text-lg font-medium text-foreground/70">
-                  Find an Accessible Route
-                </p>
-                <p className="text-sm text-foreground/50 mt-1 max-w-md mx-auto">
-                  Enter your origin and destination stations above to find the best 
-                  accessible route. We&apos;ll check for elevator outages and suggest alternatives.
-                </p>
-              </CardBody>
-            </Card>
-          )}
-        </div>
+        <RouteFinder />
       )}
     </div>
   );

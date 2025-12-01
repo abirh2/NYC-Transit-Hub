@@ -286,9 +286,9 @@ export function OutageList({
 
   return (
     <div className="space-y-3">
-      {outages.map((outage) => (
+      {outages.map((outage, index) => (
         <OutageCard 
-          key={outage.equipmentId} 
+          key={`${outage.equipmentId}-${outage.stationName}-${index}`} 
           outage={outage} 
           isUpcoming={isUpcoming}
         />

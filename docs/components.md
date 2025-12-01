@@ -865,35 +865,41 @@ import { OutageList } from "@/components/accessibility";
 
 ### RouteFinder
 
-Station selection UI for accessible route planning.
+Self-contained accessible trip planning component with address input and route display. Uses MTA's OpenTripPlanner API for real transit directions.
 
 ```tsx
 import { RouteFinder } from "@/components/accessibility";
 
-<RouteFinder
-  onSearch={handleRouteSearch}
-  isLoading={routeLoading}
-/>
+<RouteFinder />
 ```
 
-**Props:**
-
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `onSearch` | (from: string, to: string, requireAccessible: boolean) => void | required | Search callback |
-| `isLoading` | boolean | false | Show loading state on button |
+**Props:** None - component is self-contained with internal state management.
 
 **Features:**
-- From/To station inputs using StationSearch component
-- "Require Accessible Route" toggle switch
-- "Swap Stations" button
-- Loading state during route calculation
+- Address input with geocoding (OpenStreetMap Nominatim)
+- NYC-biased address suggestions with clean formatting
+- Wheelchair-accessible routing toggle
+- Swap origin/destination button
+- Google Maps-style timeline display of routes
+- Support for subway, bus, Metro-North, and LIRR
+- Multiple itinerary options
+- Walk/transit leg breakdown with times and stop counts
+
+**Data Flow:**
+1. User enters addresses → Nominatim geocodes to lat/lon
+2. Coordinates sent to `/api/routes/trip` → Proxies to MTA OTP API
+3. Itineraries displayed in expandable timeline cards
+
+**Transit Badge Handling:**
+- Subway lines (1-7, A-Z): Circular bullet icons
+- Commuter rail (Harlem, Hudson, etc.): Abbreviated chip badges
+- Buses: Route number chips with agency colors
 
 ---
 
 ### RouteResults
 
-Displays calculated accessible routes with segment details.
+Displays calculated accessible routes with segment details (legacy station-based routing).
 
 ```tsx
 import { RouteResults } from "@/components/accessibility";

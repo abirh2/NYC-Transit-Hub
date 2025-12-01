@@ -168,6 +168,7 @@ NYC-Transit-Hub/
 | `/api/stations` | GET | Search stations by name, get by ID |
 | `/api/routes` | GET | Get subway route info and colors |
 | `/api/routes/accessible` | GET | Calculate accessible routes between stations |
+| `/api/routes/trip` | GET | Plan transit trip using MTA's OTP API (addresses) |
 | `/api/alerts` | GET | Get active service alerts (live) |
 | `/api/incidents` | GET | Get incidents with stats and filtering |
 | `/api/elevators` | GET | Get elevator/escalator outages (live) |
@@ -438,6 +439,63 @@ User enters origin + destination
 - Edge weights are travel time in minutes
 - Transfer penalty: 3-5 minutes per platform change
 - Filters out inaccessible paths when `requireAccessible=true`
+
+### Address-Based Trip Planning
+
+```
+User enters origin/destination addresses
+         │
+         ▼
+┌───────────────────────────────────────┐
+│  OpenStreetMap Nominatim API          │  Geocoding
+│  (Convert addresses to coordinates)   │
+└─────────────────┬─────────────────────┘
+                  │
+         lat/lon coordinates
+                  │
+                  ▼
+┌───────────────────────────────────────┐
+│  /api/routes/trip                     │  Our API endpoint
+└─────────────────┬─────────────────────┘
+                  │
+                  ▼
+┌───────────────────────────────────────┐
+│  MTA OpenTripPlanner API              │  External API
+│  (otp-mta-prod.camsys-apps.com)       │
+│                                       │
+│  - Full NYC transit network           │
+│  - Real-time schedules                │
+│  - Wheelchair-accessible routing      │
+│  - Walking + transit combinations     │
+└─────────────────┬─────────────────────┘
+                  │
+                  ▼
+┌───────────────────────────────────────┐
+│  Response: Multiple Itineraries       │
+│                                       │
+│  Each itinerary contains:             │
+│  - Walking legs (with step-by-step)   │
+│  - Transit legs (subway/bus/rail)     │
+│  - Times, distances, stop counts      │
+│  - Route colors and headsigns         │
+└───────────────────────────────────────┘
+```
+
+**External Dependencies:**
+
+| Service | Purpose | Rate Limits |
+|---------|---------|-------------|
+| Nominatim (OSM) | Address geocoding | 1 req/sec (free) |
+| MTA OTP | Trip planning | Unknown (public API) |
+
+**Transit Types Supported:**
+
+| Mode | Display | Examples |
+|------|---------|----------|
+| SUBWAY | Bullet icon | A, 1, 7X |
+| BUS | Colored chip | Q44, BxM1 |
+| RAIL | Colored chip | Harlem, Hudson |
+| WALK | Dotted line | Walking directions |
 
 ---
 

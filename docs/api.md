@@ -456,6 +456,115 @@ curl "http://localhost:3000/api/routes/accessible?from=127&to=A15&requireAccessi
 | `fromStation` | object | Origin station info |
 | `toStation` | object | Destination station info |
 
+#### GET /api/routes/trip
+
+Plan a transit trip between two locations using MTA's OpenTripPlanner API. Supports wheelchair-accessible routing and returns detailed itineraries with walking and transit legs.
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `fromLat` | number | **Required.** Origin latitude |
+| `fromLon` | number | **Required.** Origin longitude |
+| `toLat` | number | **Required.** Destination latitude |
+| `toLon` | number | **Required.** Destination longitude |
+| `wheelchair` | boolean | Require wheelchair-accessible routes (default: false) |
+| `date` | string | Trip date in MM/DD/YY format (default: today) |
+| `time` | string | Trip time in h:mma format (default: now) |
+| `numItineraries` | number | Number of route options to return (default: 3) |
+
+**Example Request:**
+
+```bash
+curl "http://localhost:3000/api/routes/trip?fromLat=40.8731&fromLon=-73.8837&toLat=40.7567&toLon=-73.9814&wheelchair=true"
+```
+
+**Example Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "from": { "name": "Origin", "lon": -73.8837, "lat": 40.8731 },
+    "to": { "name": "Destination", "lon": -73.9814, "lat": 40.7567 },
+    "wheelchair": true,
+    "itineraries": [
+      {
+        "duration": 2640,
+        "startTimeFmt": "2024-12-01T13:19:00-05:00",
+        "endTimeFmt": "2024-12-01T14:03:00-05:00",
+        "walkTime": 540,
+        "transitTime": 2100,
+        "walkDistance": 650.5,
+        "transfers": 0,
+        "legs": [
+          {
+            "startTimeFmt": "2024-12-01T13:19:00-05:00",
+            "endTimeFmt": "2024-12-01T13:25:00-05:00",
+            "mode": "WALK",
+            "duration": 360,
+            "distance": 400,
+            "from": { "name": "Origin", "lon": -73.8837, "lat": 40.8731 },
+            "to": { "name": "Bedford Park Blvd", "lon": -73.8871, "lat": 40.8731 },
+            "transitLeg": false
+          },
+          {
+            "startTimeFmt": "2024-12-01T13:25:00-05:00",
+            "endTimeFmt": "2024-12-01T14:00:00-05:00",
+            "mode": "SUBWAY",
+            "route": "D",
+            "routeColor": "FF6319",
+            "headsign": "Coney Island-Stillwell Av",
+            "duration": 2100,
+            "distance": 15000,
+            "from": { "name": "Bedford Park Blvd", "lon": -73.8871, "lat": 40.8731 },
+            "to": { "name": "47-50 Sts-Rockefeller Ctr", "lon": -73.9814, "lat": 40.7589 },
+            "intermediateStops": [
+              { "name": "Kingsbridge Rd" },
+              { "name": "Fordham Rd" }
+            ],
+            "transitLeg": true
+          },
+          {
+            "startTimeFmt": "2024-12-01T14:00:00-05:00",
+            "endTimeFmt": "2024-12-01T14:03:00-05:00",
+            "mode": "WALK",
+            "duration": 180,
+            "distance": 250.5,
+            "from": { "name": "47-50 Sts-Rockefeller Ctr", "lon": -73.9814, "lat": 40.7589 },
+            "to": { "name": "Destination", "lon": -73.9814, "lat": 40.7567 },
+            "transitLeg": false
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Leg Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `mode` | string | "WALK", "SUBWAY", "BUS", "RAIL", "TRAM", "FERRY" |
+| `route` | string | Transit route (e.g., "D", "Harlem", "Q44") |
+| `routeColor` | string | Hex color code for the route |
+| `headsign` | string | Destination displayed on the train/bus |
+| `duration` | number | Duration in seconds |
+| `distance` | number | Distance in meters |
+| `transitLeg` | boolean | True for transit, false for walking |
+| `intermediateStops` | array | Stops between origin and destination (transit only) |
+
+**Error Response:**
+
+```json
+{
+  "success": false,
+  "error": "No trip found. There may be no transit service within the maximum specified distance.",
+  "noPath": true
+}
+```
+
 ---
 
 ### Train Arrivals
