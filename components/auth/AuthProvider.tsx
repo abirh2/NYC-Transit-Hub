@@ -7,7 +7,7 @@
  * Listens to Supabase auth state changes and exposes user info.
  */
 
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 
@@ -44,21 +44,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const refreshSession = useCallback(async () => {
+    if (!supabase) return;
     const { data: { session: newSession } } = await supabase.auth.getSession();
     setSession(newSession);
     setUser(newSession?.user ?? null);
   }, [supabase]);
 
   const signOut = useCallback(async () => {
+    if (!supabase) return;
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
   }, [supabase]);
 
   useEffect(() => {
+    // If Supabase not configured, just stop loading
+    if (!supabase) {
+      setIsLoading(false);
+      return;
+    }
+
     // Get initial session
     const initializeAuth = async () => {
       try {
@@ -102,4 +110,3 @@ export function AuthProvider({ children }: AuthProviderProps) {
     </AuthContext.Provider>
   );
 }
-
