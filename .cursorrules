@@ -336,6 +336,8 @@ Don't just fix immediate issue - fix class of issues. Investigate all related co
 
 **Complex Visual Features:** For features with significant visual complexity (diagrams, graphs, multi-element layouts), start with the simplest working version and validate with user before elaborating. Visual correctness cannot be verified programmatically - what works algorithmically may look "awful" to users. Build incrementally: simple version → user feedback → iterate. Don't build complex graph algorithms or multi-column layouts without first confirming the basic visual approach is acceptable.
 
+**Standard UI Patterns:** For common features with established industry patterns (directions/timelines → Google Maps, search → Google/Algolia, auth flows → standard OAuth), default to matching the established pattern rather than inventing novel UIs. Users have muscle memory for these patterns; deviation increases friction and iteration cycles. Ask for a reference screenshot if unsure what pattern the user expects.
+
 **Improve in place:** Enhance and optimize existing code. Understand current approach and dependencies. Improve incrementally.
 
 **Performance:** Measure before optimizing. Watch for N+1 queries, memory leaks, unnecessary re-renders. Parallelize safe concurrent operations. Only remove code after verifying truly unused.
@@ -500,6 +502,25 @@ Before considering work complete:
 ---
 
 ## External API Integration
+
+### API Discovery Before Scraping
+
+**When asked to integrate with or scrape a web application, ALWAYS check network requests first.**
+
+Most modern SPAs have underlying REST/GraphQL APIs that are far more reliable than DOM scraping. Before proposing complex scraping solutions:
+
+1. **Open browser DevTools → Network tab**
+2. **Interact with the target feature** (e.g., submit a form, load data)
+3. **Look for XHR/Fetch requests** returning JSON data
+4. **Test the endpoint directly** with curl to verify it's accessible
+
+**Example discovery win:** MTA's trip planner appears to require scraping, but network inspection reveals it uses `otp-mta-prod.camsys-apps.com` - a clean OpenTripPlanner API that's far superior to scraping.
+
+**Benefits of API discovery:**
+- Clean, structured data (no HTML parsing)
+- Stable endpoints (don't break when UI changes)
+- Better performance (no browser automation overhead)
+- Easier error handling
 
 ### Verify Before You Parse
 
