@@ -101,14 +101,26 @@ export async function GET(request: NextRequest) {
     }, { status: 400 });
   }
   
-  // Build OTP API URL
+  // Build OTP API URL - use NYC timezone
   const now = new Date();
-  const defaultDate = `${now.getMonth() + 1}/${now.getDate()}/${String(now.getFullYear()).slice(2)}`;
-  const defaultTime = now.toLocaleTimeString("en-US", { 
-    hour: "numeric", 
-    minute: "2-digit", 
-    hour12: true 
-  }).replace(" ", "").toLowerCase();
+  const nycFormatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    month: "numeric",
+    day: "numeric",
+    year: "2-digit",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true
+  });
+  
+  const parts = nycFormatter.formatToParts(now);
+  const getPart = (type: string) => parts.find(p => p.type === type)?.value || "";
+  
+  const defaultDate = `${getPart("month")}/${getPart("day")}/${getPart("year")}`;
+  const hour = getPart("hour");
+  const minute = getPart("minute");
+  const dayPeriod = getPart("dayPeriod").toLowerCase();
+  const defaultTime = `${hour}:${minute}${dayPeriod}`;
   
   const params = new URLSearchParams({
     apikey: OTP_API_KEY,
