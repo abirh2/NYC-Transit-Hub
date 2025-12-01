@@ -932,6 +932,132 @@ import { RouteResults } from "@/components/accessibility";
 
 ---
 
+## Authentication Components
+
+### AuthProvider
+
+Context provider for Supabase authentication state.
+
+```tsx
+import { AuthProvider } from "@/components/auth";
+
+// Wrap your app (already done in Providers.tsx)
+<AuthProvider>
+  <YourApp />
+</AuthProvider>
+```
+
+### useAuth Hook
+
+Access authentication state and methods.
+
+```tsx
+import { useAuth } from "@/components/auth";
+
+function MyComponent() {
+  const {
+    user,       // User | null
+    session,    // Session | null
+    isLoading,  // boolean
+    signIn,     // (email: string) => Promise<{ error: Error | null }>
+    signOut,    // () => Promise<{ error: Error | null }>
+  } = useAuth();
+
+  return user ? <p>Welcome, {user.email}</p> : <p>Not signed in</p>;
+}
+```
+
+### AuthModal
+
+Modal for email-based authentication (magic link).
+
+```tsx
+import { AuthModal } from "@/components/auth";
+
+<AuthModal
+  isOpen={isModalOpen}
+  onClose={() => setIsModalOpen(false)}
+/>
+```
+
+**Features:**
+- Email input with validation
+- Sends magic link via Supabase Auth
+- Shows success/error feedback
+- Clean, accessible modal UI
+
+### AuthButton
+
+Navbar button for sign in/out.
+
+```tsx
+import { AuthButton } from "@/components/auth";
+
+<AuthButton />
+```
+
+**Features:**
+- Shows "Sign In" when not authenticated
+- Shows user email with dropdown when authenticated
+- Dropdown includes sign out option
+- Opens AuthModal for sign in
+
+---
+
+## Commute Components
+
+### CommuteSetup
+
+Form for configuring home/work addresses with geocoding.
+
+```tsx
+import { CommuteSetup } from "@/components/commute";
+
+<CommuteSetup
+  initialSettings={existingSettings}
+  onSave={() => console.log("Settings saved")}
+/>
+```
+
+| Prop | Type | Required | Description |
+|------|------|----------|-------------|
+| `initialSettings` | CommuteSettings | No | Pre-fill form with existing settings |
+| `onSave` | () => void | Yes | Callback when settings are saved |
+
+**Features:**
+- Address autocomplete using Nominatim geocoding (NYC-bounded)
+- Visual confirmation when addresses are geocoded
+- Target arrival time picker
+- Swap button to exchange home/work
+- Form validation and error handling
+- Success/error feedback
+
+### CommuteSummary
+
+Displays real-time commute recommendations.
+
+```tsx
+import { CommuteSummary } from "@/components/commute";
+
+<CommuteSummary
+  onSetupClick={() => navigateToSettings()}
+/>
+```
+
+| Prop | Type | Required | Description |
+|------|------|----------|-------------|
+| `onSetupClick` | () => void | No | Callback when user clicks "Configure Now" |
+
+**Features:**
+- Shows "Leave in X minutes" countdown
+- Trip duration and route summary
+- On time/delayed/early status
+- Auto-refresh every 60 seconds
+- Setup prompt when not configured
+- Error handling with retry
+
+---
+
 ## Dashboard Components
 
 ### StationCard
@@ -980,13 +1106,23 @@ import { LiveTrackerCard } from "@/components/dashboard";
 
 ### CommuteCard
 
-Commute assistant with departure recommendations.
+Commute assistant dashboard card with real-time departure recommendations.
 
 ```tsx
 import { CommuteCard } from "@/components/dashboard";
 
 <CommuteCard />
 ```
+
+**Features:**
+- Fetches real-time commute data from `/api/commute/summary`
+- Shows "Sign in" prompt when not authenticated
+- Shows "Set up your commute" when not configured
+- Displays departure countdown when configured
+- Shows on-time/delayed status
+- Trip duration and route summary
+- Auto-refreshes every 60 seconds
+- Links to full `/commute` page
 
 ---
 

@@ -250,3 +250,55 @@ model DailyLineMetrics {
   @@index([date])
   @@map("daily_line_metrics")
 }
+
+// ============================================================================
+// COMMUTE - User commute routes (supports multiple per user)
+// ============================================================================
+
+model Commute {
+  id              String   @id @default(cuid())
+  userId          String   @map("user_id") // Supabase Auth user ID
+  
+  // Commute label (e.g., "Morning Commute", "Home → Work")
+  label           String   @default("My Commute")
+  
+  // From location
+  fromAddress     String?  @map("from_address")
+  fromLat         Float?   @map("from_lat")
+  fromLon         Float?   @map("from_lon")
+  
+  // To location
+  toAddress       String?  @map("to_address")
+  toLat           Float?   @map("to_lat")
+  toLon           Float?   @map("to_lon")
+  
+  // Arrival preference
+  targetArrival   String?  @map("target_arrival") // e.g., "09:00" in 24h format
+  
+  // Display settings
+  isDefault       Boolean  @default(false) @map("is_default") // Show on dashboard
+  sortOrder       Int      @default(0) @map("sort_order") // For ordering
+  
+  // Metadata
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("commutes")
+}
+
+// Legacy model - keeping for migration, will be removed
+model CommuteSettings {
+  id              String   @id @default(cuid())
+  userId          String   @unique @map("user_id")
+  homeAddress     String?  @map("home_address")
+  homeLat         Float?   @map("home_lat")
+  homeLon         Float?   @map("home_lon")
+  workAddress     String?  @map("work_address")
+  workLat         Float?   @map("work_lat")
+  workLon         Float?   @map("work_lon")
+  targetArrival   String?  @map("target_arrival")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  @@map("commute_settings")
+}

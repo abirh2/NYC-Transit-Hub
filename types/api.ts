@@ -323,3 +323,35 @@ export interface OutageStats {
   byLine: Array<{ line: string; count: number }>;
 }
 
+// ============================================================================
+// Commute API
+// ============================================================================
+
+export interface CommuteSettings {
+  homeAddress: string | null;
+  homeLat: number | null;
+  homeLon: number | null;
+  workAddress: string | null;
+  workLat: number | null;
+  workLon: number | null;
+  targetArrival: string | null; // HH:MM in 24h format
+}
+
+export interface CommuteSettingsResponse {
+  isConfigured: boolean;
+  settings: CommuteSettings | null;
+}
+
+export interface CommuteSummaryResponse {
+  isAuthenticated: boolean;
+  isConfigured: boolean;
+  leaveIn: string | null;        // "6 min", "Now", "1h 5m"
+  leaveAt: string | null;        // ISO timestamp
+  arriveBy: string | null;       // "9:00 AM"
+  duration: number | null;       // minutes
+  route: string | null;          // "F → A → 1"
+  status: "on_time" | "delayed" | "early" | null;
+  delayMinutes: number | null;
+  targetArrival?: string | null; // "9:00 AM"
+  error?: string;
+}

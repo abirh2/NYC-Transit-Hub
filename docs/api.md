@@ -827,6 +827,121 @@ curl "http://localhost:3000/api/status"
 
 ---
 
+### Commute Settings
+
+#### GET /api/commute/settings
+
+Get the authenticated user's commute settings.
+
+**Authentication:** Required (Supabase Auth)
+
+**Example Request:**
+
+```bash
+curl -H "Authorization: Bearer <token>" "http://localhost:3000/api/commute/settings"
+```
+
+**Example Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "isConfigured": true,
+    "settings": {
+      "homeAddress": "123 Main St, Brooklyn, NY",
+      "homeLat": 40.6782,
+      "homeLon": -73.9442,
+      "workAddress": "456 Broadway, Manhattan, NY",
+      "workLat": 40.7614,
+      "workLon": -73.9776,
+      "targetArrival": "09:00"
+    }
+  },
+  "timestamp": "2024-01-15T12:00:00.000Z"
+}
+```
+
+#### POST /api/commute/settings
+
+Create or update commute settings for the authenticated user.
+
+**Authentication:** Required (Supabase Auth)
+
+**Request Body:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `homeAddress` | string | Home address display text |
+| `homeLat` | number | Home latitude |
+| `homeLon` | number | Home longitude |
+| `workAddress` | string | Work address display text |
+| `workLat` | number | Work latitude |
+| `workLon` | number | Work longitude |
+| `targetArrival` | string | Target arrival time in HH:MM format (24-hour) |
+
+**Example Request:**
+
+```bash
+curl -X POST -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"homeAddress":"123 Main St","homeLat":40.6782,"homeLon":-73.9442,"workAddress":"456 Broadway","workLat":40.7614,"workLon":-73.9776,"targetArrival":"09:00"}' \
+  "http://localhost:3000/api/commute/settings"
+```
+
+---
+
+### Commute Summary
+
+#### GET /api/commute/summary
+
+Get real-time commute summary with departure suggestions.
+
+**Authentication:** Optional (returns limited data if not authenticated)
+
+**Example Request:**
+
+```bash
+curl "http://localhost:3000/api/commute/summary"
+```
+
+**Example Response (Authenticated & Configured):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "isAuthenticated": true,
+    "isConfigured": true,
+    "leaveIn": "12 min",
+    "leaveAt": "2024-01-15T08:48:00.000Z",
+    "arriveBy": "9:00 AM",
+    "duration": 35,
+    "route": "F → A",
+    "status": "on_time",
+    "delayMinutes": 0,
+    "targetArrival": "9:00 AM"
+  },
+  "timestamp": "2024-01-15T08:36:00.000Z"
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `isAuthenticated` | boolean | Whether user is logged in |
+| `isConfigured` | boolean | Whether commute settings are complete |
+| `leaveIn` | string | Time until departure ("12 min", "Now", "1h 5m") |
+| `leaveAt` | string | ISO timestamp of suggested departure |
+| `arriveBy` | string | Formatted arrival time ("9:00 AM") |
+| `duration` | number | Trip duration in minutes |
+| `route` | string | Transit route summary ("F → A → 1") |
+| `status` | string | "on_time", "delayed", or "early" |
+| `delayMinutes` | number | Minutes ahead/behind target |
+
+---
+
 ## Error Responses
 
 All endpoints return errors in a consistent format:

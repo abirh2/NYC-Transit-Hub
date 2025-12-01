@@ -3,6 +3,7 @@
 import { HeroUIProvider } from "@heroui/react";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 import { useRouter } from "next/navigation";
+import { AuthProvider } from "@/components/auth";
 
 interface ProvidersProps {
   children: React.ReactNode;
@@ -21,7 +22,9 @@ export function Providers({ children }: ProvidersProps) {
       disableTransitionOnChange
     >
       <HeroUIProvider navigate={router.push}>
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </HeroUIProvider>
     </NextThemesProvider>
   );

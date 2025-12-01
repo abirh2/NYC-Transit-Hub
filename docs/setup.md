@@ -100,6 +100,34 @@ MTA_BUS_API_KEY="your-api-key-here"
 5. Add to `.env` as `DATABASE_URL`
 6. Run `npx prisma db push` to create tables
 
+### Supabase Authentication Setup
+
+The Commute Assistant feature requires Supabase Auth for user accounts.
+
+1. In your Supabase project, go to **Project Settings** > **API**
+2. Copy the **Project URL** and **anon public** key
+3. Add to `.env.local` (not `.env` - this file should be gitignored):
+
+```env
+# Supabase Auth (required for commute feature)
+NEXT_PUBLIC_SUPABASE_URL="https://your-project.supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="your-anon-key"
+```
+
+4. Enable Email Auth:
+   - Go to **Authentication** > **Providers**
+   - Ensure **Email** provider is enabled
+   - Under **Email Templates**, customize the magic link email (optional)
+
+5. Configure Site URL:
+   - Go to **Authentication** > **URL Configuration**
+   - Set **Site URL** to `http://localhost:3000` for development
+   - Add `http://localhost:3000/auth/callback` to **Redirect URLs**
+
+6. For production, update:
+   - **Site URL** to your production domain
+   - Add production callback URL to **Redirect URLs**
+
 ### Verifying Setup
 
 ```bash

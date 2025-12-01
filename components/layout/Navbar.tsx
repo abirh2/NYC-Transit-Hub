@@ -4,6 +4,7 @@ import { Button } from "@heroui/react";
 import { Menu, TrainFront } from "lucide-react";
 import Link from "next/link";
 import { ThemeToggle } from "./ThemeToggle";
+import { AuthButton } from "@/components/auth";
 
 interface NavbarProps {
   onMenuClick: () => void;
@@ -43,6 +44,7 @@ export function Navbar({ onMenuClick }: NavbarProps) {
         {/* Right side */}
         <div className="flex items-center gap-2">
           <ThemeToggle />
+          <AuthButton />
         </div>
       </div>
     </header>

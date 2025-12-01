@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   X,
   TrainFront,
+  Navigation,
 } from "lucide-react";
 import { Button } from "@heroui/react";
 
@@ -36,6 +37,11 @@ const navItems: NavItem[] = [
     href: "/board",
     label: "Station Board",
     icon: <TrainFront className="h-5 w-5" />,
+  },
+  {
+    href: "/routes",
+    label: "Route Finder",
+    icon: <Navigation className="h-5 w-5" />,
   },
   {
     href: "/reliability",
