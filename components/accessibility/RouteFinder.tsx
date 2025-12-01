@@ -196,7 +196,13 @@ function TransitBadge({ leg, size = "md" }: { leg: OTPLeg; size?: "sm" | "md" })
   );
 }
 
-function ItineraryCard({ itinerary, index, isAccessible }: { itinerary: OTPItinerary; index: number; isAccessible: boolean }) {
+function ItineraryCard({ itinerary, index, isAccessible, originAddress, destinationAddress }: { 
+  itinerary: OTPItinerary; 
+  index: number; 
+  isAccessible: boolean;
+  originAddress: string;
+  destinationAddress: string;
+}) {
   const [isExpanded, setIsExpanded] = useState(index === 0);
   
   // Get transit legs for preview
@@ -301,7 +307,9 @@ function ItineraryCard({ itinerary, index, isAccessible }: { itinerary: OTPItine
                   <div className="flex-1 pl-3 pb-2">
                     {/* Station name */}
                     <p className="font-semibold text-foreground leading-tight">
-                      {leg.from.name}
+                      {legIndex === 0 && (leg.from.name === "Origin" || leg.from.name === "origin") 
+                        ? originAddress 
+                        : leg.from.name}
                     </p>
                     {legIndex === 0 && (
                       <p className="text-xs text-foreground/50 mt-0.5">Origin</p>
@@ -367,7 +375,9 @@ function ItineraryCard({ itinerary, index, isAccessible }: { itinerary: OTPItine
                   {/* Content column */}
                   <div className="flex-1 pl-3">
                     <p className="font-semibold text-foreground">
-                      {lastLeg?.to.name || "Destination"}
+                      {lastLeg?.to.name === "Destination" || lastLeg?.to.name === "destination" 
+                        ? destinationAddress 
+                        : (lastLeg?.to.name || destinationAddress)}
                     </p>
                     <p className="text-xs text-foreground/50 mt-0.5">Destination</p>
                   </div>
@@ -780,6 +790,8 @@ export function RouteFinder() {
                 itinerary={itinerary} 
                 index={idx}
                 isAccessible={tripResults.data!.wheelchair}
+                originAddress={fromLocation.address}
+                destinationAddress={toLocation.address}
               />
             ))}
           </div>
