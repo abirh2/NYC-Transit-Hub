@@ -84,7 +84,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, newSession) => {
+      (_event: string, newSession: Session | null) => {
         setSession(newSession);
         setUser(newSession?.user ?? null);
         setIsLoading(false);
