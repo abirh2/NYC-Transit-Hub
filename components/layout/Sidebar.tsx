@@ -13,6 +13,7 @@ import {
   X,
   TrainFront,
   Navigation,
+  Info,
 } from "lucide-react";
 import { Button } from "@heroui/react";
 
@@ -150,7 +151,23 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         </nav>
 
         {/* Footer - stays at bottom */}
-        <div className="shrink-0 p-4 border-t border-divider">
+        <div className="shrink-0 p-4 border-t border-divider space-y-3">
+          <Link
+            href="/about"
+            onClick={onClose}
+            className={`
+              flex items-center justify-center gap-2 rounded-lg px-3 py-2
+              text-sm font-medium transition-colors
+              ${
+                pathname === "/about"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-foreground/70 hover:bg-default-100 hover:text-foreground"
+              }
+            `}
+          >
+            <Info className="h-4 w-4" />
+            About
+          </Link>
           <p className="text-xs text-foreground/50 text-center">
             Data from MTA GTFS feeds
           </p>
