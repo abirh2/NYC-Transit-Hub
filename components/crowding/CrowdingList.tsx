@@ -469,12 +469,25 @@ function RouteSection({ title, routes, level }: { title: string; routes: RouteCr
   const color = getLevelColor(level);
   const label = level === "HIGH" ? "Packed" : level === "MEDIUM" ? "Busy" : "Clear";
 
+  // Use static class names that Tailwind can detect at build time
+  const titleColorClass = level === "HIGH" 
+    ? "text-danger" 
+    : level === "MEDIUM" 
+    ? "text-warning" 
+    : "text-success";
+    
+  const cardBorderClass = level === "HIGH" 
+    ? "border-danger/20" 
+    : level === "MEDIUM" 
+    ? "border-warning/20" 
+    : "border-success/20";
+
   return (
     <section>
-      <h2 className={`text-xl font-semibold mb-4 text-${color}`}>{title}</h2>
+      <h2 className={`text-xl font-semibold mb-4 ${titleColorClass}`}>{title}</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {routes.map((item) => (
-          <Card key={item.routeId} className={`border-${color}/20`}>
+          <Card key={item.routeId} className={`${cardBorderClass}`}>
             <CardBody className="flex flex-row items-center justify-between">
               <div className="flex items-center gap-3">
                 <SubwayBullet line={item.routeId} />
