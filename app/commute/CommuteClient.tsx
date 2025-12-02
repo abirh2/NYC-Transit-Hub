@@ -23,7 +23,6 @@ import {
 } from "@heroui/react";
 import { 
   Clock, 
-  Settings, 
   Navigation, 
   LogIn, 
   Plus, 

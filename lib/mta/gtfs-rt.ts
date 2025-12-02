@@ -330,8 +330,17 @@ export function extractArrivals(
     // Process each stop time update
     for (const stopTime of tripUpdate.stopTimeUpdate) {
       // Skip if station filter doesn't match
-      if (options?.stationId && stopTime.stopId !== options.stationId) {
-        continue;
+      // Note: stationId can be a parent station ID (e.g., "A27") or a platform ID (e.g., "A27N")
+      // GTFS feeds use platform IDs (with N/S suffix), so we check if the stopId starts with the stationId
+      if (options?.stationId) {
+        const stopId = stopTime.stopId ?? "";
+        const stationId = options.stationId;
+        // Match if: exact match, or stopId is a platform of this station (e.g., "A27N" matches "A27")
+        const isMatch = stopId === stationId || 
+                        stopId.startsWith(stationId) && /^[NS]$/.test(stopId.slice(stationId.length));
+        if (!isMatch) {
+          continue;
+        }
       }
       
       const arrivalTime = stopTime.arrival?.time 

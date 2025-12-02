@@ -28,6 +28,22 @@ export const SUBWAY_FEED_URLS = {
 
 export type SubwayFeedKey = keyof typeof SUBWAY_FEED_URLS;
 
+// Map of subway lines to their feed key
+export const SUBWAY_LINE_TO_FEED_MAP: Record<string, SubwayFeedKey> = {
+  "A": "ace", "C": "ace", "E": "ace",
+  "B": "bdfm", "D": "bdfm", "F": "bdfm", "M": "bdfm",
+  "G": "g",
+  "J": "jz", "Z": "jz",
+  "N": "nqrw", "Q": "nqrw", "R": "nqrw", "W": "nqrw",
+  "L": "l",
+  "1": "1234567", "2": "1234567", "3": "1234567",
+  "4": "1234567", "5": "1234567", "6": "1234567", "7": "1234567",
+  "S": "1234567", // 42 St Shuttle
+  "SIR": "sir",
+  "SF": "bdfm", // Franklin Av Shuttle
+  "SR": "ace",  // Rockaway Park Shuttle
+};
+
 // ============================================================================
 // Regional Rail GTFS-RT Feed URLs (Protobuf format)
 // ============================================================================

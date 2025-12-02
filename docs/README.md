@@ -34,13 +34,13 @@ NYC Transit Hub is a personal, non-commercial web application that provides real
 
 | Feature | Description | Status |
 |---------|-------------|--------|
-| Station Board | Real-time departures for your stations | Phase 2 |
-| Live Tracker | Visual train positions on line diagrams | Phase 2 |
-| Service Alerts | Current delays and service changes | Phase 1 |
-| Reliability | Historical on-time performance | Phase 3 |
-| Accessibility | Elevator/escalator status and routing | Phase 4 |
-| Commute Assistant | Personalized departure suggestions | Phase 4 |
-| Crowding | Estimated train crowding levels | Phase 5 |
+| Station Board | Real-time departures for your stations | ✅ Complete |
+| Live Tracker | Visual train positions on line diagrams | ✅ Complete |
+| Service Alerts | Current delays and service changes | ✅ Complete |
+| Reliability | Historical on-time performance | ✅ Complete |
+| Accessibility | Elevator/escalator status and routing | ✅ Complete |
+| Commute Assistant | Personalized departure suggestions | ✅ Complete |
+| **Crowding** | **Multi-factor crowding estimates with segment analysis** | ✅ **Complete** |
 
 ### Tech Stack
 

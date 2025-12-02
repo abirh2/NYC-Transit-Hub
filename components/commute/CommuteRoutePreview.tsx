@@ -136,39 +136,6 @@ function LegDetailRow({ leg, stepNumber }: { leg: RouteLeg; stepNumber: number }
   );
 }
 
-/**
- * Individual leg display
- */
-function LegDisplay({ leg }: { leg: RouteLeg }) {
-  if (leg.mode === "WALK") {
-    return (
-      <div className="flex items-center gap-1.5 px-2 py-1 bg-default-100 rounded-lg">
-        <Footprints className="h-4 w-4 text-foreground/50" />
-        <span className="text-xs text-foreground/70">{leg.duration} min</span>
-      </div>
-    );
-  }
-
-  if (leg.isTransit && leg.route) {
-    return (
-      <div className="flex items-center gap-2 px-2 py-1 bg-default-100 rounded-lg">
-        <LineBadge line={leg.route} />
-        <div className="text-xs">
-          <span className="text-foreground/70">{leg.duration} min</span>
-        </div>
-      </div>
-    );
-  }
-
-  // Other modes (bus, etc.)
-  return (
-    <div className="flex items-center gap-1.5 px-2 py-1 bg-default-100 rounded-lg">
-      <span className="text-xs font-medium">{leg.route || leg.mode}</span>
-      <span className="text-xs text-foreground/70">{leg.duration} min</span>
-    </div>
-  );
-}
-
 // Subway lines that should use SubwayBullet
 const SUBWAY_LINES = new Set([
   "1", "2", "3", "4", "5", "6", "7",

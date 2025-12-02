@@ -942,6 +942,99 @@ curl "http://localhost:3000/api/commute/summary"
 
 ---
 
+### Crowding Metrics
+
+#### GET /api/metrics/crowding
+
+Get real-time crowding estimates for subway lines.
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `route` | string | Optional. Specific subway line (e.g., "A", "1") |
+| `enhanced` | boolean | Optional. Use `true` for multi-factor analysis (default: false) |
+
+**Example Request - Network-wide (Simple):**
+
+```bash
+curl "http://localhost:3000/api/metrics/crowding"
+```
+
+**Example Response (Simple):**
+
+```json
+[
+  {
+    "routeId": "A",
+    "avgHeadwayMin": 8,
+    "crowdingLevel": "MEDIUM",
+    "timestamp": "2024-12-02T20:00:00.000Z",
+    "referenceStation": "A27"
+  }
+]
+```
+
+**Example Request - Enhanced Analysis:**
+
+```bash
+curl "http://localhost:3000/api/metrics/crowding?enhanced=true&route=A"
+```
+
+**Example Response (Enhanced):**
+
+```json
+{
+  "routeId": "A",
+  "mode": "subway",
+  "avgScore": 45,
+  "avgLevel": "MEDIUM",
+  "segments": [
+    {
+      "routeId": "A",
+      "mode": "subway",
+      "direction": "N",
+      "segmentId": "A-inwood",
+      "segmentName": "Inwood",
+      "segmentStart": "A02",
+      "segmentEnd": "A12",
+      "crowdingLevel": "MEDIUM",
+      "crowdingScore": 45,
+      "factors": {
+        "headway": 0.42,
+        "demand": 0.45,
+        "delay": 0.0,
+        "alerts": 0.46
+      },
+      "timestamp": "2024-12-02T20:00:00.000Z",
+      "stationsInSegment": ["A02", "A03", "A05", "A06", "A07", "A09", "A10", "A11", "A12"]
+    }
+  ],
+  "timestamp": "2024-12-02T20:00:00.000Z"
+}
+```
+
+**Crowding Levels:**
+
+| Level | Score Range | Description |
+|-------|-------------|-------------|
+| `LOW` | 0-33 | Good service, minimal crowding |
+| `MEDIUM` | 34-66 | Moderate crowding, busy but manageable |
+| `HIGH` | 67-100 | Heavy crowding, expect delays and packed trains |
+
+**Enhanced Mode Factors:**
+
+| Factor | Weight | Description |
+|--------|--------|-------------|
+| Headway | 35% | Time gaps between trains |
+| Demand | 35% | Time-of-day ridership patterns |
+| Delay | 20% | Real-time train delays |
+| Alerts | 10% | Active service disruptions |
+
+**Caching:** 60 seconds
+
+---
+
 ## Error Responses
 
 All endpoints return errors in a consistent format:

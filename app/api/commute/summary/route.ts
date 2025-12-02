@@ -8,7 +8,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
-import { format, addMinutes, differenceInMinutes } from "date-fns";
+import { format, differenceInMinutes } from "date-fns";
 
 // OTP API configuration (same as routes/trip)
 const OTP_API_URL = "https://otp-mta-prod.camsys-apps.com/otp/routers/default/plan";

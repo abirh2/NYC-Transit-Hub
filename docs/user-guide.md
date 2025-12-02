@@ -139,13 +139,56 @@ Understand historical line performance:
 
 ### Crowding Estimates
 
-Know which trains are packed:
+NYC Transit Hub provides two levels of crowding analysis:
 
-1. Click "Crowding" on the dashboard
-2. View crowding levels by line
-3. Plan your trip to avoid packed trains
+#### Simple View (Fast)
 
-**Note:** Crowding is estimated based on train headways and delays, not actual passenger counts.
+The default view shows crowding based on train headways (time between trains):
+
+1. Click "Crowding" on the dashboard or sidebar
+2. View lines grouped by crowding level (High/Medium/Low)
+3. See average wait times between trains
+
+**Crowding Levels:**
+- **Low** (Green) - Headway < 6 min, frequent service
+- **Medium** (Yellow) - Headway 6-12 min, moderate waits
+- **High** (Red) - Headway > 12 min, long gaps mean crowded trains
+
+#### Enhanced View (Detailed)
+
+For more accurate estimates, click the **"Enhanced View"** button:
+
+1. **Multi-Factor Analysis** - Combines 4 factors:
+   - **Headway (35%)** - Time gaps between trains
+   - **Demand (35%)** - Rush hour vs off-peak ridership patterns
+   - **Delays (20%)** - Real-time train delays causing bunching
+   - **Alerts (10%)** - Active service disruptions
+
+2. **Segment Breakdown** - See crowding by line section:
+   - Click any route to expand
+   - View crowding for each segment (Inwood, Harlem, Midtown, etc.)
+   - See direction-specific data (Northbound vs Southbound)
+   - Review contributing factors per segment
+
+3. **Visual Diagrams** - Toggle to diagram view:
+   - Color-coded bars show crowding intensity
+   - Hover for detailed factor breakdown
+   - Quickly identify problem areas
+
+**Understanding Scores:**
+- **0-33** (Green) - Low crowding, good service
+- **34-66** (Yellow) - Moderate crowding, busy but manageable
+- **67-100** (Red) - Heavy crowding, expect packed trains and delays
+
+**How It Works (?)** - Click the info button on the page to learn how the system calculates crowding.
+
+**Tips:**
+- Check before your commute to avoid peak crowding
+- Use Enhanced View during rush hours for better accuracy
+- Morning rush: Inbound to Manhattan is most crowded
+- Evening rush: Outbound from Manhattan is most crowded
+
+**Note:** Crowding is estimated using MTA real-time data, not actual passenger counts. Updates every 60 seconds.
 
 ---
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 
 // Test the trip API response types and helper logic
 // Note: We don't test the actual API call since it depends on external MTA service
