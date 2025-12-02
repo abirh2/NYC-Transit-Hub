@@ -153,14 +153,14 @@ function computeMetricsByRoute(alerts: ServiceAlert[]): Map<string, {
 }
 
 /**
- * Check if a route ID is a subway line
+ * Check if a route ID is a subway line (excludes shuttles: S, FS, GS, H - infrequent service)
  */
 function isSubwayRoute(routeId: string): boolean {
   const subwayRoutes = [
     "1", "2", "3", "4", "5", "6", "7",
     "A", "C", "E", "B", "D", "F", "M",
     "G", "J", "Z", "L", "N", "Q", "R", "W",
-    "S", "SI", "SIR", "FS", "GS", "H"
+    "SI", "SIR"
   ];
   return subwayRoutes.includes(routeId.toUpperCase());
 }
