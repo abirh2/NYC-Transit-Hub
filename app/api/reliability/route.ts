@@ -25,12 +25,12 @@ import type { ServiceAlert } from "@/types/mta";
 export const dynamic = "force-dynamic";
 export const revalidate = 60; // Cache for 60 seconds
 
-// Subway routes for validation (excludes shuttles: S, FS, GS, H - infrequent service)
+// Subway routes for validation
 const SUBWAY_ROUTES = [
   "1", "2", "3", "4", "5", "6", "7",
   "A", "C", "E", "B", "D", "F", "M",
   "G", "J", "Z", "L", "N", "Q", "R", "W",
-  "SI"
+  "S", "SI", "FS", "GS", "H"
 ];
 
 /**

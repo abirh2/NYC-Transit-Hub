@@ -34,7 +34,7 @@ function createPrismaClient(): PrismaClient {
       connectionString: process.env.DATABASE_URL,
       max: 5, // Keep pool small for Supabase Session mode
       idleTimeoutMillis: 30000, // Close idle connections after 30s
-      connectionTimeoutMillis: 10000, // Timeout after 10s if can't connect
+      connectionTimeoutMillis: 30000, // Timeout after 30s (Supabase cold starts can be slow)
     });
   }
 
