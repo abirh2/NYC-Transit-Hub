@@ -193,8 +193,23 @@ function createRailIcon(trainId: string | null, direction: "inbound" | "outbound
  * Create a custom bus marker icon
  */
 function createBusIcon(routeId: string, bearing: number | null, L: typeof import("leaflet")): import("leaflet").DivIcon {
-  // Calculate rotation based on bearing
-  const rotation = bearing ? bearing : 0;
+  // Calculate direction arrow based on bearing
+  // 0 = North, 90 = East, 180 = South, 270 = West
+  const getDirectionArrow = (b: number | null): string => {
+    if (b === null) return "";
+    // Normalize bearing to 0-360
+    const normalized = ((b % 360) + 360) % 360;
+    if (normalized >= 337.5 || normalized < 22.5) return "↑";
+    if (normalized >= 22.5 && normalized < 67.5) return "↗";
+    if (normalized >= 67.5 && normalized < 112.5) return "→";
+    if (normalized >= 112.5 && normalized < 157.5) return "↘";
+    if (normalized >= 157.5 && normalized < 202.5) return "↓";
+    if (normalized >= 202.5 && normalized < 247.5) return "↙";
+    if (normalized >= 247.5 && normalized < 292.5) return "←";
+    return "↖";
+  };
+  
+  const arrow = getDirectionArrow(bearing);
   
   return L.divIcon({
     className: "custom-marker",
@@ -217,22 +232,21 @@ function createBusIcon(routeId: string, bearing: number | null, L: typeof import
           display: flex;
           align-items: center;
           justify-content: center;
-          transform: rotate(${rotation}deg);
         ">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-            <path d="M19 17h2l.64-2.54c.24-.959.24-1.962 0-2.92l-.64-2.54H3l-.64 2.54c-.24.959-.24 1.962 0 2.92L3 17h2"></path>
-            <path d="M14 17H9"></path>
-            <circle cx="6.5" cy="17.5" r="2.5"></circle>
-            <circle cx="16.5" cy="17.5" r="2.5"></circle>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
+            <rect x="3" y="4" width="18" height="12" rx="2"></rect>
+            <path d="M3 10h18"></path>
+            <circle cx="7" cy="16" r="2"></circle>
+            <circle cx="17" cy="16" r="2"></circle>
           </svg>
         </div>
         <span style="color: #fff; font-size: 12px; font-weight: 600;">${routeId}</span>
-        ${bearing !== null ? `
+        ${arrow ? `
           <div style="
             color: #3b82f6;
-            font-size: 12px;
-            transform: rotate(${rotation}deg);
-          ">➤</div>
+            font-size: 14px;
+            font-weight: bold;
+          ">${arrow}</div>
         ` : ''}
       </div>
     `,

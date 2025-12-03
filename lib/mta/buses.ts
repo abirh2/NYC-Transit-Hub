@@ -355,12 +355,12 @@ export async function getBusArrivals(options?: {
 
 /**
  * Get all active bus routes from current vehicle data
- * Falls back to static known routes if API fails
+ * Merges live data with static known routes for completeness
  */
 export async function getActiveBusRoutes(): Promise<{ routes: string[]; isLive: boolean }> {
   try {
     const response = await fetchSiriVehicleMonitoring({
-      maxVehicles: 500,
+      maxVehicles: 2000, // Increased to capture more routes
     });
 
     if (!response?.Siri?.ServiceDelivery?.VehicleMonitoringDelivery) {
@@ -368,8 +368,10 @@ export async function getActiveBusRoutes(): Promise<{ routes: string[]; isLive: 
       return { routes: getAllKnownRoutes(), isLive: false };
     }
 
-    const routes = new Set<string>();
+    // Start with all known static routes
+    const routes = new Set<string>(getAllKnownRoutes());
 
+    // Add any live routes (in case there are new routes not in static data)
     for (const delivery of response.Siri.ServiceDelivery.VehicleMonitoringDelivery) {
       if (delivery.VehicleActivity) {
         for (const activity of delivery.VehicleActivity) {
@@ -377,11 +379,6 @@ export async function getActiveBusRoutes(): Promise<{ routes: string[]; isLive: 
           routes.add(routeId);
         }
       }
-    }
-
-    if (routes.size === 0) {
-      // Fall back to static data
-      return { routes: getAllKnownRoutes(), isLive: false };
     }
 
     // Sort routes naturally (M1, M2, M10, M100, etc.)
