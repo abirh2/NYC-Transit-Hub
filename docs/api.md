@@ -886,6 +886,10 @@ curl "http://localhost:3000/api/metro-north/realtime?routeId=1&limit=10"
 | `inbound` | Toward Grand Central |
 | `outbound` | Away from Grand Central |
 
+**Note on Data Quality:**
+
+The MTA GTFS-RT feed is sometimes incomplete for certain trains (particularly Shore Line East inbound trains on the New Haven line). When intermediate stops like Harlem-125th St are missing from the real-time feed, this API automatically merges with GTFS static schedule data to provide complete stop information, applying real-time delays to the scheduled times. The same approach is used for LIRR.
+
 ---
 
 ### Reliability

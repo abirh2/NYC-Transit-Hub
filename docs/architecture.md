@@ -206,6 +206,21 @@ NYC-Transit-Hub/
 - **stops.txt** - 496 subway stations with coordinates
 - **routes.txt** - 29 subway routes with colors
 - **line-stations.json** - Ordered station sequences for all 26 subway lines
+- **mnr-schedule-lookup.json** - Metro-North train schedules (1,541 trains)
+- **lirr-schedule-lookup.json** - LIRR train schedules (1,713 trains)
+
+### GTFS-RT Schedule Merging
+
+The MTA GTFS-RT feed is sometimes incomplete for certain trains. For example, Shore Line East inbound trains on the New Haven line may have intermediate stops (like Harlem-125th St) missing from the real-time feed, even though the train actually stops there.
+
+To address this, the rail API (`lib/mta/rail.ts`) automatically merges GTFS-RT data with static schedule data:
+
+1. Load static schedule for the train number
+2. Compare stops in GTFS-RT with scheduled stops
+3. Fill in missing stops from the schedule
+4. Apply real-time delays to scheduled times
+
+This ensures complete stop information is always available, matching what users see in the official MTA apps.
 
 ---
 

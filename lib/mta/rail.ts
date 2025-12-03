@@ -1,11 +1,97 @@
 /**
  * MTA Regional Rail Feed Client
  * Fetches and parses LIRR and Metro-North GTFS-RT feeds
+ * 
+ * NOTE: The MTA GTFS-RT feed is incomplete for some trains (particularly 
+ * Shore Line East inbound trains). For these trains, intermediate NY stops
+ * like Harlem-125th St are missing from the real-time feed even though the
+ * train actually stops there.
+ * 
+ * This module merges GTFS-RT data with static schedule data to provide
+ * complete stop information, applying real-time delays to scheduled times.
  */
 
 import protobuf from "protobufjs";
 import type { RailArrival, TransitMode } from "@/types/mta";
 import { RAIL_FEED_URLS } from "./config";
+
+// ============================================================================
+// Static Schedule Data (for filling gaps in GTFS-RT)
+// ============================================================================
+
+// Types for static schedule lookup
+interface ScheduledStop {
+  id: string;
+  name: string;
+  time: string; // HH:MM:SS format
+}
+
+type ScheduleLookup = Record<string, ScheduledStop[]>;
+
+// Lazy-loaded schedule lookups (loaded from JSON at runtime)
+let mnrScheduleLookup: ScheduleLookup | null = null;
+let lirrScheduleLookup: ScheduleLookup | null = null;
+
+/**
+ * Load the Metro-North static schedule lookup
+ * This is lazily loaded on first use
+ */
+async function loadMnrSchedule(): Promise<ScheduleLookup> {
+  if (mnrScheduleLookup) return mnrScheduleLookup;
+  
+  try {
+    // In Next.js, we use dynamic import for JSON files
+    const data = await import('@/data/gtfs/mnr-schedule-lookup.json');
+    mnrScheduleLookup = data.default as ScheduleLookup;
+    return mnrScheduleLookup;
+  } catch (error) {
+    console.error('Failed to load MNR schedule lookup:', error);
+    return {};
+  }
+}
+
+/**
+ * Load the LIRR static schedule lookup
+ * This is lazily loaded on first use
+ */
+async function loadLirrSchedule(): Promise<ScheduleLookup> {
+  if (lirrScheduleLookup) return lirrScheduleLookup;
+  
+  try {
+    const data = await import('@/data/gtfs/lirr-schedule-lookup.json');
+    lirrScheduleLookup = data.default as ScheduleLookup;
+    return lirrScheduleLookup;
+  } catch (error) {
+    console.error('Failed to load LIRR schedule lookup:', error);
+    return {};
+  }
+}
+
+/**
+ * Parse time string (HH:MM:SS) to minutes since midnight
+ */
+function timeToMinutes(time: string): number {
+  const [h, m] = time.split(':').map(Number);
+  return h * 60 + m;
+}
+
+/**
+ * Get scheduled stop times for a train by train number
+ * Returns null if train not found in schedule
+ */
+async function getScheduledStops(trainNumber: string, mode: TransitMode): Promise<ScheduledStop[] | null> {
+  if (mode === 'metro-north') {
+    const schedule = await loadMnrSchedule();
+    return schedule[trainNumber] ?? null;
+  }
+  
+  if (mode === 'lirr') {
+    const schedule = await loadLirrSchedule();
+    return schedule[trainNumber] ?? null;
+  }
+  
+  return null;
+}
 
 // ============================================================================
 // Protobuf Schema
@@ -55,6 +141,21 @@ message StopTimeUpdate {
   optional string stop_id = 4;
   optional StopTimeEvent arrival = 2;
   optional StopTimeEvent departure = 3;
+  optional ScheduleRelationship schedule_relationship = 5;
+  // MTA Metro-North/LIRR extension: track and status info
+  optional MnrStopTimeUpdateExtension mnr_extension = 1005;
+  
+  enum ScheduleRelationship {
+    SCHEDULED = 0;
+    SKIPPED = 1;
+    NO_DATA = 2;
+  }
+}
+
+// MTA Metro-North/LIRR extension for stop status
+message MnrStopTimeUpdateExtension {
+  optional string track = 1;
+  optional string status = 2;  // "Departed", "Arriving", "On-Time", "Late", etc.
 }
 
 message StopTimeEvent {
@@ -283,11 +384,14 @@ function extractTrainNumber(entityId: string, mode: TransitMode): string | null 
 const DEFAULT_MAX_MINUTES_AWAY = 60;
 
 /**
- * Extract rail arrivals from feed
+ * Extract rail arrivals from feed, merging with static schedule when needed
  * Returns ONE arrival per trip (the next upcoming stop for each train)
  * Only includes trains arriving within maxMinutesAway (default 60 min)
+ * 
+ * For trains where GTFS-RT is missing intermediate stops, this function
+ * fills in from the static schedule and applies real-time delays.
  */
-export function extractRailArrivals(
+export async function extractRailArrivals(
   feed: RailFeedMessage,
   mode: TransitMode,
   options?: {
@@ -296,11 +400,15 @@ export function extractRailArrivals(
     limit?: number;
     maxMinutesAway?: number; // Only show trains arriving within this many minutes
   }
-): RailArrival[] {
+): Promise<RailArrival[]> {
   const arrivals: RailArrival[] = [];
   const now = Date.now();
   const maxMinutes = options?.maxMinutesAway ?? DEFAULT_MAX_MINUTES_AWAY;
   const maxTime = now + maxMinutes * 60 * 1000;
+  
+  // Get current date for schedule time calculations
+  const today = new Date();
+  const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
 
   for (const entity of feed.entity) {
     if (!entity.tripUpdate) continue;
@@ -315,6 +423,9 @@ export function extractRailArrivals(
     }
 
     const branchName = getBranchName(routeId, mode);
+    
+    // Extract train number from entity ID (this is what MTA uses to identify trains)
+    const trainNumber = extractTrainNumber(entity.id, mode);
     
     // Determine direction from stop sequence, not directionId (which is often unreliable)
     // For Metro-North/LIRR: Grand Central = stop "1", Penn Station = varies
@@ -341,36 +452,146 @@ export function extractRailArrivals(
       direction = trip.directionId === 0 ? "outbound" : "inbound";
     }
 
-    // Find the NEXT stop for this trip (first future stop)
-    // This prevents showing all future stops and inflating times
-    let nextStop: typeof tripUpdate.stopTimeUpdate[0] | null = null;
-    
-    for (const stopTime of tripUpdate.stopTimeUpdate) {
+    // Calculate delay from any stop that has it
+    let delay = 0;
+    for (const stop of stopUpdates) {
+      if (stop.arrival?.delay) {
+        delay = stop.arrival.delay;
+        break;
+      }
+      if (stop.departure?.delay) {
+        delay = stop.departure.delay;
+        break;
+      }
+    }
+
+    // Build a map of stopId -> realtime arrival time from GTFS-RT
+    const realtimeStops = new Map<string, { time: number; delay: number }>();
+    for (const stopTime of stopUpdates) {
       const arrivalTime = stopTime.arrival?.time
         ? stopTime.arrival.time * 1000
         : stopTime.departure?.time
           ? stopTime.departure.time * 1000
           : null;
-
-      // Skip if no time or already passed
-      if (!arrivalTime || arrivalTime < now) {
-        continue;
+      if (arrivalTime && stopTime.stopId) {
+        realtimeStops.set(stopTime.stopId, {
+          time: arrivalTime,
+          delay: stopTime.arrival?.delay ?? stopTime.departure?.delay ?? 0,
+        });
       }
+    }
 
-      // Skip if too far in the future (not an "active" train)
-      if (arrivalTime > maxTime) {
-        continue;
-      }
+    // Check if we need to fill in missing stops from static schedule
+    // This handles the case where GTFS-RT is missing intermediate stops
+    let scheduledStops: ScheduledStop[] | null = null;
+    if ((mode === 'metro-north' || mode === 'lirr') && trainNumber) {
+      scheduledStops = await getScheduledStops(trainNumber, mode);
+    }
 
-      // If filtering by stopId, only consider that stop
-      if (options?.stopId) {
-        if (stopTime.stopId === options.stopId) {
-          nextStop = stopTime;
-          break;
+    // If filtering by stopId, check if it's in the real-time data OR static schedule
+    if (options?.stopId) {
+      // First check if stopId is in real-time data
+      if (realtimeStops.has(options.stopId)) {
+        const rt = realtimeStops.get(options.stopId)!;
+        if (rt.time >= now && rt.time <= maxTime) {
+          const arrivalTime = new Date(rt.time);
+          arrivals.push({
+            tripId: trip.tripId ?? "",
+            routeId,
+            branchName,
+            direction,
+            stopId: options.stopId,
+            stopName: scheduledStops?.find(s => s.id === options.stopId)?.name ?? "",
+            arrivalTime,
+            departureTime: null,
+            delay: rt.delay,
+            minutesAway: Math.round((rt.time - now) / 60000),
+            trainId: trainNumber,
+            mode,
+          });
         }
-      } else {
-        // Otherwise take the first future stop (next stop)
-        nextStop = stopTime;
+        continue; // Found in real-time, no need to check schedule
+      }
+      
+      // Check if stopId is in static schedule (but missing from GTFS-RT)
+      if (scheduledStops) {
+        const scheduledStop = scheduledStops.find(s => s.id === options.stopId);
+        if (scheduledStop) {
+          // Calculate arrival time from schedule + delay
+          const scheduledMins = timeToMinutes(scheduledStop.time);
+          const scheduledTime = todayMidnight + scheduledMins * 60 * 1000 + delay * 1000;
+          
+          if (scheduledTime >= now && scheduledTime <= maxTime) {
+            arrivals.push({
+              tripId: trip.tripId ?? "",
+              routeId,
+              branchName,
+              direction,
+              stopId: options.stopId,
+              stopName: scheduledStop.name,
+              arrivalTime: new Date(scheduledTime),
+              departureTime: null,
+              delay,
+              minutesAway: Math.round((scheduledTime - now) / 60000),
+              trainId: trainNumber,
+              mode,
+            });
+          }
+        }
+      }
+      continue;
+    }
+
+    // Not filtering by stopId - find the next stop
+    // First, build a combined list of all stops (real-time + scheduled)
+    type CombinedStop = {
+      stopId: string;
+      stopName: string;
+      arrivalTime: number;
+      delay: number;
+      isFromSchedule: boolean;
+    };
+    
+    const combinedStops: CombinedStop[] = [];
+    
+    // Add all real-time stops
+    for (const [stopId, data] of realtimeStops) {
+      combinedStops.push({
+        stopId,
+        stopName: scheduledStops?.find(s => s.id === stopId)?.name ?? "",
+        arrivalTime: data.time,
+        delay: data.delay,
+        isFromSchedule: false,
+      });
+    }
+    
+    // Add scheduled stops that are missing from real-time
+    if (scheduledStops) {
+      for (const scheduled of scheduledStops) {
+        if (!realtimeStops.has(scheduled.id)) {
+          // This stop is in schedule but not in real-time feed
+          const scheduledMins = timeToMinutes(scheduled.time);
+          const scheduledTime = todayMidnight + scheduledMins * 60 * 1000 + delay * 1000;
+          
+          combinedStops.push({
+            stopId: scheduled.id,
+            stopName: scheduled.name,
+            arrivalTime: scheduledTime,
+            delay,
+            isFromSchedule: true,
+          });
+        }
+      }
+    }
+    
+    // Sort by arrival time
+    combinedStops.sort((a, b) => a.arrivalTime - b.arrivalTime);
+    
+    // Find the next stop (first future stop within time window)
+    let nextStop: CombinedStop | null = null;
+    for (const stop of combinedStops) {
+      if (stop.arrivalTime >= now && stop.arrivalTime <= maxTime) {
+        nextStop = stop;
         break;
       }
     }
@@ -378,33 +599,17 @@ export function extractRailArrivals(
     // Skip if no upcoming stop found within time window
     if (!nextStop) continue;
 
-    const arrivalTime = nextStop.arrival?.time
-      ? new Date(nextStop.arrival.time * 1000)
-      : nextStop.departure?.time
-        ? new Date(nextStop.departure.time * 1000)
-        : null;
-
-    if (!arrivalTime) continue;
-
-    const delay = nextStop.arrival?.delay ?? nextStop.departure?.delay ?? 0;
-    const minutesAway = Math.round((arrivalTime.getTime() - now) / 60000);
-
-    // Extract train number from entity ID (this is what MTA uses to identify trains)
-    const trainNumber = extractTrainNumber(entity.id, mode);
-
     arrivals.push({
       tripId: trip.tripId ?? "",
       routeId,
       branchName,
       direction,
-      stopId: nextStop.stopId ?? "",
-      stopName: "", // Will be populated from station lookup
-      arrivalTime,
-      departureTime: nextStop.departure?.time
-        ? new Date(nextStop.departure.time * 1000)
-        : null,
-      delay,
-      minutesAway,
+      stopId: nextStop.stopId,
+      stopName: nextStop.stopName,
+      arrivalTime: new Date(nextStop.arrivalTime),
+      departureTime: null,
+      delay: nextStop.delay,
+      minutesAway: Math.round((nextStop.arrivalTime - now) / 60000),
       trainId: trainNumber,
       mode,
     });
@@ -459,7 +664,7 @@ export async function getLirrArrivals(options?: {
 }): Promise<RailArrival[]> {
   const feed = await fetchRailFeed("lirr");
   if (!feed) return [];
-  return extractRailArrivals(feed, "lirr", options);
+  return await extractRailArrivals(feed, "lirr", options);
 }
 
 /**
@@ -472,7 +677,7 @@ export async function getMetroNorthArrivals(options?: {
 }): Promise<RailArrival[]> {
   const feed = await fetchRailFeed("metroNorth");
   if (!feed) return [];
-  return extractRailArrivals(feed, "metro-north", options);
+  return await extractRailArrivals(feed, "metro-north", options);
 }
 
 /**
