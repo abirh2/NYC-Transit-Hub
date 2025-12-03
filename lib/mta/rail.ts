@@ -286,7 +286,31 @@ export function extractRailArrivals(
     }
 
     const branchName = getBranchName(routeId, mode);
-    const direction = trip.directionId === 0 ? "outbound" : "inbound";
+    
+    // Determine direction from stop sequence, not directionId (which is often unreliable)
+    // For Metro-North/LIRR: Grand Central = stop "1", Penn Station = varies
+    // If the LAST stop in the sequence is the terminal (1), it's inbound
+    const stopUpdates = tripUpdate.stopTimeUpdate || [];
+    const lastStopId = stopUpdates[stopUpdates.length - 1]?.stopId;
+    const firstStopId = stopUpdates[0]?.stopId;
+    
+    // Infer direction: 
+    // - If last stop is "1" (Grand Central for MNR), it's inbound
+    // - If first stop is "1" (or another terminal), it's outbound
+    // - Fall back to directionId if we can't determine
+    let direction: "inbound" | "outbound";
+    if (mode === "metro-north") {
+      // Metro-North: stop "1" is Grand Central
+      direction = lastStopId === "1" ? "inbound" : "outbound";
+    } else if (mode === "lirr") {
+      // LIRR: Penn Station varies by branch, but we can use first vs last stop pattern
+      // If first stop is a major terminal (low ID), it's outbound
+      const firstStopNum = parseInt(firstStopId || "999");
+      const lastStopNum = parseInt(lastStopId || "999");
+      direction = lastStopNum < firstStopNum ? "inbound" : "outbound";
+    } else {
+      direction = trip.directionId === 0 ? "outbound" : "inbound";
+    }
 
     // Find the NEXT stop for this trip (first future stop)
     // This prevents showing all future stops and inflating times
