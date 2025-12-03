@@ -493,93 +493,266 @@ export default function RealtimePage() {
           </p>
         </div>
 
-        {/* Legend Button (subway only) */}
-        {selectedMode === "subway" && (
-          <Popover placement="bottom-end">
-            <PopoverTrigger>
-              <Button
-                size="sm"
-                variant="flat"
-                startContent={<Info className="h-4 w-4" />}
-              >
-                Legend
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80 p-0">
-              <div className="p-4 space-y-4">
-                <h3 className="font-semibold text-foreground">How to Read the Tracker</h3>
-                
-                <div className="space-y-2">
-                  <p className="text-xs font-medium text-foreground/70 uppercase tracking-wide">
-                    Train Markers
-                  </p>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-1 px-1 py-0.5 rounded-full bg-background shadow-sm border border-divider">
-                        <SubwayBullet line="A" size="sm" />
-                        <ArrowUp className="h-3 w-3 text-success" />
+        {/* Legend Button */}
+        <Popover placement="bottom-end">
+          <PopoverTrigger>
+            <Button
+              size="sm"
+              variant="flat"
+              startContent={<Info className="h-4 w-4" />}
+            >
+              Legend
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 p-0">
+            <div className="p-4 space-y-4">
+              <h3 className="font-semibold text-foreground">How to Read the Tracker</h3>
+              
+              {/* Subway Legend */}
+              {selectedMode === "subway" && (
+                <>
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-foreground/70 uppercase tracking-wide">
+                      Train Markers
+                    </p>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1 px-1 py-0.5 rounded-full bg-background shadow-sm border border-divider">
+                          <SubwayBullet line="A" size="sm" />
+                          <ArrowUp className="h-3 w-3 text-success" />
+                        </div>
+                        <span className="text-foreground/80">Northbound/Uptown train</span>
                       </div>
-                      <span className="text-foreground/80">Northbound/Uptown train</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-1 px-1 py-0.5 rounded-full bg-background shadow-sm border border-divider">
-                        <SubwayBullet line="A" size="sm" />
-                        <ArrowDown className="h-3 w-3 text-danger" />
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1 px-1 py-0.5 rounded-full bg-background shadow-sm border border-divider">
+                          <SubwayBullet line="A" size="sm" />
+                          <ArrowDown className="h-3 w-3 text-danger" />
+                        </div>
+                        <span className="text-foreground/80">Southbound/Downtown train</span>
                       </div>
-                      <span className="text-foreground/80">Southbound/Downtown train</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-background shadow-sm border border-divider">
-                        <SubwayBullet line="A" size="sm" />
-                        <ArrowUp className="h-3 w-3 text-success" />
-                        <span className="text-[10px] font-bold text-success">NOW</span>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-background shadow-sm border border-divider">
+                          <SubwayBullet line="A" size="sm" />
+                          <ArrowUp className="h-3 w-3 text-success" />
+                          <span className="text-[10px] font-bold text-success">NOW</span>
+                        </div>
+                        <span className="text-foreground/80">Arriving now (under 1 min)</span>
                       </div>
-                      <span className="text-foreground/80">Arriving now (under 1 min)</span>
                     </div>
                   </div>
-                </div>
 
-                <Divider />
+                  <Divider />
 
-                <div className="space-y-2">
-                  <p className="text-xs font-medium text-foreground/70 uppercase tracking-wide">
-                    Station Markers
-                  </p>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center gap-3">
-                      <div className="w-5 h-5 rounded-full border-4 border-primary bg-background" />
-                      <span className="text-foreground/80">Terminal station (end of line)</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="w-4 h-4 rounded-full border-[3px] border-primary bg-background" />
-                      <span className="text-foreground/80">Express stop</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="w-3 h-3 rounded-full border-2 border-primary bg-background" />
-                      <span className="text-foreground/80">Local stop</span>
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-foreground/70 uppercase tracking-wide">
+                      Station Markers
+                    </p>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="w-5 h-5 rounded-full border-4 border-primary bg-background" />
+                        <span className="text-foreground/80">Terminal station (end of line)</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="w-4 h-4 rounded-full border-[3px] border-primary bg-background" />
+                        <span className="text-foreground/80">Express stop</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="w-3 h-3 rounded-full border-2 border-primary bg-background" />
+                        <span className="text-foreground/80">Local stop</span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <Divider />
+                  <Divider />
 
-                <div className="space-y-2">
-                  <p className="text-xs font-medium text-foreground/70 uppercase tracking-wide">
-                    Transfers
-                  </p>
-                  <div className="flex items-center gap-2 text-sm">
-                    <div className="flex gap-0.5">
-                      <SubwayBullet line="1" size="sm" />
-                      <SubwayBullet line="2" size="sm" />
-                      <SubwayBullet line="3" size="sm" />
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-foreground/70 uppercase tracking-wide">
+                      Transfers
+                    </p>
+                    <div className="flex items-center gap-2 text-sm">
+                      <div className="flex gap-0.5">
+                        <SubwayBullet line="1" size="sm" />
+                        <SubwayBullet line="2" size="sm" />
+                        <SubwayBullet line="3" size="sm" />
+                      </div>
+                      <span className="text-foreground/80">Available transfers at station</span>
                     </div>
-                    <span className="text-foreground/80">Available transfers at station</span>
                   </div>
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
-        )}
+                </>
+              )}
+
+              {/* Bus Legend */}
+              {selectedMode === "bus" && (
+                <>
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-foreground/70 uppercase tracking-wide">
+                      Bus Markers
+                    </p>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-500 text-white text-xs font-bold">
+                          M15
+                        </div>
+                        <span className="text-foreground/80">Active bus with route number</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-purple-500 text-white text-xs font-bold">
+                          M15+
+                        </div>
+                        <span className="text-foreground/80">Select Bus Service (SBS)</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Divider />
+
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-foreground/70 uppercase tracking-wide">
+                      Map View
+                    </p>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-1 bg-blue-500 rounded" />
+                        <span className="text-foreground/80">Bus route path</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="w-3 h-3 rounded-full border-2 border-blue-500 bg-background" />
+                        <span className="text-foreground/80">Bus stop</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Divider />
+
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-foreground/70 uppercase tracking-wide">
+                      Route Types
+                    </p>
+                    <div className="space-y-1 text-sm text-foreground/80">
+                      <p><strong>M, B, Q, Bx, S</strong> — Local routes</p>
+                      <p><strong>BM, BxM, QM, SIM, X</strong> — Express routes</p>
+                      <p><strong>+ suffix</strong> — Select Bus Service</p>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* LIRR Legend */}
+              {selectedMode === "lirr" && (
+                <>
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-foreground/70 uppercase tracking-wide">
+                      Train Markers
+                    </p>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-success text-white text-xs font-bold">
+                          🚆 ↑
+                        </div>
+                        <span className="text-foreground/80">Outbound (from Penn Station)</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-success text-white text-xs font-bold">
+                          🚆 ↓
+                        </div>
+                        <span className="text-foreground/80">Inbound (to Penn Station)</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-warning text-white text-xs font-bold">
+                          🚆
+                        </div>
+                        <span className="text-foreground/80">Delayed train (2+ min late)</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Divider />
+
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-foreground/70 uppercase tracking-wide">
+                      Station Markers
+                    </p>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="w-4 h-4 rounded-full border-[3px] border-[#0039A6] bg-background" />
+                        <span className="text-foreground/80">Station on the branch</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Divider />
+
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-foreground/70 uppercase tracking-wide">
+                      Terminals
+                    </p>
+                    <div className="text-sm text-foreground/80">
+                      <p>All LIRR branches connect to <strong>Penn Station</strong> in Manhattan (some via Jamaica).</p>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Metro-North Legend */}
+              {selectedMode === "metro-north" && (
+                <>
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-foreground/70 uppercase tracking-wide">
+                      Train Markers
+                    </p>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-success text-white text-xs font-bold">
+                          🚆 ↑
+                        </div>
+                        <span className="text-foreground/80">Outbound (from Grand Central)</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-success text-white text-xs font-bold">
+                          🚆 ↓
+                        </div>
+                        <span className="text-foreground/80">Inbound (to Grand Central)</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-warning text-white text-xs font-bold">
+                          🚆
+                        </div>
+                        <span className="text-foreground/80">Delayed train (2+ min late)</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Divider />
+
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-foreground/70 uppercase tracking-wide">
+                      Station Markers
+                    </p>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="w-4 h-4 rounded-full border-[3px] border-[#D93A30] bg-background" />
+                        <span className="text-foreground/80">Station on the line</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Divider />
+
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-foreground/70 uppercase tracking-wide">
+                      Lines
+                    </p>
+                    <div className="text-sm text-foreground/80 space-y-1">
+                      <p><strong>Hudson</strong> — North along Hudson River</p>
+                      <p><strong>Harlem</strong> — North through Bronx</p>
+                      <p><strong>New Haven</strong> — East to Connecticut</p>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Mode Selector */}
