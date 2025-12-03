@@ -4,7 +4,7 @@
  * Run: node scripts/generate-pwa-icons.mjs
  */
 
-import { readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 

@@ -136,20 +136,50 @@ function parseItinerary(itinerary: OTPItinerary, now: Date) {
 }
 
 /**
- * Parse target arrival time string (HH:MM) to today's Date
- * Returns null if the target time has already passed today
+ * Parse target arrival time string (HH:MM) to today's Date in NYC timezone
+ * Returns the target as a proper Date object and whether we're past the commute window
  */
 function parseTargetArrival(targetArrival: string): { target: Date; isPastWindow: boolean } {
-  const [hours, minutes] = targetArrival.split(":").map(Number);
+  const [targetHours, targetMinutes] = targetArrival.split(":").map(Number);
   const now = new Date();
-  const target = new Date(now);
-  target.setHours(hours, minutes, 0, 0);
+  
+  // Get current time components in NYC timezone
+  const nycFormatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  
+  const parts = nycFormatter.formatToParts(now);
+  const getPart = (type: string) => parseInt(parts.find(p => p.type === type)?.value || "0", 10);
+  
+  const nycYear = getPart("year");
+  const nycMonth = getPart("month");
+  const nycDay = getPart("day");
+  const nycHour = getPart("hour");
+  const nycMinute = getPart("minute");
+  
+  // Calculate minutes from midnight in NYC for comparison
+  const currentMinutesInNYC = nycHour * 60 + nycMinute;
+  const targetMinutesInNYC = targetHours * 60 + targetMinutes;
   
   // Check if target has passed - give 1 hour grace period after target
-  const graceWindow = new Date(target);
-  graceWindow.setHours(graceWindow.getHours() + 1);
+  const isPastWindow = currentMinutesInNYC > targetMinutesInNYC + 60;
   
-  const isPastWindow = now > graceWindow;
+  // Create the target Date object representing targetHours:targetMinutes in NYC today
+  // We calculate the offset between UTC and NYC by comparing the parsed NYC string to now
+  const nycDateTimeStr = `${nycMonth}/${nycDay}/${nycYear} ${nycHour}:${String(nycMinute).padStart(2, '0')}`;
+  const nycInterpreted = new Date(nycDateTimeStr);
+  const offsetMs = now.getTime() - nycInterpreted.getTime();
+  
+  // Create target date by parsing as local time then adjusting for NYC offset
+  const targetDateTimeStr = `${nycMonth}/${nycDay}/${nycYear} ${targetHours}:${String(targetMinutes).padStart(2, '0')}`;
+  const targetInterpreted = new Date(targetDateTimeStr);
+  const target = new Date(targetInterpreted.getTime() + offsetMs);
   
   return { target, isPastWindow };
 }
