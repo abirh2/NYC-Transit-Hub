@@ -538,10 +538,53 @@ MTA_BUS_API_KEY=...     # Bus API key (server only)
 
 ---
 
+## Progressive Web App (PWA)
+
+NYC Transit Hub is a fully installable PWA with offline support.
+
+### PWA Features
+
+| Feature | Implementation |
+|---------|----------------|
+| Installable | Web app manifest with icons |
+| Offline Support | Service worker with caching |
+| App Icon | Custom gradient train icon (192x192, 512x512) |
+| Apple Support | Apple touch icons, status bar styling |
+
+### Service Worker Strategy
+
+The service worker (`app/sw.ts`) uses Serwist with the following caching strategies:
+
+| Resource Type | Strategy | Cache Duration |
+|---------------|----------|----------------|
+| API routes (`/api/*`) | Network First | 5 minutes |
+| MTA API requests | Network First | 2 minutes |
+| Static assets | Cache First | Long-term |
+| Pages | Stale While Revalidate | Varies |
+
+### Offline Fallback
+
+When offline and a page isn't cached, users see a friendly offline page (`/offline`) that:
+- Shows the app branding
+- Explains what features work offline
+- Auto-refreshes when connection returns
+
+### Files
+
+| File | Purpose |
+|------|---------|
+| `public/manifest.json` | Web app manifest |
+| `public/icons/app-icon.svg` | Master SVG icon |
+| `public/icons/*.png` | PNG icons (various sizes) |
+| `app/sw.ts` | Service worker source |
+| `app/offline/page.tsx` | Offline fallback page |
+
+---
+
 ## Future Improvements
 
 - [ ] WebSocket for real-time updates (eliminate polling)
-- [ ] PWA with offline support
+- [x] PWA with offline support
 - [ ] User authentication (NextAuth)
 - [ ] Push notifications for alerts
 - [ ] Background sync for commute tracking

@@ -222,6 +222,33 @@ nvm use 20.19.5 && npm install
 
 ---
 
+## Testing PWA Features
+
+The app is a Progressive Web App (PWA) with offline support. PWA features only work in production mode.
+
+### Testing the PWA
+
+```bash
+# Build and start production server
+nvm use 20.19.5 && npm run build && npm start
+```
+
+Then open http://localhost:3000 and:
+
+1. **Check install prompt** - Look for the install icon in your browser's address bar
+2. **Verify service worker** - Chrome DevTools > Application > Service Workers
+3. **Test offline mode** - DevTools > Network > Offline checkbox
+4. **Inspect manifest** - DevTools > Application > Manifest
+
+### PWA Development Notes
+
+- Service worker is **disabled in development** (`npm run dev`)
+- Build uses webpack (`--webpack` flag) for Serwist compatibility
+- Icon assets are in `public/icons/`
+- Run `node scripts/generate-pwa-icons.mjs` to regenerate icons
+
+---
+
 ## Next Steps
 
 - Read the [Architecture Guide](./architecture.md) to understand the system design

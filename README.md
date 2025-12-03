@@ -11,22 +11,24 @@ A personal web application providing real-time MTA transit information, reliabil
 
 | Feature | Description | Status |
 |---------|-------------|--------|
-| **Station Board** | Real-time departures for your saved stations | Phase 2 |
-| **Live Tracker** | Visual train positions on line diagrams | Phase 2 |
-| **Service Alerts** | Current delays and service changes | Phase 1 |
-| **Reliability** | Historical on-time performance metrics | Phase 3 |
-| **Accessibility** | Elevator/escalator status and routing | Phase 4 |
-| **Commute Assistant** | Personalized departure recommendations | Phase 4 |
-| **Crowding** | Estimated train crowding levels | Phase 5 |
+| **Station Board** | Real-time departures for your saved stations | Done |
+| **Live Tracker** | Visual train positions on line diagrams | Done |
+| **Service Alerts** | Current delays and service changes | Done |
+| **Reliability** | Historical on-time performance metrics | Done |
+| **Accessibility** | Elevator/escalator status and routing | Done |
+| **Commute Assistant** | Personalized departure recommendations | Done |
+| **Crowding** | Estimated train crowding levels | Done |
+| **PWA Support** | Installable app with offline support | Done |
 
 ## Tech Stack
 
-- **Framework:** Next.js 15 (App Router)
+- **Framework:** Next.js 16 (App Router)
 - **Language:** TypeScript (strict mode)
 - **UI Library:** HeroUI v2
 - **Styling:** Tailwind CSS v4
 - **Testing:** Vitest, React Testing Library, Playwright
-- **Database:** PostgreSQL (Supabase) - *Phase 1+*
+- **Database:** PostgreSQL (Supabase)
+- **PWA:** Serwist (service worker, offline support)
 
 ## Quick Start
 
