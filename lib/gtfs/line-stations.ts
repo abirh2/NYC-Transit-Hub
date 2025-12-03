@@ -18,6 +18,8 @@ export interface LineStation {
   express?: boolean;
   transfer?: string[];
   branch?: string;
+  lat?: number;
+  lon?: number;
 }
 
 export interface LineInfo {

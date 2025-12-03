@@ -2,7 +2,7 @@
  * API Request/Response Type Definitions
  */
 
-import type { ServiceAlert, TrainArrival, EquipmentOutage, BusArrival, StationInfo } from "./mta";
+import type { ServiceAlert, TrainArrival, EquipmentOutage, BusArrival, StationInfo, RailArrival } from "./mta";
 
 // ============================================================================
 // Generic API Response Wrapper
@@ -135,6 +135,28 @@ export interface BusRealtimeResponse {
   arrivals: BusArrival[];
   stopName?: string;
   lastUpdated: string;
+}
+
+// ============================================================================
+// Rail Realtime API (LIRR / Metro-North)
+// ============================================================================
+
+export interface RailRealtimeRequest {
+  routeId?: string;
+  stopId?: string;
+  limit?: number;
+}
+
+export interface RailRealtimeResponse {
+  arrivals: RailArrival[];
+  branches: Array<{ id: string; name: string }>;
+  lastUpdated: string;
+  isLive: boolean;
+}
+
+export interface RailRoutesResponse {
+  routes: Array<{ id: string; name: string }>;
+  isLive: boolean;
 }
 
 // ============================================================================

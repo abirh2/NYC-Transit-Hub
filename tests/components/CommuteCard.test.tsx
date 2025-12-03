@@ -34,8 +34,8 @@ describe("CommuteCard", () => {
 
     render(<CommuteCard />);
 
-    // Should show skeleton loaders
-    expect(document.querySelectorAll("[data-slot='base']").length).toBeGreaterThan(0);
+    // Should show skeleton loaders with .rounded class
+    expect(document.querySelectorAll(".rounded").length).toBeGreaterThan(0);
   });
 
   it("shows sign in prompt when not authenticated", async () => {
@@ -203,4 +203,3 @@ describe("CommuteCard", () => {
     expect(link).toHaveAttribute("href", "/commute");
   });
 });
-

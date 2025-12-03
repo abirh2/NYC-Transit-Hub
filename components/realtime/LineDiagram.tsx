@@ -34,8 +34,6 @@ interface LineDiagramProps {
   isLoading?: boolean;
   /** Error message if any */
   error?: string | null;
-  /** Height of the diagram container */
-  height?: number;
 }
 
 // Pixel spacing per station
@@ -46,7 +44,6 @@ export function LineDiagram({
   trains,
   isLoading = false,
   error = null,
-  height = 600,
 }: LineDiagramProps) {
   const [selectedTrain, setSelectedTrain] = useState<TrainArrival | null>(null);
 
@@ -167,16 +164,13 @@ export function LineDiagram({
     );
   }
 
-  const diagramHeight = Math.max(stations.length * STATION_SPACING, height - 48);
+  const diagramHeight = Math.max(stations.length * STATION_SPACING, 500);
 
   return (
     <Card className="h-full overflow-hidden">
-      <CardBody className="p-0 relative">
+      <CardBody className="p-0 relative h-full">
         {/* Scrollable diagram container */}
-        <div
-          className="relative overflow-y-auto px-4 pt-6 pb-20"
-          style={{ height: `${height}px` }}
-        >
+        <div className="absolute inset-0 overflow-y-auto px-4 pt-6 pb-20">
           {/* Main diagram area */}
           <div className="relative" style={{ height: `${diagramHeight}px` }}>
             

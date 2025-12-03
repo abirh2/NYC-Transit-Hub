@@ -9,9 +9,9 @@ Welcome to NYC Transit Hub! This guide will help you get the most out of the app
 NYC Transit Hub provides real-time information about New York City's public transit system, including:
 
 - **Subway** - Real-time train arrivals and delays
-- **Bus** - Coming soon
-- **LIRR** - Coming soon
-- **Metro-North** - Coming soon
+- **Bus** - Real-time bus positions and arrivals
+- **LIRR** - Long Island Rail Road train schedules
+- **Metro-North** - Metro-North Railroad train schedules
 
 ---
 
@@ -72,13 +72,26 @@ View detailed departure information for any station:
 
 ### Live Tracker
 
-Watch trains move in real-time along subway lines:
+Watch trains and buses move in real-time:
 
 1. Navigate to "Realtime" from the sidebar
-2. Click "Select Line" and choose a subway line
-3. View the vertical line diagram with all stations
-4. Watch train markers showing current positions
-5. Click any train marker to see detailed information
+2. Choose a mode: **Subway**, **Bus**, **LIRR**, or **Metro-North**
+3. Select a line/route/branch
+4. View real-time arrivals and positions
+5. Click any marker for detailed information
+
+#### View Modes
+
+Toggle between two viewing modes using the buttons in the top-right:
+
+- **Diagram** - Vertical line diagram showing all stations
+- **Map** - Interactive map with real-time vehicle positions
+
+#### Subway Mode
+
+- View a vertical line diagram showing all stations
+- Watch train markers update in real-time
+- Click train markers for destination and ETA details
 
 **Understanding the Diagram:**
 
@@ -91,6 +104,57 @@ Watch trains move in real-time along subway lines:
 | Red ↓ arrow | Southbound/Downtown train |
 | "NOW" badge | Train arriving within 1 minute |
 | Line bullets below station | Available transfers to other lines |
+
+**Map View:**
+
+| Symbol | Meaning |
+|--------|---------|
+| Colored line | Route path |
+| Circle markers | Station locations |
+| Train bullet + arrow | Live train position with direction |
+| Click marker | View train details (destination, ETA, delay) |
+
+#### Bus Mode
+
+- Select from 288+ NYC bus routes
+- Routes organized by borough (Manhattan, Brooklyn, Queens, Bronx, Staten Island)
+- Select Bus Service (SBS) routes shown with `+` suffix
+- Express routes include BM, BXM, QM, SIM, and X prefixes
+
+**Bus List View:**
+
+| Field | Description |
+|-------|-------------|
+| Destination | Final destination of the bus |
+| Next Stop | The bus's next scheduled stop |
+| ETA | Minutes until arrival |
+| Distance | How far the bus is from the stop |
+
+**Bus Map View:**
+
+- Route path shown as blue line following actual streets
+- All stops displayed as circle markers
+- Live bus positions with GPS coordinates
+- Bus icons show route number and direction (bearing)
+- Click any bus or stop for detailed information
+
+#### LIRR Mode
+
+- Select from 12 LIRR branches
+- View trains grouped by direction (To/From Penn Station)
+- See arrival times and any delays
+
+**LIRR Branches:**
+Babylon, City Terminal Zone, Far Rockaway, Hempstead, Long Beach, Montauk, Oyster Bay, Port Jefferson, Port Washington, Ronkonkoma, West Hempstead, Belmont Park
+
+#### Metro-North Mode
+
+- Select from 6 Metro-North lines
+- View trains grouped by direction (To/From Grand Central)
+- See arrival times and any delays
+
+**Metro-North Lines:**
+Hudson, Harlem, New Haven, New Canaan, Danbury, Waterbury
 
 **Train Details:**
 

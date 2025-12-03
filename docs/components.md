@@ -34,6 +34,7 @@ import { SubwayBullet } from "@/components/ui";
 <SubwayBullet line="F" />
 
 // With size
+<SubwayBullet line="A" size="xs" />  // 16px
 <SubwayBullet line="A" size="sm" />  // 20px
 <SubwayBullet line="A" size="md" />  // 24px (default)
 <SubwayBullet line="A" size="lg" />  // 32px
@@ -47,7 +48,76 @@ import { SubwayBullet } from "@/components/ui";
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
 | `line` | string | required | Subway line identifier (e.g., "F", "A", "7") |
-| `size` | "sm" \| "md" \| "lg" | "md" | Icon size |
+| `size` | "xs" \| "sm" \| "md" \| "lg" | "md" | Icon size |
+
+---
+
+### BusBadge
+
+Displays a bus route badge with color coding by borough.
+
+```tsx
+import { BusBadge } from "@/components/ui";
+
+// Basic usage
+<BusBadge route="M15" />
+
+// With size
+<BusBadge route="B44+" size="sm" />  // Select Bus Service
+<BusBadge route="BXM1" size="md" />  // Express bus
+
+// Abbreviated (for express routes)
+<BusBadge route="BXM10" abbreviated />  // Shows "Bx10"
+```
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `route` | string | required | Bus route ID (e.g., "M15", "B44+") |
+| `size` | "xs" \| "sm" \| "md" \| "lg" | "md" | Badge size |
+| `abbreviated` | boolean | false | Show abbreviated route ID |
+
+**Route Colors:**
+
+| Borough | Color | Routes |
+|---------|-------|--------|
+| Manhattan | Blue (#0039A6) | M1-M125 |
+| Brooklyn | Green (#00933C) | B1-B100 |
+| Queens | Yellow (#FCCC0A) | Q1-Q111 |
+| Bronx | Orange (#FF6319) | BX1-BX55 |
+| Staten Island | Gray (#808183) | S40-S98 |
+| Express | Brown (#6E3219) | BM, BXM, QM, SIM, X |
+| SBS | Purple (#B933AD) | Routes with + suffix |
+
+---
+
+### RailBadge
+
+Displays a LIRR branch or Metro-North line badge.
+
+```tsx
+import { RailBadge } from "@/components/ui";
+
+// LIRR branch
+<RailBadge branchId="1" branchName="Babylon" mode="lirr" />
+
+// Metro-North line
+<RailBadge branchId="1" branchName="Hudson" mode="metro-north" />
+
+// Abbreviated
+<RailBadge branchId="1" branchName="Babylon" mode="lirr" abbreviated />  // Shows "BAB"
+```
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `branchId` | string | required | Branch/Line ID |
+| `branchName` | string | required | Branch/Line name |
+| `mode` | "lirr" \| "metro-north" | required | Transit mode |
+| `size` | "xs" \| "sm" \| "md" \| "lg" | "md" | Badge size |
+| `abbreviated` | boolean | false | Show abbreviated name |
 | `className` | string | "" | Additional CSS classes |
 
 **Supported Lines:**
@@ -220,6 +290,28 @@ const [selectedLine, setSelectedLine] = useState<LineId | null>(null);
 
 ---
 
+### ModeSelector
+
+Tab selector for switching between transit modes (Subway, Bus, LIRR, Metro-North).
+
+```tsx
+import { ModeSelector } from "@/components/realtime";
+
+<ModeSelector
+  selectedMode="subway"
+  onModeChange={(mode) => setMode(mode)}
+/>
+```
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `selectedMode` | TransitMode | required | Currently selected mode |
+| `onModeChange` | (mode: TransitMode) => void | required | Callback when mode changes |
+
+---
+
 ### LineDiagram
 
 Displays a vertical line diagram with stations and live train positions for a single line.
@@ -232,7 +324,6 @@ import { LineDiagram } from "@/components/realtime";
   trains={trainArrivals}
   isLoading={false}
   error={null}
-  height={600}
 />
 ```
 
@@ -244,7 +335,6 @@ import { LineDiagram } from "@/components/realtime";
 | `trains` | TrainArrival[] | required | Array of train arrivals from API |
 | `isLoading` | boolean | false | Whether data is loading |
 | `error` | string \| null | null | Error message to display |
-| `height` | number | 600 | Height of the diagram container in pixels |
 
 **Features:**
 - Vertical scrollable track with all stations
@@ -325,6 +415,137 @@ import { TrainDetailPopover } from "@/components/realtime";
 **Mobile Behavior:**
 - Renders as bottom sheet modal on mobile
 - Centered modal on desktop
+
+---
+
+### BusSelector
+
+Dropdown selector for bus routes, organized by borough.
+
+```tsx
+import { BusSelector } from "@/components/realtime";
+
+<BusSelector
+  selectedRoute="M15"
+  onRouteChange={(route) => setRoute(route)}
+  availableRoutes={["M15", "M15+", "B44", ...]}
+/>
+```
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `selectedRoute` | string \| null | required | Currently selected route |
+| `onRouteChange` | (route: string \| null) => void | required | Route change callback |
+| `availableRoutes` | string[] | [] | Routes to show (from live API) |
+
+---
+
+### RailSelector
+
+Dropdown selector for LIRR branches or Metro-North lines.
+
+```tsx
+import { RailSelector } from "@/components/realtime";
+
+<RailSelector
+  mode="lirr"
+  selectedBranch="1"
+  onBranchChange={(branch) => setBranch(branch)}
+  branches={[{ id: "1", name: "Babylon" }, ...]}
+/>
+```
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `mode` | "lirr" \| "metro-north" | required | Transit mode |
+| `selectedBranch` | string \| null | required | Currently selected branch/line ID |
+| `onBranchChange` | (branch: string \| null) => void | required | Branch change callback |
+| `branches` | { id: string; name: string }[] | [] | Available branches from API |
+
+---
+
+### RailDiagram
+
+Displays a vertical line diagram for LIRR or Metro-North showing stations and train positions.
+
+```tsx
+import { RailDiagram } from "@/components/realtime";
+
+<RailDiagram
+  mode="lirr"
+  selectedBranch="1"
+  selectedBranchName="Babylon"
+  trains={railArrivals}
+  isLoading={false}
+  error={null}
+  lastUpdated={new Date()}
+/>
+```
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `mode` | TransitMode | required | "lirr" or "metro-north" |
+| `selectedBranch` | string \| null | required | Branch/line ID to display |
+| `selectedBranchName` | string | - | Branch name for display |
+| `trains` | RailArrival[] | required | Array of train arrivals |
+| `isLoading` | boolean | false | Whether data is loading |
+| `error` | string \| null | null | Error message to display |
+| `lastUpdated` | Date \| null | null | Last data update timestamp |
+
+---
+
+### TransitMap
+
+Interactive Leaflet map showing transit lines, stations, and live vehicle positions.
+
+```tsx
+import { TransitMap } from "@/components/realtime";
+
+<TransitMap
+  mode="subway"
+  selectedLine="A"
+  stations={stationsWithCoords}
+  lineColor="#0039A6"
+  trains={trainArrivals}
+  isLoading={false}
+/>
+```
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `mode` | TransitMode | required | Transit mode |
+| `selectedLine` | string \| null | required | Line/route/branch ID |
+| `stations` | StationWithCoords[] | required | Stations with lat/lon |
+| `lineColor` | string | required | Line color for polyline |
+| `trains` | TrainArrival[] | [] | Subway train arrivals |
+| `railTrains` | RailArrival[] | [] | LIRR/Metro-North arrivals |
+| `buses` | BusArrival[] | [] | Bus arrivals with GPS |
+| `busRouteShape` | [number, number][] | [] | Bus route path coordinates |
+| `isLoading` | boolean | false | Show loading state |
+
+**Features:**
+- CartoDB dark theme tiles
+- Polyline showing route path
+- Circle markers for stations with popups
+- Custom markers for vehicles:
+  - Subway: Line bullet with direction arrow
+  - Rail: Train icon with train number
+  - Bus: Bus icon with route number and bearing
+- Click markers for detailed popups
+- Auto-centers on line/route extent
+
+**Bus Mode:**
+- Shows route shape from GTFS data
+- Displays all stops along the route
+- Live bus GPS positions with bearing
 
 ---
 

@@ -91,6 +91,33 @@ export interface TrainArrival {
 }
 
 // ============================================================================
+// Normalized Rail Arrival (LIRR / Metro-North)
+// ============================================================================
+
+export interface RailArrival {
+  tripId: string;
+  routeId: string;
+  branchName: string;
+  direction: "inbound" | "outbound";
+
+  // Stop info
+  stopId: string;
+  stopName: string;
+
+  // Timing
+  arrivalTime: Date;
+  departureTime: Date | null;
+  delay: number; // seconds
+
+  // Computed
+  minutesAway: number;
+
+  // Rail-specific
+  trainId: string | null;
+  mode: TransitMode;
+}
+
+// ============================================================================
 // Normalized Service Alert
 // ============================================================================
 

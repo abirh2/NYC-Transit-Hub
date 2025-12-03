@@ -1,131 +1,17 @@
 /**
  * MTA Bus Feed Client
- * Fetches and parses bus GTFS-RT feeds (requires API key)
+ * Uses SIRI (Service Interface for Real-time Information) API for richer bus data
+ * Falls back to static route data when API is unavailable
  */
 
-import protobuf from "protobufjs";
 import type { BusArrival } from "@/types/mta";
-import { getBusFeedUrl } from "./config";
-
-// Reuse the same GTFS-RT proto schema from gtfs-rt.ts
-// The bus feeds use standard GTFS-RT format
-
-const GTFS_RT_PROTO = `
-syntax = "proto2";
-
-message FeedMessage {
-  required FeedHeader header = 1;
-  repeated FeedEntity entity = 2;
-}
-
-message FeedHeader {
-  required string gtfs_realtime_version = 1;
-  optional uint64 timestamp = 3;
-}
-
-message FeedEntity {
-  required string id = 1;
-  optional TripUpdate trip_update = 3;
-  optional VehiclePosition vehicle = 4;
-}
-
-message TripUpdate {
-  optional TripDescriptor trip = 1;
-  optional VehicleDescriptor vehicle = 3;
-  repeated StopTimeUpdate stop_time_update = 2;
-}
-
-message TripDescriptor {
-  optional string trip_id = 1;
-  optional string route_id = 5;
-}
-
-message VehicleDescriptor {
-  optional string id = 1;
-  optional string label = 2;
-}
-
-message StopTimeUpdate {
-  optional string stop_id = 4;
-  optional StopTimeEvent arrival = 2;
-  optional StopTimeEvent departure = 3;
-}
-
-message StopTimeEvent {
-  optional int64 time = 2;
-}
-
-message VehiclePosition {
-  optional TripDescriptor trip = 1;
-  optional VehicleDescriptor vehicle = 8;
-  optional Position position = 2;
-  optional string stop_id = 7;
-}
-
-message Position {
-  required float latitude = 1;
-  required float longitude = 2;
-  optional float bearing = 3;
-}
-`;
-
-let protoRoot: protobuf.Root | null = null;
-
-async function getProtoRoot(): Promise<protobuf.Root> {
-  if (protoRoot) return protoRoot;
-  protoRoot = protobuf.parse(GTFS_RT_PROTO).root;
-  return protoRoot;
-}
+import { getAllKnownRoutes, getKnownRouteCount } from "@/lib/gtfs/bus-routes";
 
 // ============================================================================
-// Feed Types
+// Configuration
 // ============================================================================
 
-interface BusFeedMessage {
-  header: {
-    gtfsRealtimeVersion: string;
-    timestamp: number;
-  };
-  entity: BusFeedEntity[];
-}
-
-interface BusFeedEntity {
-  id: string;
-  tripUpdate?: {
-    trip: {
-      tripId?: string;
-      routeId?: string;
-    };
-    vehicle?: {
-      id?: string;
-    };
-    stopTimeUpdate: Array<{
-      stopId?: string;
-      arrival?: { time?: number };
-      departure?: { time?: number };
-    }>;
-  };
-  vehicle?: {
-    trip?: {
-      tripId?: string;
-      routeId?: string;
-    };
-    vehicle?: {
-      id?: string;
-      label?: string;
-    };
-    position?: {
-      latitude: number;
-      longitude: number;
-      bearing?: number;
-    };
-    stopId?: string;
-  };
-}
-
-// ============================================================================
-// Bus Feed Fetching
-// ============================================================================
+const SIRI_BASE_URL = "https://bustime.mta.info/api/siri";
 
 /**
  * Check if bus API key is configured
@@ -134,80 +20,213 @@ export function isBusApiConfigured(): boolean {
   return !!process.env.MTA_BUS_API_KEY;
 }
 
+function getBusApiKey(): string | null {
+  return process.env.MTA_BUS_API_KEY ?? null;
+}
+
+// ============================================================================
+// SIRI Response Types
+// ============================================================================
+
+interface SiriResponse {
+  Siri: {
+    ServiceDelivery: {
+      ResponseTimestamp: string;
+      VehicleMonitoringDelivery?: Array<{
+        VehicleActivity?: VehicleActivity[];
+        ResponseTimestamp: string;
+        ValidUntil: string;
+      }>;
+      StopMonitoringDelivery?: Array<{
+        MonitoredStopVisit?: MonitoredStopVisit[];
+        ResponseTimestamp: string;
+      }>;
+    };
+  };
+}
+
+interface VehicleActivity {
+  MonitoredVehicleJourney: MonitoredVehicleJourney;
+  RecordedAtTime: string;
+}
+
+interface MonitoredStopVisit {
+  MonitoredVehicleJourney: MonitoredVehicleJourney;
+  RecordedAtTime: string;
+}
+
+interface MonitoredVehicleJourney {
+  LineRef: string;
+  DirectionRef: string;
+  FramedVehicleJourneyRef?: {
+    DataFrameRef: string;
+    DatedVehicleJourneyRef: string;
+  };
+  JourneyPatternRef?: string;
+  PublishedLineName?: string;
+  OperatorRef?: string;
+  OriginRef?: string;
+  DestinationRef?: string;
+  DestinationName?: string;
+  OriginAimedDepartureTime?: string;
+  SituationRef?: Array<{ SituationSimpleRef: string }>;
+  Monitored?: boolean;
+  VehicleLocation?: {
+    Longitude: number;
+    Latitude: number;
+  };
+  Bearing?: number;
+  ProgressRate?: string;
+  ProgressStatus?: string;
+  BlockRef?: string;
+  VehicleRef?: string;
+  MonitoredCall?: {
+    StopPointRef?: string;
+    StopPointName?: string;
+    VehicleLocationAtStop?: string;
+    VehicleAtStop?: boolean;
+    DestinationDisplay?: string;
+    AimedArrivalTime?: string;
+    ExpectedArrivalTime?: string;
+    AimedDepartureTime?: string;
+    ExpectedDepartureTime?: string;
+    ArrivalProximityText?: string;
+    DistanceFromStop?: number;
+    NumberOfStopsAway?: number;
+    Extensions?: {
+      Distances?: {
+        PresentableDistance?: string;
+        DistanceFromCall?: number;
+        StopsFromCall?: number;
+        CallDistanceAlongRoute?: number;
+      };
+    };
+  };
+  OnwardCalls?: {
+    OnwardCall?: Array<{
+      StopPointRef?: string;
+      StopPointName?: string;
+      ExpectedArrivalTime?: string;
+      ExpectedDepartureTime?: string;
+      Extensions?: {
+        Distances?: {
+          PresentableDistance?: string;
+          DistanceFromCall?: number;
+          StopsFromCall?: number;
+        };
+      };
+    }>;
+  };
+}
+
+// ============================================================================
+// SIRI API Functions
+// ============================================================================
+
 /**
- * Fetch bus vehicle positions
+ * Fetch vehicle monitoring data from SIRI API
+ * Returns all active buses or filtered by route
  */
-export async function fetchBusPositions(): Promise<BusFeedMessage | null> {
-  const url = getBusFeedUrl("vehiclePositions");
-  if (!url) {
+export async function fetchSiriVehicleMonitoring(options?: {
+  routeId?: string;
+  maxVehicles?: number;
+}): Promise<SiriResponse | null> {
+  const apiKey = getBusApiKey();
+  if (!apiKey) {
     console.warn("Bus API key not configured");
     return null;
   }
-  
+
+  const params = new URLSearchParams({
+    key: apiKey,
+  });
+
+  if (options?.routeId) {
+    // LineRef format: "MTA NYCT_M15" or just "M15"
+    const lineRef = options.routeId.includes("_") 
+      ? options.routeId 
+      : `MTA NYCT_${options.routeId}`;
+    params.set("LineRef", lineRef);
+  }
+
+  if (options?.maxVehicles) {
+    params.set("MaximumVehicles", String(options.maxVehicles));
+  }
+
+  const url = `${SIRI_BASE_URL}/vehicle-monitoring.json?${params}`;
+
   try {
     const response = await fetch(url, {
-      headers: {
-        "Accept": "application/x-protobuf",
-      },
       next: { revalidate: 30 },
     });
-    
+
     if (!response.ok) {
-      console.error(`Failed to fetch bus positions: ${response.status}`);
+      console.error(`SIRI vehicle monitoring failed: ${response.status}`);
       return null;
     }
-    
-    const buffer = await response.arrayBuffer();
-    return await parseBusFeed(Buffer.from(buffer));
+
+    return await response.json();
   } catch (error) {
-    console.error("Error fetching bus positions:", error);
+    console.error("Error fetching SIRI vehicle monitoring:", error);
     return null;
   }
 }
 
 /**
- * Fetch bus trip updates (arrival predictions)
+ * Fetch stop monitoring data from SIRI API
+ * Returns arrivals at a specific stop
  */
-export async function fetchBusTripUpdates(): Promise<BusFeedMessage | null> {
-  const url = getBusFeedUrl("tripUpdates");
-  if (!url) {
+export async function fetchSiriStopMonitoring(options: {
+  stopId?: string;
+  routeId?: string;
+  maxStopVisits?: number;
+}): Promise<SiriResponse | null> {
+  const apiKey = getBusApiKey();
+  if (!apiKey) {
     console.warn("Bus API key not configured");
     return null;
   }
-  
+
+  const params = new URLSearchParams({
+    key: apiKey,
+  });
+
+  if (options.stopId) {
+    // StopRef format: "MTA_308215" or just the stop ID
+    const stopRef = options.stopId.includes("_")
+      ? options.stopId
+      : `MTA_${options.stopId}`;
+    params.set("MonitoringRef", stopRef);
+  }
+
+  if (options.routeId) {
+    const lineRef = options.routeId.includes("_")
+      ? options.routeId
+      : `MTA NYCT_${options.routeId}`;
+    params.set("LineRef", lineRef);
+  }
+
+  if (options.maxStopVisits) {
+    params.set("MaximumStopVisits", String(options.maxStopVisits));
+  }
+
+  const url = `${SIRI_BASE_URL}/stop-monitoring.json?${params}`;
+
   try {
     const response = await fetch(url, {
-      headers: {
-        "Accept": "application/x-protobuf",
-      },
       next: { revalidate: 30 },
     });
-    
+
     if (!response.ok) {
-      console.error(`Failed to fetch bus trip updates: ${response.status}`);
+      console.error(`SIRI stop monitoring failed: ${response.status}`);
       return null;
     }
-    
-    const buffer = await response.arrayBuffer();
-    return await parseBusFeed(Buffer.from(buffer));
+
+    return await response.json();
   } catch (error) {
-    console.error("Error fetching bus trip updates:", error);
+    console.error("Error fetching SIRI stop monitoring:", error);
     return null;
   }
-}
-
-/**
- * Parse bus GTFS-RT feed
- */
-async function parseBusFeed(buffer: Buffer): Promise<BusFeedMessage> {
-  const root = await getProtoRoot();
-  const FeedMessage = root.lookupType("FeedMessage");
-  const message = FeedMessage.decode(new Uint8Array(buffer));
-  return FeedMessage.toObject(message, {
-    longs: Number,
-    enums: String,
-    defaults: true,
-  }) as unknown as BusFeedMessage;
 }
 
 // ============================================================================
@@ -215,121 +234,249 @@ async function parseBusFeed(buffer: Buffer): Promise<BusFeedMessage> {
 // ============================================================================
 
 /**
- * Extract bus arrivals from trip updates and vehicle positions
+ * Extract route ID from LineRef (e.g., "MTA NYCT_M15" -> "M15")
+ */
+function extractRouteId(lineRef: string): string {
+  return lineRef.split("_").pop() ?? lineRef;
+}
+
+/**
+ * Parse SIRI vehicle activity into BusArrival format
+ */
+function parseVehicleActivity(activity: VehicleActivity): BusArrival | null {
+  const journey = activity.MonitoredVehicleJourney;
+  if (!journey) return null;
+
+  const routeId = extractRouteId(journey.LineRef);
+  const monitoredCall = journey.MonitoredCall;
+  
+  // Parse arrival time
+  let arrivalTime: Date | null = null;
+  let minutesAway: number | null = null;
+  
+  if (monitoredCall?.ExpectedArrivalTime) {
+    arrivalTime = new Date(monitoredCall.ExpectedArrivalTime);
+    minutesAway = Math.round((arrivalTime.getTime() - Date.now()) / 60000);
+  }
+
+  return {
+    vehicleId: journey.VehicleRef ?? "",
+    tripId: journey.FramedVehicleJourneyRef?.DatedVehicleJourneyRef ?? "",
+    routeId,
+    headsign: journey.DestinationName ?? null,
+    latitude: journey.VehicleLocation?.Latitude ?? null,
+    longitude: journey.VehicleLocation?.Longitude ?? null,
+    bearing: journey.Bearing ?? null,
+    nextStopId: monitoredCall?.StopPointRef?.split("_").pop() ?? null,
+    nextStopName: monitoredCall?.StopPointName ?? null,
+    arrivalTime,
+    distanceFromStop: monitoredCall?.DistanceFromStop ?? 
+      monitoredCall?.Extensions?.Distances?.DistanceFromCall ?? null,
+    progressStatus: monitoredCall?.ArrivalProximityText ?? 
+      journey.ProgressStatus ?? null,
+    minutesAway,
+  };
+}
+
+/**
+ * Parse SIRI stop visit into BusArrival format
+ */
+function parseStopVisit(visit: MonitoredStopVisit): BusArrival | null {
+  return parseVehicleActivity(visit as VehicleActivity);
+}
+
+// ============================================================================
+// Public API
+// ============================================================================
+
+/**
+ * Get bus arrivals using SIRI API
+ * Can filter by route and/or stop
  */
 export async function getBusArrivals(options?: {
   routeId?: string;
   stopId?: string;
   limit?: number;
 }): Promise<BusArrival[]> {
-  // Fetch both feeds in parallel
-  const [tripUpdates, vehiclePositions] = await Promise.all([
-    fetchBusTripUpdates(),
-    fetchBusPositions(),
-  ]);
-  
-  if (!tripUpdates && !vehiclePositions) {
-    return [];
-  }
-  
   const arrivals: BusArrival[] = [];
-  const now = Date.now();
-  
-  // Build a map of vehicle positions for enrichment
-  const vehiclePositionMap = new Map<string, BusFeedEntity["vehicle"]>();
-  if (vehiclePositions) {
-    for (const entity of vehiclePositions.entity) {
-      if (entity.vehicle?.vehicle?.id) {
-        vehiclePositionMap.set(entity.vehicle.vehicle.id, entity.vehicle);
+
+  // If stopId is provided, use stop monitoring (more accurate for arrivals)
+  if (options?.stopId) {
+    const response = await fetchSiriStopMonitoring({
+      stopId: options.stopId,
+      routeId: options.routeId,
+      maxStopVisits: options?.limit ?? 20,
+    });
+
+    if (response?.Siri?.ServiceDelivery?.StopMonitoringDelivery) {
+      for (const delivery of response.Siri.ServiceDelivery.StopMonitoringDelivery) {
+        if (delivery.MonitoredStopVisit) {
+          for (const visit of delivery.MonitoredStopVisit) {
+            const arrival = parseStopVisit(visit);
+            if (arrival) arrivals.push(arrival);
+          }
+        }
+      }
+    }
+  } else {
+    // Use vehicle monitoring for route-wide or all buses view
+    const response = await fetchSiriVehicleMonitoring({
+      routeId: options?.routeId,
+      maxVehicles: options?.limit ?? 100,
+    });
+
+    if (response?.Siri?.ServiceDelivery?.VehicleMonitoringDelivery) {
+      for (const delivery of response.Siri.ServiceDelivery.VehicleMonitoringDelivery) {
+        if (delivery.VehicleActivity) {
+          for (const activity of delivery.VehicleActivity) {
+            const arrival = parseVehicleActivity(activity);
+            if (arrival) arrivals.push(arrival);
+          }
+        }
       }
     }
   }
-  
-  // Process trip updates
-  if (tripUpdates) {
-    for (const entity of tripUpdates.entity) {
-      if (!entity.tripUpdate) continue;
-      
-      const tripUpdate = entity.tripUpdate;
-      const routeId = tripUpdate.trip.routeId ?? "";
-      
-      // Apply route filter
-      if (options?.routeId && routeId !== options.routeId) {
-        continue;
-      }
-      
-      const vehicleId = tripUpdate.vehicle?.id ?? "";
-      const vehiclePosition = vehiclePositionMap.get(vehicleId);
-      
-      // Process each stop time update
-      for (const stopTime of tripUpdate.stopTimeUpdate) {
-        // Apply stop filter
-        if (options?.stopId && stopTime.stopId !== options.stopId) {
-          continue;
-        }
-        
-        const arrivalTime = stopTime.arrival?.time
-          ? new Date(stopTime.arrival.time * 1000)
-          : null;
-        
-        // Skip if already passed
-        if (arrivalTime && arrivalTime.getTime() < now) {
-          continue;
-        }
-        
-        const minutesAway = arrivalTime
-          ? Math.round((arrivalTime.getTime() - now) / 60000)
-          : null;
-        
-        arrivals.push({
-          vehicleId,
-          tripId: tripUpdate.trip.tripId ?? "",
-          routeId,
-          headsign: null, // Bus feeds don't include headsign
-          latitude: vehiclePosition?.position?.latitude ?? null,
-          longitude: vehiclePosition?.position?.longitude ?? null,
-          bearing: vehiclePosition?.position?.bearing ?? null,
-          nextStopId: stopTime.stopId ?? null,
-          nextStopName: null, // Would need stop lookup
-          arrivalTime,
-          distanceFromStop: null, // Not provided in GTFS-RT
-          progressStatus: null,
-          minutesAway,
-        });
-      }
-    }
-  }
-  
-  // Sort by arrival time
+
+  // Sort by arrival time (earliest first), with null times at end
   arrivals.sort((a, b) => {
+    if (!a.arrivalTime && !b.arrivalTime) return 0;
     if (!a.arrivalTime) return 1;
     if (!b.arrivalTime) return -1;
     return a.arrivalTime.getTime() - b.arrivalTime.getTime();
   });
-  
+
   // Apply limit
   if (options?.limit) {
     return arrivals.slice(0, options.limit);
   }
-  
+
   return arrivals;
 }
 
 /**
- * Get all bus routes from trip updates
+ * Get all active bus routes from current vehicle data
+ * Falls back to static known routes if API fails
  */
-export async function getActiveBusRoutes(): Promise<string[]> {
-  const tripUpdates = await fetchBusTripUpdates();
-  if (!tripUpdates) return [];
-  
-  const routes = new Set<string>();
-  for (const entity of tripUpdates.entity) {
-    const routeId = entity.tripUpdate?.trip.routeId;
-    if (routeId) {
-      routes.add(routeId);
+export async function getActiveBusRoutes(): Promise<{ routes: string[]; isLive: boolean }> {
+  try {
+    const response = await fetchSiriVehicleMonitoring({
+      maxVehicles: 500,
+    });
+
+    if (!response?.Siri?.ServiceDelivery?.VehicleMonitoringDelivery) {
+      // Fall back to static data
+      return { routes: getAllKnownRoutes(), isLive: false };
     }
+
+    const routes = new Set<string>();
+
+    for (const delivery of response.Siri.ServiceDelivery.VehicleMonitoringDelivery) {
+      if (delivery.VehicleActivity) {
+        for (const activity of delivery.VehicleActivity) {
+          const routeId = extractRouteId(activity.MonitoredVehicleJourney.LineRef);
+          routes.add(routeId);
+        }
+      }
+    }
+
+    if (routes.size === 0) {
+      // Fall back to static data
+      return { routes: getAllKnownRoutes(), isLive: false };
+    }
+
+    // Sort routes naturally (M1, M2, M10, M100, etc.)
+    const sortedRoutes = Array.from(routes).sort((a, b) => {
+      const aPrefix = a.match(/^[A-Z]+/)?.[0] ?? "";
+      const bPrefix = b.match(/^[A-Z]+/)?.[0] ?? "";
+      if (aPrefix !== bPrefix) return aPrefix.localeCompare(bPrefix);
+      const aNum = parseInt(a.replace(/^[A-Z]+/, "")) || 0;
+      const bNum = parseInt(b.replace(/^[A-Z]+/, "")) || 0;
+      return aNum - bNum;
+    });
+
+    return { routes: sortedRoutes, isLive: true };
+  } catch (error) {
+    console.error("Failed to fetch active bus routes:", error);
+    // Fall back to static data
+    return { routes: getAllKnownRoutes(), isLive: false };
   }
-  
-  return [...routes].sort();
 }
 
+/**
+ * Get bus count by route (for dashboard summary)
+ * Falls back to static data if API unavailable
+ */
+export async function getBusSummary(): Promise<{
+  totalBuses: number;
+  activeRoutes: string[];
+  byRouteGroup: Record<string, number>;
+  isLive: boolean;
+}> {
+  try {
+    const response = await fetchSiriVehicleMonitoring({
+      maxVehicles: 1000,
+    });
+
+    const routeCounts = new Map<string, number>();
+    const routeGroupCounts: Record<string, number> = {};
+    let totalBuses = 0;
+
+    if (response?.Siri?.ServiceDelivery?.VehicleMonitoringDelivery) {
+      for (const delivery of response.Siri.ServiceDelivery.VehicleMonitoringDelivery) {
+        if (delivery.VehicleActivity) {
+          for (const activity of delivery.VehicleActivity) {
+            totalBuses++;
+            const routeId = extractRouteId(activity.MonitoredVehicleJourney.LineRef);
+            routeCounts.set(routeId, (routeCounts.get(routeId) ?? 0) + 1);
+
+            // Group by prefix (M, B, Q, BX, S, etc.)
+            const prefix = routeId.match(/^[A-Z]+/)?.[0] ?? "OTHER";
+            routeGroupCounts[prefix] = (routeGroupCounts[prefix] ?? 0) + 1;
+          }
+        }
+      }
+    }
+
+    if (totalBuses === 0) {
+      // Fall back to static data (no live counts available)
+      return {
+        totalBuses: 0,
+        activeRoutes: getAllKnownRoutes(),
+        byRouteGroup: {},
+        isLive: false,
+      };
+    }
+
+    const activeRoutes = Array.from(routeCounts.keys()).sort((a, b) => {
+      const aPrefix = a.match(/^[A-Z]+/)?.[0] ?? "";
+      const bPrefix = b.match(/^[A-Z]+/)?.[0] ?? "";
+      if (aPrefix !== bPrefix) return aPrefix.localeCompare(bPrefix);
+      const aNum = parseInt(a.replace(/^[A-Z]+/, "")) || 0;
+      const bNum = parseInt(b.replace(/^[A-Z]+/, "")) || 0;
+      return aNum - bNum;
+    });
+
+    return {
+      totalBuses,
+      activeRoutes,
+      byRouteGroup: routeGroupCounts,
+      isLive: true,
+    };
+  } catch (error) {
+    console.error("Failed to fetch bus summary:", error);
+    // Fall back to static data
+    return {
+      totalBuses: 0,
+      activeRoutes: getAllKnownRoutes(),
+      byRouteGroup: {},
+      isLive: false,
+    };
+  }
+}
+
+/**
+ * Get static route count (for display when API unavailable)
+ */
+export function getStaticRouteCount(): number {
+  return getKnownRouteCount();
+}

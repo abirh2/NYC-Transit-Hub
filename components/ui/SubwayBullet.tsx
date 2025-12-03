@@ -76,11 +76,12 @@ function getIconFilename(line: string): string {
 
 interface SubwayBulletProps {
   line: string;
-  size?: "sm" | "md" | "lg";
+  size?: "xs" | "sm" | "md" | "lg";
   className?: string;
 }
 
 const sizeMap = {
+  xs: { px: 16, text: "text-[9px]" },
   sm: { px: 20, text: "text-xs" },
   md: { px: 24, text: "text-sm" },
   lg: { px: 32, text: "text-base" },

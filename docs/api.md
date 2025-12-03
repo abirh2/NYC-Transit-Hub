@@ -679,6 +679,213 @@ curl "http://localhost:3000/api/buses/realtime?routeId=M15&limit=5"
 }
 ```
 
+#### GET /api/buses/routes
+
+Get available bus routes (from live API or static fallback).
+
+**Example Request:**
+
+```bash
+curl "http://localhost:3000/api/buses/routes"
+```
+
+**Example Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "routes": ["M1", "M2", "M3", "M15", "M15+", "B44", "B44+", ...],
+    "byGroup": {
+      "M": ["M1", "M2", "M3", ...],
+      "B": ["B44", "B44+", ...],
+      "Q": ["Q32", ...],
+      "BX": ["BX12", ...],
+      "S": ["S79+", ...],
+      "BM": ["BM1", ...],
+      "BXM": ["BXM1", ...],
+      "QM": ["QM1", ...],
+      "SIM": ["SIM1", ...],
+      "X": ["X27", ...]
+    },
+    "isLive": true,
+    "totalCount": 288
+  },
+  "timestamp": "2024-01-15T12:02:00.000Z"
+}
+```
+
+**Route Groups:**
+
+| Group | Description |
+|-------|-------------|
+| `M` | Manhattan Local |
+| `B` | Brooklyn Local |
+| `Q` | Queens Local |
+| `BX` | Bronx Local |
+| `S` | Staten Island Local |
+| `BM` | Brooklyn Express |
+| `BXM` | Bronx Express |
+| `QM` | Queens Express |
+| `SIM` | Staten Island Express |
+| `X` | Express (cross-borough) |
+
+**Note:** Routes ending in `+` are Select Bus Service (SBS) routes.
+
+---
+
+### LIRR Arrivals
+
+#### GET /api/lirr/realtime
+
+Get real-time LIRR train arrival predictions.
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `routeId` | string | Filter by branch ID (e.g., "1" for Babylon) |
+| `stopId` | string | Filter by stop ID |
+| `limit` | number | Maximum results (default: 50) |
+
+**Example Request:**
+
+```bash
+curl "http://localhost:3000/api/lirr/realtime?routeId=1&limit=10"
+```
+
+**Example Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "arrivals": [
+      {
+        "tripId": "GO103_25_2767",
+        "routeId": "1",
+        "branchName": "Babylon",
+        "direction": "inbound",
+        "stopId": "51",
+        "stopName": "",
+        "arrivalTime": "2024-01-15T12:30:00.000Z",
+        "departureTime": null,
+        "delay": 0,
+        "minutesAway": 15,
+        "trainId": "2767",
+        "mode": "lirr"
+      }
+    ],
+    "branches": [
+      { "id": "1", "name": "Babylon" },
+      { "id": "9", "name": "Port Washington" },
+      { "id": "10", "name": "Ronkonkoma" }
+    ],
+    "lastUpdated": "2024-01-15T12:15:00.000Z",
+    "isLive": true
+  },
+  "timestamp": "2024-01-15T12:15:00.000Z"
+}
+```
+
+**LIRR Branches:**
+
+| ID | Branch Name |
+|----|-------------|
+| 1 | Babylon |
+| 2 | City Terminal Zone |
+| 3 | Far Rockaway |
+| 4 | Hempstead |
+| 5 | Long Beach |
+| 6 | Montauk |
+| 7 | Oyster Bay |
+| 8 | Port Jefferson |
+| 9 | Port Washington |
+| 10 | Ronkonkoma |
+| 11 | West Hempstead |
+| 12 | Belmont Park |
+
+**Direction Values:**
+
+| Value | Description |
+|-------|-------------|
+| `inbound` | Toward Penn Station |
+| `outbound` | Away from Penn Station |
+
+---
+
+### Metro-North Arrivals
+
+#### GET /api/metro-north/realtime
+
+Get real-time Metro-North train arrival predictions.
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `routeId` | string | Filter by line ID (e.g., "1" for Hudson) |
+| `stopId` | string | Filter by stop ID |
+| `limit` | number | Maximum results (default: 50) |
+
+**Example Request:**
+
+```bash
+curl "http://localhost:3000/api/metro-north/realtime?routeId=1&limit=10"
+```
+
+**Example Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "arrivals": [
+      {
+        "tripId": "2922034",
+        "routeId": "1",
+        "branchName": "Hudson",
+        "direction": "inbound",
+        "stopId": "1",
+        "stopName": "",
+        "arrivalTime": "2024-01-15T12:45:00.000Z",
+        "departureTime": null,
+        "delay": 120,
+        "minutesAway": 20,
+        "trainId": "H101",
+        "mode": "metro-north"
+      }
+    ],
+    "branches": [
+      { "id": "1", "name": "Hudson" },
+      { "id": "2", "name": "Harlem" },
+      { "id": "3", "name": "New Haven" }
+    ],
+    "lastUpdated": "2024-01-15T12:25:00.000Z",
+    "isLive": true
+  },
+  "timestamp": "2024-01-15T12:25:00.000Z"
+}
+```
+
+**Metro-North Lines:**
+
+| ID | Line Name |
+|----|-----------|
+| 1 | Hudson |
+| 2 | Harlem |
+| 3 | New Haven |
+| 4 | New Canaan |
+| 5 | Danbury |
+| 6 | Waterbury |
+
+**Direction Values:**
+
+| Value | Description |
+|-------|-------------|
+| `inbound` | Toward Grand Central |
+| `outbound` | Away from Grand Central |
+
 ---
 
 ### Reliability
