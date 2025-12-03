@@ -141,7 +141,8 @@ function createRailIcon(trainId: string | null, direction: "inbound" | "outbound
   const arrow = direction === "outbound" ? "↑" : "↓";
   const arrowColor = direction === "outbound" ? "#22c55e" : "#ef4444";
   const ringColor = isArriving ? "#22c55e" : "transparent";
-  const label = trainId || "🚆";
+  // trainId should always have a value now, but fallback just in case
+  const label = trainId && trainId !== "---" ? trainId : "#";
   
   return L.divIcon({
     className: "custom-marker",

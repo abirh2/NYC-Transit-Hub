@@ -233,21 +233,46 @@ export function getBranchName(routeId: string, mode: TransitMode): string {
  * Extract a train number from trip ID
  * LIRR trip IDs are like "25_105_1_Babylon" - we extract "25" as the train number
  * Metro-North similar patterns
+ * 
+ * Always returns a displayable string (never null) to avoid showing emoji fallbacks
  */
-function extractTrainNumber(tripId: string, vehicleLabel?: string | null): string | null {
-  // If we have a vehicle label, use it (often is the train number)
+function extractTrainNumber(tripId: string, vehicleLabel?: string | null): string {
+  // If we have a numeric vehicle label, use it (often is the actual train number)
   if (vehicleLabel && /^\d+$/.test(vehicleLabel)) {
     return vehicleLabel;
   }
   
-  // Try to extract train number from trip ID
-  // Pattern: "25_105_..." -> "25"
-  const match = tripId.match(/^(\d+)_/);
-  if (match) {
-    return match[1];
+  // If vehicle label exists and is reasonably short, use it
+  if (vehicleLabel && vehicleLabel.length <= 8) {
+    return vehicleLabel;
   }
   
-  return null;
+  // Pattern 1: "25_105_..." -> "25" (leading number before underscore)
+  const numericPrefix = tripId.match(/^(\d+)_/);
+  if (numericPrefix) {
+    return numericPrefix[1];
+  }
+  
+  // Pattern 2: Numbers embedded like "_1234_" in the ID
+  const embeddedNumber = tripId.match(/_(\d{3,})(?:_|$)/);
+  if (embeddedNumber) {
+    return embeddedNumber[1];
+  }
+  
+  // Pattern 3: Any sequence of 2+ digits
+  const anyNumber = tripId.match(/(\d{2,})/);
+  if (anyNumber) {
+    return anyNumber[1];
+  }
+  
+  // Fallback: Use first part of trip ID as identifier
+  if (tripId.length > 0) {
+    const cleanId = tripId.replace(/^(trip_|TR_|MNR_|LIRR_)/i, "");
+    const shortId = cleanId.split("_")[0] || cleanId.slice(0, 6);
+    return shortId.toUpperCase();
+  }
+  
+  return "---";
 }
 
 // Default time window for "active" trains (60 minutes)

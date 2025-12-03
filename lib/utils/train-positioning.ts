@@ -196,7 +196,8 @@ export function interpolateTrainPosition(
  * Stagger train positions to prevent overlap
  *
  * When multiple trains are close together, spreads them along the track
- * to make each one visible. Maintains order (sooner arrivals closer to destination).
+ * direction to make markers more visible. Keeps trains on the line by only
+ * adjusting along the track, not perpendicular to it.
  */
 export function staggerTrainPositions<T extends { minutesAway: number; direction: string }>(
   positions: Array<{ train: T; position: [number, number] }>,
@@ -204,13 +205,8 @@ export function staggerTrainPositions<T extends { minutesAway: number; direction
 ): Array<{ train: T; position: [number, number] }> {
   if (positions.length <= 1) return positions;
 
-  // Sort by position (roughly by latitude for north-south lines)
-  const sorted = [...positions].sort((a, b) => {
-    // Primary sort by position
-    const latDiff = a.position[0] - b.position[0];
-    if (Math.abs(latDiff) > 0.001) return latDiff;
-    return a.position[1] - b.position[1];
-  });
+  // Sort by arrival time so trains arriving sooner are closer to destination
+  const sorted = [...positions].sort((a, b) => a.train.minutesAway - b.train.minutesAway);
 
   const result: Array<{ train: T; position: [number, number] }> = [];
 
@@ -228,21 +224,20 @@ export function staggerTrainPositions<T extends { minutesAway: number; direction
       );
 
       if (dist < minSeparationKm) {
-        // Offset this train slightly along the track direction
-        // Use a small offset perpendicular to avoid exact overlap
-        const offsetLat = (Math.random() - 0.5) * 0.002; // ~200m random offset
-        const offsetLon = (Math.random() - 0.5) * 0.002;
-
-        // Also move slightly along the track based on arrival time
-        const timeOffset = current.train.minutesAway * 0.0003; // ~30m per minute
+        // Only offset along the track direction (based on arrival time difference)
+        // This keeps trains on the line while spreading them out
+        const timeDiff = Math.max(0.5, current.train.minutesAway - placed.train.minutesAway);
+        const trackOffset = timeDiff * 0.0005; // ~50m per minute difference
+        
+        // Direction determines which way to offset
         const directionMultiplier =
           current.train.direction === "N" || current.train.direction === "inbound"
-            ? 1
-            : -1;
+            ? -1  // Offset backward (south/west) for trains heading north/inbound
+            : 1;  // Offset backward (north/east) for trains heading south/outbound
 
         adjustedPosition = [
-          adjustedPosition[0] + offsetLat + timeOffset * directionMultiplier,
-          adjustedPosition[1] + offsetLon,
+          adjustedPosition[0] + trackOffset * directionMultiplier,
+          adjustedPosition[1] + trackOffset * directionMultiplier * 0.5, // Slight lon offset
         ];
       }
     }

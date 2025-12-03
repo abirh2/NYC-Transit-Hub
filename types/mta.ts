@@ -113,7 +113,7 @@ export interface RailArrival {
   minutesAway: number;
 
   // Rail-specific
-  trainId: string | null;
+  trainId: string; // Train number or identifier (always populated)
   mode: TransitMode;
 }
 
