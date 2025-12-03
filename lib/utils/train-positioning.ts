@@ -97,6 +97,10 @@ export function estimateTravelTimeMinutes(
  * 3. Estimated travel times between stations (based on distance)
  *
  * For trains far from their next stop, walks back through multiple stations
+ * 
+ * Special handling for terminal stations:
+ * - Outbound trains at terminal (Grand Central/Penn Station) are WAITING to depart,
+ *   not traveling toward the terminal. Position them at the terminal.
  */
 export function interpolateTrainPosition(
   nextStopId: string,
@@ -115,6 +119,20 @@ export function interpolateTrainPosition(
   // If arriving very soon, position at the station
   if (minutesAway <= 0.5) {
     return [nextStation.lat, nextStation.lon];
+  }
+
+  // Special case for regional rail: outbound trains at terminal haven't departed yet
+  // They're waiting at Grand Central/Penn Station - don't show them on the live tracker
+  // Terminal is typically at the start of the station list (index 0)
+  if ((mode === "metro-north" || mode === "lirr") && direction === "outbound") {
+    const isTerminal = stationIndex === 0 || 
+      nextStation.name?.toLowerCase().includes("grand central") ||
+      nextStation.name?.toLowerCase().includes("penn station");
+    
+    if (isTerminal) {
+      // Train hasn't departed yet - return null to exclude from map
+      return null;
+    }
   }
 
   // Determine which direction to look for the "previous" station (where train came from)
