@@ -113,7 +113,7 @@ export interface RailArrival {
   minutesAway: number;
 
   // Rail-specific
-  trainId: string; // Train number or identifier (always populated)
+  trainId: string | null; // Train number from entity ID (may be null if parsing fails)
   mode: TransitMode;
 }
 

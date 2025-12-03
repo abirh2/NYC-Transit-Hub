@@ -230,49 +230,53 @@ export function getBranchName(routeId: string, mode: TransitMode): string {
 }
 
 /**
- * Extract a train number from trip ID
- * LIRR trip IDs are like "25_105_1_Babylon" - we extract "25" as the train number
- * Metro-North similar patterns
+ * Extract a train identifier for display
  * 
- * Always returns a displayable string (never null) to avoid showing emoji fallbacks
+ * The ENTITY ID is what MTA actually uses to identify trains:
+ * 
+ * Metro-North: Entity ID IS the train number (e.g., "1324", "1248")
+ *              These are 4-digit numbers that identify the train
+ * 
+ * LIRR: Entity ID is like "GO103_25_809_T" where 809 is the train number
+ *       The _T suffix indicates TripUpdate, _V indicates VehiclePosition
+ * 
+ * Returns the train number/identifier for display
  */
-function extractTrainNumber(tripId: string, vehicleLabel?: string | null): string {
-  // If we have a numeric vehicle label, use it (often is the actual train number)
-  if (vehicleLabel && /^\d+$/.test(vehicleLabel)) {
-    return vehicleLabel;
+function extractTrainNumber(entityId: string, mode: TransitMode): string | null {
+  // Metro-North: Entity ID is directly the train number (4 digits)
+  // e.g., "1324", "1248", "1275"
+  if (mode === "metro-north") {
+    // Entity ID should be a pure number for Metro-North
+    if (/^\d{3,5}$/.test(entityId)) {
+      return entityId;
+    }
   }
   
-  // If vehicle label exists and is reasonably short, use it
-  if (vehicleLabel && vehicleLabel.length <= 8) {
-    return vehicleLabel;
+  // LIRR: Entity ID is like "GO103_25_809_T" 
+  // Extract the train number (809) from the pattern
+  if (mode === "lirr") {
+    // Pattern: GO{scheduleId}_{date}_{trainNumber}_{suffix}
+    // e.g., "GO103_25_809_T" -> "809"
+    const lirrMatch = entityId.match(/GO\d+_\d+_(\d{2,4})(?:_\d+)?_[TV]$/);
+    if (lirrMatch) {
+      return lirrMatch[1];
+    }
+    
+    // Alternative: might have extra segments like "GO103_25_420_2891_METS_T"
+    // In this case "420" is the train number
+    const lirrAltMatch = entityId.match(/GO\d+_\d+_(\d{2,4})_/);
+    if (lirrAltMatch) {
+      return lirrAltMatch[1];
+    }
   }
   
-  // Pattern 1: "25_105_..." -> "25" (leading number before underscore)
-  const numericPrefix = tripId.match(/^(\d+)_/);
-  if (numericPrefix) {
-    return numericPrefix[1];
+  // Fallback: try to find a reasonable train number in the ID
+  const trainNum = entityId.match(/(?:^|_)(\d{3,4})(?:_|$)/);
+  if (trainNum) {
+    return trainNum[1];
   }
   
-  // Pattern 2: Numbers embedded like "_1234_" in the ID
-  const embeddedNumber = tripId.match(/_(\d{3,})(?:_|$)/);
-  if (embeddedNumber) {
-    return embeddedNumber[1];
-  }
-  
-  // Pattern 3: Any sequence of 2+ digits
-  const anyNumber = tripId.match(/(\d{2,})/);
-  if (anyNumber) {
-    return anyNumber[1];
-  }
-  
-  // Fallback: Use first part of trip ID as identifier
-  if (tripId.length > 0) {
-    const cleanId = tripId.replace(/^(trip_|TR_|MNR_|LIRR_)/i, "");
-    const shortId = cleanId.split("_")[0] || cleanId.slice(0, 6);
-    return shortId.toUpperCase();
-  }
-  
-  return "---";
+  return null;
 }
 
 // Default time window for "active" trains (60 minutes)
@@ -385,11 +389,8 @@ export function extractRailArrivals(
     const delay = nextStop.arrival?.delay ?? nextStop.departure?.delay ?? 0;
     const minutesAway = Math.round((arrivalTime.getTime() - now) / 60000);
 
-    // Extract a meaningful train number
-    const trainNumber = extractTrainNumber(
-      trip.tripId ?? "", 
-      tripUpdate.vehicle?.label ?? tripUpdate.vehicle?.id
-    );
+    // Extract train number from entity ID (this is what MTA uses to identify trains)
+    const trainNumber = extractTrainNumber(entity.id, mode);
 
     arrivals.push({
       tripId: trip.tripId ?? "",
