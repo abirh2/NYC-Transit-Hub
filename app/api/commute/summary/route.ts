@@ -139,7 +139,12 @@ function parseItinerary(itinerary: OTPItinerary, now: Date) {
  * Parse target arrival time string (HH:MM) to today's Date in NYC timezone
  * Returns the target as a proper Date object and whether we're past the commute window
  */
-function parseTargetArrival(targetArrival: string): { target: Date; isPastWindow: boolean } {
+function parseTargetArrival(targetArrival: string): { 
+  target: Date; 
+  isPastWindow: boolean;
+  targetHour24: number;
+  targetMinute: number;
+} {
   const [targetHours, targetMinutes] = targetArrival.split(":").map(Number);
   const now = new Date();
   
@@ -157,9 +162,6 @@ function parseTargetArrival(targetArrival: string): { target: Date; isPastWindow
   const parts = nycFormatter.formatToParts(now);
   const getPart = (type: string) => parseInt(parts.find(p => p.type === type)?.value || "0", 10);
   
-  const nycYear = getPart("year");
-  const nycMonth = getPart("month");
-  const nycDay = getPart("day");
   const nycHour = getPart("hour");
   const nycMinute = getPart("minute");
   
@@ -170,18 +172,42 @@ function parseTargetArrival(targetArrival: string): { target: Date; isPastWindow
   // Check if target has passed - give 1 hour grace period after target
   const isPastWindow = currentMinutesInNYC > targetMinutesInNYC + 60;
   
-  // Create the target Date object representing targetHours:targetMinutes in NYC today
-  // We calculate the offset between UTC and NYC by comparing the parsed NYC string to now
-  const nycDateTimeStr = `${nycMonth}/${nycDay}/${nycYear} ${nycHour}:${String(nycMinute).padStart(2, '0')}`;
-  const nycInterpreted = new Date(nycDateTimeStr);
-  const offsetMs = now.getTime() - nycInterpreted.getTime();
+  // For display purposes, create a Date object at the target time TODAY in NYC
+  // Use a proper ISO format with the NYC timezone offset
+  const nycYear = getPart("year");
+  const nycMonth = getPart("month");
+  const nycDay = getPart("day");
   
-  // Create target date by parsing as local time then adjusting for NYC offset
-  const targetDateTimeStr = `${nycMonth}/${nycDay}/${nycYear} ${targetHours}:${String(targetMinutes).padStart(2, '0')}`;
-  const targetInterpreted = new Date(targetDateTimeStr);
-  const target = new Date(targetInterpreted.getTime() + offsetMs);
+  // Create ISO string and parse with NYC timezone consideration
+  // Note: This creates a Date representing the target NYC time for display purposes only
+  const isoString = `${nycYear}-${String(nycMonth).padStart(2, '0')}-${String(nycDay).padStart(2, '0')}T${String(targetHours).padStart(2, '0')}:${String(targetMinutes).padStart(2, '0')}:00`;
   
-  return { target, isPastWindow };
+  // Parse in NYC timezone by using toLocaleString trick
+  const tempDate = new Date(isoString + "Z"); // Parse as UTC first
+  const utcTime = tempDate.getTime();
+  
+  // Get NYC offset (EST is -5, EDT is -4)
+  // Calculate dynamically by comparing UTC to NYC formatted time
+  const testFormatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    hour: "numeric",
+    hour12: false,
+  });
+  const nycTestHour = parseInt(testFormatter.format(now), 10);
+  const utcTestHour = now.getUTCHours();
+  let nycOffsetHours = nycTestHour - utcTestHour;
+  if (nycOffsetHours > 12) nycOffsetHours -= 24;
+  if (nycOffsetHours < -12) nycOffsetHours += 24;
+  
+  // Adjust the target time from "NYC wall clock" to actual UTC
+  const target = new Date(utcTime - (nycOffsetHours * 60 * 60 * 1000));
+  
+  return { 
+    target, 
+    isPastWindow,
+    targetHour24: targetHours,
+    targetMinute: targetMinutes,
+  };
 }
 
 /**
@@ -283,16 +309,14 @@ export async function GET(request: Request) {
     let queryTime = `${getPart("hour")}:${getPart("minute")}${getPart("dayPeriod").toLowerCase()}`;
     
     if (settings.targetArrival) {
-      const { target: targetTime, isPastWindow } = parseTargetArrival(settings.targetArrival);
+      const { isPastWindow, targetHour24, targetMinute } = parseTargetArrival(settings.targetArrival);
       
       // If target is still in the future (not past window), query for arrival by that time
       if (!isPastWindow) {
         useArriveBy = true;
-        // Format target time for OTP
-        const targetHour = targetTime.getHours();
-        const targetMinute = targetTime.getMinutes();
-        const ampm = targetHour >= 12 ? "pm" : "am";
-        const hour12 = targetHour > 12 ? targetHour - 12 : (targetHour === 0 ? 12 : targetHour);
+        // Format target time for OTP using the original parsed values (already in NYC time)
+        const ampm = targetHour24 >= 12 ? "pm" : "am";
+        const hour12 = targetHour24 > 12 ? targetHour24 - 12 : (targetHour24 === 0 ? 12 : targetHour24);
         queryTime = `${hour12}:${targetMinute.toString().padStart(2, "0")}${ampm}`;
       }
     }
@@ -366,9 +390,13 @@ export async function GET(request: Request) {
     let isPastWindow = false;
 
     if (settings.targetArrival) {
-      const { target: targetTime, isPastWindow: pastWindow } = parseTargetArrival(settings.targetArrival);
+      const { target: targetTime, isPastWindow: pastWindow, targetHour24, targetMinute } = parseTargetArrival(settings.targetArrival);
       isPastWindow = pastWindow;
-      targetArrivalDisplay = format(targetTime, "h:mm a");
+      
+      // Format display time directly from parsed values (NYC time)
+      const displayAmpm = targetHour24 >= 12 ? "PM" : "AM";
+      const displayHour12 = targetHour24 > 12 ? targetHour24 - 12 : (targetHour24 === 0 ? 12 : targetHour24);
+      targetArrivalDisplay = `${displayHour12}:${targetMinute.toString().padStart(2, "0")} ${displayAmpm}`;
       
       // Only calculate status if we're still within the commute window
       if (!isPastWindow) {
