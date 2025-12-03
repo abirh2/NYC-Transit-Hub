@@ -157,7 +157,9 @@ export async function fetchSiriVehicleMonitoring(options?: {
 
   try {
     const response = await fetch(url, {
-      next: { revalidate: 30 },
+      // Large responses (>2MB) can't use Next.js cache, use no-store for those
+      cache: options?.maxVehicles && options.maxVehicles > 500 ? "no-store" : undefined,
+      next: options?.maxVehicles && options.maxVehicles > 500 ? undefined : { revalidate: 30 },
     });
 
     if (!response.ok) {
