@@ -226,7 +226,8 @@ export default function RealtimePage() {
     setBusData(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      const response = await fetch(`/api/buses/realtime?routeId=${selectedBusRoute}&limit=50`);
+      // URL-encode route ID to handle special characters like + in SBS routes
+      const response = await fetch(`/api/buses/realtime?routeId=${encodeURIComponent(selectedBusRoute)}&limit=50`);
       const data = await response.json();
 
       if (data.success && data.data?.arrivals) {
