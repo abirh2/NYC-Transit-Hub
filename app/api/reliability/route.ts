@@ -25,13 +25,25 @@ import type { ServiceAlert } from "@/types/mta";
 export const dynamic = "force-dynamic";
 export const revalidate = 60; // Cache for 60 seconds
 
-// Subway routes for validation
+// Subway routes for validation (includes shuttles)
 const SUBWAY_ROUTES = [
   "1", "2", "3", "4", "5", "6", "7",
   "A", "C", "E", "B", "D", "F", "M",
   "G", "J", "Z", "L", "N", "Q", "R", "W",
   "S", "SI", "FS", "GS", "H"
 ];
+
+// Routes to display in reliability metrics (excludes shuttles - S, FS, GS, H)
+// These have limited service and skew reliability data
+const DISPLAY_SUBWAY_ROUTES = [
+  "1", "2", "3", "4", "5", "6", "7",
+  "A", "C", "E", "B", "D", "F", "M",
+  "G", "J", "Z", "L", "N", "Q", "R", "W",
+  "SI"
+];
+
+// Shuttle routes to exclude from display
+const SHUTTLE_ROUTES = new Set(["S", "FS", "GS", "H"]);
 
 /**
  * Compute live alerts fallback when no historical data exists
@@ -50,7 +62,9 @@ function computeLiveAlertsFallback(alerts: ServiceAlert[]): {
   const lineCounts = new Map<string, number>();
   for (const alert of activeAlerts) {
     for (const route of alert.affectedRoutes) {
-      if (SUBWAY_ROUTES.includes(route.toUpperCase())) {
+      const routeUpper = route.toUpperCase();
+      // Include valid subway routes but exclude shuttles from display
+      if (SUBWAY_ROUTES.includes(routeUpper) && !SHUTTLE_ROUTES.has(routeUpper)) {
         lineCounts.set(route, (lineCounts.get(route) || 0) + 1);
       }
     }
@@ -199,9 +213,9 @@ export async function GET(
       dayData.severeCount += metric.severeCount;
     }
 
-    // Build per-line summary with reliability scores (include ALL subway lines)
+    // Build per-line summary with reliability scores (exclude shuttles)
     // Only filter to specific route if routeId param is provided
-    const allRoutes = routeId ? [routeId] : SUBWAY_ROUTES;
+    const allRoutes = routeId ? [routeId] : DISPLAY_SUBWAY_ROUTES;
     
     const byLine: LineReliabilitySummary[] = allRoutes.map(route => {
       const data = byRouteMap.get(route);
