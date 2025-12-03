@@ -542,6 +542,16 @@ import { TransitMap } from "@/components/realtime";
 - Click markers for detailed popups
 - Auto-centers on line/route extent
 
+**Smart Train Positioning:**
+
+Train positions are interpolated based on their ETA to the next stop, with intelligent placement that:
+- Uses geographic distance between stations (Haversine formula)
+- Estimates travel time based on mode (subway ~30 km/h, regional rail ~51 km/h)
+- Walks back through multiple stations for trains far from their next stop
+- Staggers overlapping trains to make all markers visible
+
+This prevents issues like a train "16 min away" from appearing at its next stop.
+
 **Bus Mode:**
 - Shows route shape from GTFS data
 - Displays all stops along the route

@@ -114,6 +114,8 @@ Toggle between two viewing modes using the buttons in the top-right:
 | Train bullet + arrow | Live train position with direction |
 | Click marker | View train details (destination, ETA, delay) |
 
+Train positions on the map are intelligently calculated based on their ETA to the next station. A train showing "16 min" will appear appropriately far from its destination, not at the station itself. The system accounts for different speeds (subway vs regional rail) and prevents overlapping markers when multiple trains are in the same area.
+
 #### Bus Mode
 
 - Select from 288+ NYC bus routes

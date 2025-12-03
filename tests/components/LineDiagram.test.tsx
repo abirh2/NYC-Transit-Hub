@@ -98,17 +98,16 @@ describe('LineDiagram', () => {
     expect(trainBullets.length).toBeGreaterThan(0);
   });
 
-  it('renders with custom height', () => {
+  it('renders with h-full class for flexible height', () => {
     const { container } = render(
       <LineDiagram 
         selectedLine="A" 
         trains={mockTrains} 
-        height={800}
       />
     );
-    // The scrollable container should have the custom height
-    const scrollContainer = container.querySelector('[style*="height: 800px"]');
-    expect(scrollContainer).toBeInTheDocument();
+    // The container should use h-full for flexible height
+    const mainContainer = container.querySelector('.h-full');
+    expect(mainContainer).toBeInTheDocument();
   });
 
   it('displays singular "train" when only one train in view', () => {

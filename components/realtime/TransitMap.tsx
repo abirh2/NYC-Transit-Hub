@@ -13,6 +13,12 @@ import { MapPin } from "lucide-react";
 import dynamic from "next/dynamic";
 import type { TransitMode, TrainArrival, BusArrival, RailArrival } from "@/types/mta";
 import { getRailStationName } from "@/lib/gtfs/rail-stations";
+import {
+  calculateStationDistances,
+  interpolateTrainPosition,
+  staggerTrainPositions,
+  type StationWithCoords,
+} from "@/lib/utils/train-positioning";
 
 // Leaflet is loaded dynamically on client side
 
@@ -63,15 +69,6 @@ const SUBWAY_COLORS: Record<string, string> = {
   "S": "#808183", "SF": "#808183", "SR": "#808183",
   "SIR": "#0039A6",
 };
-
-// Station with coordinates
-interface StationWithCoords {
-  id: string;
-  name: string;
-  lat: number;
-  lon: number;
-  type?: string;
-}
 
 interface TransitMapProps {
   mode: TransitMode;
@@ -245,48 +242,6 @@ function createBusIcon(routeId: string, bearing: number | null, L: typeof import
 }
 
 /**
- * Interpolate train position between stations based on ETA
- */
-function interpolateTrainPosition(
-  nextStopId: string,
-  minutesAway: number,
-  direction: string,
-  stations: StationWithCoords[]
-): [number, number] | null {
-  const stationIndex = stations.findIndex((s) => s.id === nextStopId);
-  if (stationIndex === -1) return null;
-
-  const nextStation = stations[stationIndex];
-  if (!nextStation.lat || !nextStation.lon) return null;
-
-  if (minutesAway <= 1) {
-    return [nextStation.lat, nextStation.lon];
-  }
-
-  const prevIndex =
-    direction === "N" || direction === "inbound"
-      ? stationIndex + 1
-      : stationIndex - 1;
-
-  if (prevIndex < 0 || prevIndex >= stations.length) {
-    return [nextStation.lat, nextStation.lon];
-  }
-
-  const prevStation = stations[prevIndex];
-  if (!prevStation.lat || !prevStation.lon) {
-    return [nextStation.lat, nextStation.lon];
-  }
-
-  const avgTimeBetweenStations = 3;
-  const progress = Math.max(0, Math.min(1, 1 - minutesAway / avgTimeBetweenStations));
-
-  const lat = prevStation.lat + (nextStation.lat - prevStation.lat) * progress;
-  const lon = prevStation.lon + (nextStation.lon - prevStation.lon) * progress;
-
-  return [lat, lon];
-}
-
-/**
  * Get station name from ID
  */
 function getStationName(stopId: string, stations: StationWithCoords[]): string {
@@ -365,9 +320,15 @@ export function TransitMap({
     return NYC_CENTER;
   }, [lineCoords, mode, buses]);
 
+  // Pre-calculate station distances for efficient position interpolation
+  const stationDistances = useMemo(() => {
+    return calculateStationDistances(stations);
+  }, [stations]);
+
   const trainPositions = useMemo(() => {
     if (mode !== "subway") return [];
-    return trains
+    
+    const rawPositions = trains
       .filter((t) => t.routeId === selectedLine)
       .map((train) => {
         const baseStopId = train.stopId.replace(/[NS]$/, "");
@@ -375,28 +336,39 @@ export function TransitMap({
           baseStopId,
           train.minutesAway,
           train.direction,
-          stations
+          stations,
+          stationDistances,
+          mode
         );
         return pos ? { train, position: pos } : null;
       })
       .filter(Boolean) as Array<{ train: TrainArrival; position: [number, number] }>;
-  }, [trains, stations, selectedLine, mode]);
+    
+    // Apply staggering to prevent overlapping markers
+    return staggerTrainPositions(rawPositions, 0.3); // 300m minimum separation for subway
+  }, [trains, stations, stationDistances, selectedLine, mode]);
 
   const railPositions = useMemo(() => {
     if (mode !== "lirr" && mode !== "metro-north") return [];
-    return railTrains
+    
+    const rawPositions = railTrains
       .filter((t) => t.routeId === selectedLine)
       .map((train) => {
         const pos = interpolateTrainPosition(
           train.stopId,
           train.minutesAway,
           train.direction,
-          stations
+          stations,
+          stationDistances,
+          mode
         );
         return pos ? { train, position: pos } : null;
       })
       .filter(Boolean) as Array<{ train: RailArrival; position: [number, number] }>;
-  }, [railTrains, stations, selectedLine, mode]);
+    
+    // Apply staggering with larger separation for regional rail
+    return staggerTrainPositions(rawPositions, 0.5); // 500m minimum separation for rail
+  }, [railTrains, stations, stationDistances, selectedLine, mode]);
 
   const busPositions = useMemo(() => {
     if (mode !== "bus") return [];
