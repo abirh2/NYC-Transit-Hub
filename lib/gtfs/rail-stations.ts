@@ -224,3 +224,218 @@ export function getRailBranchStations(branchId: string, mode: TransitMode): Rail
   if (mode === "metro-north") return getMnrLineStations(branchId);
   return [];
 }
+
+// ============================================================================
+// Station Search & Lookup (for Station Board)
+// ============================================================================
+
+export interface RailStationWithCoords {
+  id: string;
+  name: string;
+  type?: "terminal" | "hub";
+  latitude: number;
+  longitude: number;
+  branches: string[]; // List of branch IDs this station serves
+}
+
+// Lazily built lookup caches
+let lirrStationCache: Map<string, RailStationWithCoords> | null = null;
+let mnrStationCache: Map<string, RailStationWithCoords> | null = null;
+
+/**
+ * Build a station lookup cache from branch data
+ * Combines all branches to get unique stations with all their branches listed
+ */
+function buildStationCache(
+  branches: Record<string, RailBranch>,
+  stationCoords: Record<string, { lat: number; lon: number }>
+): Map<string, RailStationWithCoords> {
+  const cache = new Map<string, RailStationWithCoords>();
+  
+  for (const [branchId, branch] of Object.entries(branches)) {
+    for (const station of branch.stations) {
+      const coords = stationCoords[station.id];
+      if (!coords) continue;
+      
+      const existing = cache.get(station.id);
+      if (existing) {
+        // Add this branch to the station's branch list
+        if (!existing.branches.includes(branchId)) {
+          existing.branches.push(branchId);
+        }
+      } else {
+        cache.set(station.id, {
+          id: station.id,
+          name: station.name,
+          type: station.type,
+          latitude: coords.lat,
+          longitude: coords.lon,
+          branches: [branchId],
+        });
+      }
+    }
+  }
+  
+  return cache;
+}
+
+/**
+ * Get LIRR station cache (builds lazily on first call)
+ */
+function getLirrStationCache(): Map<string, RailStationWithCoords> {
+  if (!lirrStationCache) {
+    const coords = lirrData.stationCoords as Record<string, { lat: number; lon: number }>;
+    lirrStationCache = buildStationCache(lirrBranches, coords);
+  }
+  return lirrStationCache;
+}
+
+/**
+ * Get Metro-North station cache (builds lazily on first call)
+ */
+function getMnrStationCache(): Map<string, RailStationWithCoords> {
+  if (!mnrStationCache) {
+    const coords = mnrData.stationCoords as Record<string, { lat: number; lon: number }>;
+    mnrStationCache = buildStationCache(mnrBranches, coords);
+  }
+  return mnrStationCache;
+}
+
+/**
+ * Get all LIRR stations with coordinates
+ */
+export function getAllLirrStations(): RailStationWithCoords[] {
+  return Array.from(getLirrStationCache().values());
+}
+
+/**
+ * Get all Metro-North stations with coordinates
+ */
+export function getAllMnrStations(): RailStationWithCoords[] {
+  return Array.from(getMnrStationCache().values());
+}
+
+/**
+ * Get LIRR station by ID
+ */
+export function getLirrStationById(stationId: string): RailStationWithCoords | null {
+  return getLirrStationCache().get(stationId) ?? null;
+}
+
+/**
+ * Get Metro-North station by ID
+ */
+export function getMnrStationById(stationId: string): RailStationWithCoords | null {
+  return getMnrStationCache().get(stationId) ?? null;
+}
+
+/**
+ * Search LIRR stations by name
+ */
+export function searchLirrStations(query: string, limit: number = 10): RailStationWithCoords[] {
+  const normalizedQuery = query.toLowerCase().trim();
+  if (!normalizedQuery) return [];
+  
+  const stations = getAllLirrStations();
+  const results: Array<{ station: RailStationWithCoords; score: number }> = [];
+  
+  for (const station of stations) {
+    const name = station.name.toLowerCase();
+    let score = 0;
+    
+    // Exact match gets highest score
+    if (name === normalizedQuery) {
+      score = 100;
+    }
+    // Starts with query gets high score
+    else if (name.startsWith(normalizedQuery)) {
+      score = 80;
+    }
+    // Contains query gets medium score
+    else if (name.includes(normalizedQuery)) {
+      score = 50;
+    }
+    // Word boundary match
+    else if (name.split(/\s+/).some(word => word.startsWith(normalizedQuery))) {
+      score = 40;
+    }
+    
+    if (score > 0) {
+      results.push({ station, score });
+    }
+  }
+  
+  return results
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map(r => r.station);
+}
+
+/**
+ * Search Metro-North stations by name
+ */
+export function searchMnrStations(query: string, limit: number = 10): RailStationWithCoords[] {
+  const normalizedQuery = query.toLowerCase().trim();
+  if (!normalizedQuery) return [];
+  
+  const stations = getAllMnrStations();
+  const results: Array<{ station: RailStationWithCoords; score: number }> = [];
+  
+  for (const station of stations) {
+    const name = station.name.toLowerCase();
+    let score = 0;
+    
+    // Exact match gets highest score
+    if (name === normalizedQuery) {
+      score = 100;
+    }
+    // Starts with query gets high score
+    else if (name.startsWith(normalizedQuery)) {
+      score = 80;
+    }
+    // Contains query gets medium score
+    else if (name.includes(normalizedQuery)) {
+      score = 50;
+    }
+    // Word boundary match
+    else if (name.split(/\s+/).some(word => word.startsWith(normalizedQuery))) {
+      score = 40;
+    }
+    
+    if (score > 0) {
+      results.push({ station, score });
+    }
+  }
+  
+  return results
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map(r => r.station);
+}
+
+/**
+ * Get rail station by ID for a given mode
+ */
+export function getRailStationById(stationId: string, mode: TransitMode): RailStationWithCoords | null {
+  if (mode === "lirr") return getLirrStationById(stationId);
+  if (mode === "metro-north") return getMnrStationById(stationId);
+  return null;
+}
+
+/**
+ * Get all rail stations for a given mode
+ */
+export function getAllRailStations(mode: TransitMode): RailStationWithCoords[] {
+  if (mode === "lirr") return getAllLirrStations();
+  if (mode === "metro-north") return getAllMnrStations();
+  return [];
+}
+
+/**
+ * Search rail stations for a given mode
+ */
+export function searchRailStations(query: string, mode: TransitMode, limit: number = 10): RailStationWithCoords[] {
+  if (mode === "lirr") return searchLirrStations(query, limit);
+  if (mode === "metro-north") return searchMnrStations(query, limit);
+  return [];
+}

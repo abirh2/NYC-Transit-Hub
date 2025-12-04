@@ -686,6 +686,199 @@ import { NearbyStations } from "@/components/board";
 
 ---
 
+### RailStationBoard
+
+Main board component for LIRR and Metro-North stations.
+
+```tsx
+import { RailStationBoard } from "@/components/board";
+
+// LIRR
+<RailStationBoard
+  mode="lirr"
+  autoRefresh={true}
+  refreshInterval={30}
+  onFavorite={(id, name) => addFavorite(id, name)}
+  onUnfavorite={(id) => removeFavorite(id)}
+  isFavorite={(id) => checkFavorite(id)}
+  favoriteIds={["237", "102"]}
+/>
+
+// Metro-North
+<RailStationBoard
+  mode="metro-north"
+  autoRefresh={true}
+  refreshInterval={30}
+/>
+```
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `mode` | "lirr" \| "metro-north" | required | Transit mode |
+| `initialStationId` | string | undefined | Pre-select a station |
+| `autoRefresh` | boolean | true | Enable auto-refresh |
+| `refreshInterval` | number | 30 | Refresh interval in seconds |
+| `onFavorite` | function | undefined | Callback when station favorited |
+| `onUnfavorite` | function | undefined | Callback when station unfavorited |
+| `isFavorite` | function | undefined | Check if station is favorite |
+| `favoriteIds` | string[] | [] | Station IDs to highlight in search |
+
+**Features:**
+- Station search with autocomplete (shows branch badges)
+- Arrivals split by direction (Inbound/Outbound)
+- Train numbers displayed
+- Delay indicators
+- Favorite station support
+
+---
+
+### RailStationSearch
+
+Autocomplete search for LIRR and Metro-North stations.
+
+```tsx
+import { RailStationSearch } from "@/components/board";
+
+<RailStationSearch
+  mode="lirr"
+  onSelect={(id, name) => console.log(`Selected: ${name}`)}
+  selectedId="237"
+  favoriteIds={["237", "102"]}
+/>
+```
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `mode` | "lirr" \| "metro-north" | required | Transit mode |
+| `onSelect` | function | required | Callback when station selected |
+| `selectedId` | string | undefined | Currently selected station ID |
+| `placeholder` | string | auto | Input placeholder (auto-generates based on mode) |
+| `compact` | boolean | false | Use compact styling |
+| `favoriteIds` | string[] | [] | Station IDs to mark with star |
+
+**Features:**
+- Debounced search against rail stations API
+- Shows branch badges for each station
+- Highlights terminal/hub stations
+- Shows distance when using nearby search
+
+---
+
+### RailArrivalsList
+
+Displays train arrivals for LIRR or Metro-North.
+
+```tsx
+import { RailArrivalsList } from "@/components/board";
+
+<RailArrivalsList
+  arrivals={inboundArrivals}
+  mode="lirr"
+  directionLabel="Inbound to Penn Station"
+  maxArrivals={5}
+/>
+```
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `arrivals` | RailArrival[] | required | Array of rail arrivals |
+| `mode` | "lirr" \| "metro-north" | required | Transit mode |
+| `isLoading` | boolean | false | Show loading spinner |
+| `error` | string \| null | null | Error message to display |
+| `directionLabel` | string | undefined | Direction header label |
+| `maxArrivals` | number | 5 | Max arrivals to show |
+| `compact` | boolean | false | Use compact styling |
+
+**Displays:**
+- Branch badge with color
+- Train number
+- Direction (Inbound/Outbound)
+- Minutes until arrival
+- Delay indicators (2+ min delay shown)
+
+---
+
+### BusStopBoard
+
+Geolocation-based bus arrivals board.
+
+```tsx
+import { BusStopBoard } from "@/components/board";
+
+<BusStopBoard
+  autoRefresh={true}
+  refreshInterval={30}
+  maxDistanceMiles={0.5}
+/>
+```
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `autoRefresh` | boolean | true | Enable auto-refresh |
+| `refreshInterval` | number | 30 | Refresh interval in seconds |
+| `maxDistanceMiles` | number | 0.5 | Max distance to show buses |
+
+**Features:**
+- Requests geolocation permission
+- Shows buses within specified radius
+- Groups buses by route
+- Shows route colors by borough
+- Handles permission denied gracefully
+
+---
+
+### BusArrivalsList
+
+Displays bus arrivals, optionally grouped by route.
+
+```tsx
+import { BusArrivalsList } from "@/components/board";
+
+// Flat list
+<BusArrivalsList
+  arrivals={busArrivals}
+  maxArrivals={10}
+/>
+
+// Grouped by route
+<BusArrivalsList
+  arrivals={busArrivals}
+  groupByRoute={true}
+  headerLabel="Nearby Buses"
+/>
+```
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `arrivals` | BusArrival[] | required | Array of bus arrivals |
+| `isLoading` | boolean | false | Show loading spinner |
+| `error` | string \| null | null | Error message to display |
+| `headerLabel` | string | undefined | Header label |
+| `maxArrivals` | number | 10 | Max arrivals to show |
+| `compact` | boolean | false | Use compact styling |
+| `groupByRoute` | boolean | false | Group arrivals by route |
+
+**Route Color Coding:**
+- Manhattan (M): Blue
+- Brooklyn (B): Green
+- Queens (Q): Yellow
+- Bronx (Bx): Orange
+- Staten Island (S): Gray
+- Express (BM, QM, BXM, SIM, X): Brown
+- SBS (+): Purple
+
+---
+
 ## Incidents Components
 
 Components for the incident explorer page (`/incidents`).

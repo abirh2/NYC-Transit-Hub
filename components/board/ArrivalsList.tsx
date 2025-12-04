@@ -7,8 +7,8 @@
  * Shows line icon, destination, and time until arrival.
  */
 
-import { Chip, Spinner } from "@heroui/react";
-import { AlertCircle, Clock } from "lucide-react";
+import { Chip, Spinner, Tooltip } from "@heroui/react";
+import { AlertCircle, Clock, Info } from "lucide-react";
 import { SubwayBullet } from "@/components/ui";
 import type { TrainArrival } from "@/types/mta";
 
@@ -90,12 +90,36 @@ export function ArrivalsList({
   // Limit arrivals
   const displayArrivals = arrivals.slice(0, maxArrivals);
 
+  // Check if any arrivals have delays to show the legend
+  const hasDelays = arrivals.some(a => a.delay >= 60);
+
   return (
     <div className="space-y-1">
       {directionLabel && (
-        <p className="text-xs font-medium text-foreground/50 uppercase tracking-wider mb-2">
-          {directionLabel}
-        </p>
+        <div className="flex items-center gap-2 mb-2">
+          <p className="text-xs font-medium text-foreground/50 uppercase tracking-wider">
+            {directionLabel}
+          </p>
+          {hasDelays && !compact && (
+            <Tooltip
+              content={
+                <div className="px-1 py-2 max-w-xs">
+                  <p className="text-sm font-semibold mb-1">Delay Indicator</p>
+                  <p className="text-xs text-foreground/80">
+                    The <span className="text-warning font-medium">+X min</span> badge shows how much later 
+                    than scheduled the train is expected to arrive. For example, +5 min means the train 
+                    is running 5 minutes behind schedule.
+                  </p>
+                </div>
+              }
+              placement="top"
+            >
+              <button className="text-foreground/40 hover:text-foreground/60 transition-colors">
+                <Info className="h-3.5 w-3.5" />
+              </button>
+            </Tooltip>
+          )}
+        </div>
       )}
       <div className={compact ? "space-y-2" : "space-y-3"}>
         {displayArrivals.map((arrival, index) => (

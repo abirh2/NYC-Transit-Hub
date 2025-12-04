@@ -734,6 +734,66 @@ curl "http://localhost:3000/api/buses/routes"
 
 ---
 
+### LIRR Stations
+
+#### GET /api/lirr/stations
+
+Search and retrieve LIRR station information.
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `search` | string | Search stations by name (partial match) |
+| `id` | string | Get specific station by ID |
+| `near` | string | Find nearby stations by coordinates (format: `lat,lon`) |
+| `radius` | number | Search radius in miles (default: 1, max: 10) |
+| `limit` | number | Maximum results (default: 50, max: 100) |
+
+**Example Request:**
+
+```bash
+curl "http://localhost:3000/api/lirr/stations?search=penn"
+curl "http://localhost:3000/api/lirr/stations?id=237"
+curl "http://localhost:3000/api/lirr/stations?near=40.750,-73.993&radius=2"
+```
+
+**Example Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "stations": [
+      {
+        "id": "237",
+        "name": "Penn Station",
+        "type": "terminal",
+        "latitude": 40.75058844,
+        "longitude": -73.99358408,
+        "branches": ["1", "3", "4", "5", "6", "7", "8", "9", "10", "12"]
+      }
+    ],
+    "totalCount": 1
+  },
+  "timestamp": "2024-01-15T12:00:00.000Z"
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Station ID |
+| `name` | string | Station name |
+| `type` | string | Optional: "terminal" or "hub" |
+| `latitude` | number | Station latitude |
+| `longitude` | number | Station longitude |
+| `branches` | string[] | Branch IDs this station serves |
+| `distance` | number | Distance in miles (only when using `near`) |
+
+---
+
 ### LIRR Arrivals
 
 #### GET /api/lirr/realtime
@@ -811,6 +871,66 @@ curl "http://localhost:3000/api/lirr/realtime?routeId=1&limit=10"
 |-------|-------------|
 | `inbound` | Toward Penn Station |
 | `outbound` | Away from Penn Station |
+
+---
+
+### Metro-North Stations
+
+#### GET /api/metro-north/stations
+
+Search and retrieve Metro-North station information.
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `search` | string | Search stations by name (partial match) |
+| `id` | string | Get specific station by ID |
+| `near` | string | Find nearby stations by coordinates (format: `lat,lon`) |
+| `radius` | number | Search radius in miles (default: 1, max: 10) |
+| `limit` | number | Maximum results (default: 50, max: 100) |
+
+**Example Request:**
+
+```bash
+curl "http://localhost:3000/api/metro-north/stations?search=grand"
+curl "http://localhost:3000/api/metro-north/stations?id=1"
+curl "http://localhost:3000/api/metro-north/stations?near=40.752,-73.977&radius=1"
+```
+
+**Example Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "stations": [
+      {
+        "id": "1",
+        "name": "Grand Central",
+        "type": "terminal",
+        "latitude": 40.752998,
+        "longitude": -73.977056,
+        "branches": ["1", "2", "3", "4", "5", "6"]
+      }
+    ],
+    "totalCount": 1
+  },
+  "timestamp": "2024-01-15T12:00:00.000Z"
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Station ID |
+| `name` | string | Station name |
+| `type` | string | Optional: "terminal" or "hub" |
+| `latitude` | number | Station latitude |
+| `longitude` | number | Station longitude |
+| `branches` | string[] | Line IDs this station serves |
+| `distance` | number | Distance in miles (only when using `near`) |
 
 ---
 
