@@ -35,6 +35,7 @@ import {
   TransitMap,
 } from "@/components/realtime";
 import { SubwayBullet } from "@/components/ui";
+import { PageContainer, PageHeader } from "@/components/layout";
 import { type LineId, getLineStations, getLineColor } from "@/lib/gtfs/line-stations";
 import { getRailBranchStations, getRailBranchColor } from "@/lib/gtfs/rail-stations";
 import { getBusRouteData } from "@/lib/gtfs/bus-stops";
@@ -478,24 +479,20 @@ export default function RealtimePage() {
     return "#808080";
   }, [selectedMode, selectedLine, selectedRailBranch]);
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">
-            Live Transit Tracker
-          </h1>
-          <p className="mt-1 text-foreground/70">
-            {selectedMode === "subway" && "Watch trains move in real-time along the line"}
-            {selectedMode === "bus" && "Track buses and see live arrival times"}
-            {selectedMode === "lirr" && "Track LIRR trains by branch"}
-            {selectedMode === "metro-north" && "Track Metro-North trains by line"}
-          </p>
-        </div>
+  const headerDescription =
+    selectedMode === "subway" ? "Watch trains move in real-time along the line" :
+    selectedMode === "bus" ? "Track buses and see live arrival times" :
+    selectedMode === "lirr" ? "Track LIRR trains by branch" :
+    "Track Metro-North trains by line";
 
-        {/* Legend Button */}
-        <Popover placement="bottom-end">
+  return (
+    <PageContainer width="wide">
+      <PageHeader
+        title="Live Transit Tracker"
+        description={headerDescription}
+        actions={
+          /* Legend Button */
+          <Popover placement="bottom-end">
           <PopoverTrigger>
             <Button
               size="sm"
@@ -753,9 +750,11 @@ export default function RealtimePage() {
               )}
             </div>
           </PopoverContent>
-        </Popover>
-      </div>
+          </Popover>
+        }
+      />
 
+      <div className="space-y-6">
       {/* Mode Selector */}
       <ModeSelector
         selectedMode={selectedMode}
@@ -991,6 +990,7 @@ export default function RealtimePage() {
           </CardBody>
         </Card>
       )}
-    </div>
+      </div>
+    </PageContainer>
   );
 }

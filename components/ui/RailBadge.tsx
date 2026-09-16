@@ -7,7 +7,7 @@
  * For LIRR and Metro-North.
  */
 
-import { getRailBranchColor } from "@/lib/gtfs/rail-stations";
+import { getRailBranchColor, getRailBranchTextColor } from "@/lib/gtfs/rail-stations";
 import type { TransitMode } from "@/types/mta";
 
 interface RailBadgeProps {
@@ -68,9 +68,10 @@ export function RailBadge({
 }: RailBadgeProps) {
   const backgroundColor = getRailBranchColor(branchId, mode);
   const displayText = abbreviated ? getAbbreviation(branchName) : branchName;
-  
-  // Determine text color based on background brightness
-  const textColor = "#FFFFFF"; // Most rail colors work with white text
+
+  // Text color is sourced from the shared route-color logic (WCAG contrast
+  // against the branch background) rather than a hardcoded white.
+  const textColor = getRailBranchTextColor(branchId, mode);
 
   return (
     <span

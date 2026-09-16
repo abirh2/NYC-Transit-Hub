@@ -10,6 +10,28 @@ Read this document when changing MTA clients, feed parsing, stations, arrivals, 
 - `lib/mta/` owns upstream clients and transformations. `lib/gtfs/` owns static-data parsing and lookup. Route handlers under `app/api/` should stay thin.
 - Feed responses are untrusted and may be missing, stale, partially populated, or extended with MTA-specific fields. Validate inputs, tolerate unknown fields where appropriate, and degrade gracefully.
 
+## Normalized realtime domain
+
+`types/transit.ts` is the shared source-independent domain. Source-specific
+translation lives in `lib/transit/*-adapter.ts`; shared filtering and orchestration
+live in `lib/transit/departures.ts` and `lib/transit/realtime-service.ts`.
+
+- `Departure` is one prediction at one stop. Its `tripId` always points to the
+  individual `TransitTrip` returned by the same snapshot/service.
+- `TransitTrip` retains route, normalized direction, destination, start data,
+  ordered stop-time updates, progress, vehicle identity, and update time.
+- `TransitVehicle.position` distinguishes actual coordinates from inferred
+  stop-to-stop progress. Do not present inferred subway progress as GPS.
+- `TransitStation` is a rider-facing complex. Its `sourceIds` retain every GTFS
+  parent ID, while `stops` retain the directional platform IDs that realtime
+  feeds use.
+- Machine directions (`northbound`, `southbound`, and so on) never contain
+  station-specific copy. Pass contextual rider labels separately.
+
+Legacy `TrainArrival` and `BusArrival` remain compatibility projections for
+existing components. New features should use departures, trips, and vehicles
+directly. See [ADR-001](../decisions/001-normalized-transit-domain.md).
+
 ## Identifiers and station complexes
 
 A display name is not a stable station identifier. Several distinct GTFS complexes can share a name; Times Sq-42 St is the key example.
@@ -52,6 +74,11 @@ Checking only the end time incorrectly classifies future planned work as active.
 - Show or preserve last-updated/stale-state information where the UI already exposes it.
 - Avoid synchronized duplicate requests: reuse route-level caching and existing client refresh loops.
 - Keep feed failures isolated so one mode or card can degrade without taking down the full dashboard.
+- Shared refresh values live in `lib/transit/cache-policy.ts`: static metadata
+  is cached longer than realtime feeds, and alerts have their own policy.
+- Realtime snapshots report `sourceState` (`ok`, `stale`, `empty`,
+  `unavailable`, or `malformed`) so consumers do not infer upstream health from
+  an empty array.
 
 ## External response changes
 

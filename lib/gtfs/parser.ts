@@ -10,6 +10,8 @@
 import { readFileSync } from "fs";
 import { join } from "path";
 
+import { getSubwayRouteColor } from "@/lib/transit/route-colors";
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -370,9 +372,14 @@ export function getRouteById(routeId: string): GtfsRoute | null {
 
 /**
  * Get route color (with # prefix)
+ *
+ * The feed's `route.routeColor` stays authoritative. When the route is unknown,
+ * the fallback is resolved through the route-colors single source of truth
+ * (`getSubwayRouteColor`, which attempts a subway-family match and otherwise
+ * returns the module's neutral gray fallback) instead of a hardcoded hex.
  */
 export function getRouteColor(routeId: string): string {
   const route = getRouteById(routeId);
-  return route ? `#${route.routeColor}` : "#808183";
+  return route ? `#${route.routeColor}` : getSubwayRouteColor(routeId);
 }
 

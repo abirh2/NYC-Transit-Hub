@@ -3,6 +3,14 @@
  */
 
 import type { ServiceAlert, TrainArrival, EquipmentOutage, BusArrival, StationInfo, RailArrival } from "./mta";
+import type {
+  Departure,
+  BusTrip,
+  NearbyBusStop,
+  RealtimeSourceState,
+  SubwayTrip,
+  TransitVehicle,
+} from "./transit";
 
 // ============================================================================
 // Generic API Response Wrapper
@@ -35,6 +43,11 @@ export interface TrainRealtimeRequest {
 
 export interface TrainRealtimeResponse {
   arrivals: TrainArrival[];
+  departures: Departure[];
+  trips: SubwayTrip[];
+  vehicles: TransitVehicle[];
+  sourceState: RealtimeSourceState;
+  feedTimestamp: string | null;
   stationName?: string;
   lastUpdated: string;
 }
@@ -133,8 +146,22 @@ export interface BusRealtimeRequest {
 
 export interface BusRealtimeResponse {
   arrivals: BusArrival[];
+  departures: Departure[];
+  trips: BusTrip[];
+  vehicles: TransitVehicle[];
+  sourceState: RealtimeSourceState;
+  feedTimestamp: string | null;
   stopName?: string;
   lastUpdated: string;
+}
+
+export interface BusStopsResponse {
+  stops: NearbyBusStop[];
+  nearLocation: {
+    latitude: number;
+    longitude: number;
+    radiusMiles: number;
+  };
 }
 
 // ============================================================================

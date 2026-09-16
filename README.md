@@ -45,10 +45,10 @@ git clone https://github.com/abirh2/NYC-Transit-Hub.git
 cd NYC-Transit-Hub
 
 # Install dependencies
-nvm use 20.19.5 && npm install
+nvm use 24 && npm install
 
 # Start development server
-nvm use 20.19.5 && npm run dev
+nvm use 24 && npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) to view the app.
@@ -65,7 +65,7 @@ Open [http://localhost:3000](http://localhost:3000) to view the app.
 | `npm run test:e2e` | Run end-to-end tests |
 | `npm run storybook` | Start Storybook component explorer |
 
-> **Note:** Always prefix commands with `nvm use 20.19.5 &&` to ensure correct Node.js version.
+> **Note:** Always prefix commands with `nvm use 24 &&` to ensure correct Node.js version.
 
 ## Project Structure
 

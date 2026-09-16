@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Card, CardBody, Switch, Chip, Tabs, Tab } from "@heroui/react";
-import { AlertTriangle, Clock, Wifi, WifiOff, Calendar, Zap } from "lucide-react";
+import { Clock, Wifi, WifiOff, Calendar, Zap } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { 
   IncidentStats, 
@@ -247,33 +247,20 @@ export function IncidentsClient() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-3">
-            <AlertTriangle className="h-7 w-7 text-warning" />
-            Incident Explorer
-          </h1>
-          <p className="mt-1 text-foreground/70">
-            Browse service alerts and disruption history
-          </p>
-        </div>
-
-        {/* Auto-refresh Toggle */}
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Switch
-              size="sm"
-              isSelected={autoRefresh}
-              onValueChange={setAutoRefresh}
-            />
-            <span className="text-sm text-foreground/70">Auto-refresh</span>
-            {autoRefresh ? (
-              <Wifi className="h-4 w-4 text-success" />
-            ) : (
-              <WifiOff className="h-4 w-4 text-foreground/30" />
-            )}
-          </div>
+      {/* Auto-refresh Toggle */}
+      <div className="flex items-center justify-end gap-4">
+        <div className="flex items-center gap-2">
+          <Switch
+            size="sm"
+            isSelected={autoRefresh}
+            onValueChange={setAutoRefresh}
+          />
+          <span className="text-sm text-foreground/70">Auto-refresh</span>
+          {autoRefresh ? (
+            <Wifi className="h-4 w-4 text-success" />
+          ) : (
+            <WifiOff className="h-4 w-4 text-foreground/30" />
+          )}
         </div>
       </div>
 

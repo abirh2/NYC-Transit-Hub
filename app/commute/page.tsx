@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import { CommuteClient } from "./CommuteClient";
+import { PageContainer } from "@/components/layout";
 
 export const metadata: Metadata = {
   title: "Commute Assistant | NYC Transit Hub",
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 };
 
 export default function CommutePage() {
-  return <CommuteClient />;
+  return (
+    <PageContainer>
+      <CommuteClient />
+    </PageContainer>
+  );
 }

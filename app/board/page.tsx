@@ -9,19 +9,17 @@ import {
   BusStopBoard,
 } from "@/components/board";
 import { useStationPreferences } from "@/lib/hooks/useStationPreferences";
+import { PageContainer, PageHeader } from "@/components/layout";
 
 export default function BoardPage() {
   const { addFavorite, removeFavorite, isFavorite, favorites } = useStationPreferences();
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Station Board</h1>
-        <p className="mt-1 text-foreground/70">
-          View upcoming departures at your favorite stations
-        </p>
-      </div>
+    <PageContainer>
+      <PageHeader
+        title="Station Board"
+        description="View upcoming departures at your favorite stations"
+      />
 
       {/* Tabs for different transit modes */}
       <Tabs
@@ -133,6 +131,6 @@ export default function BoardPage() {
           </div>
         </Tab>
       </Tabs>
-    </div>
+    </PageContainer>
   );
 }

@@ -10,6 +10,8 @@
 import busStopsData from "@/data/gtfs/bus-stops.json";
 import busShapesData from "@/data/gtfs/bus-shapes.json";
 import busRouteStopsData from "@/data/gtfs/bus-route-stops.json";
+import { haversineDistance } from "@/lib/utils/distance";
+import type { NearbyBusStop } from "@/types/transit";
 
 // Type definitions
 export interface BusStop {
@@ -28,6 +30,22 @@ export interface BusRouteData {
 const busStops = busStopsData as Record<string, { name: string; lat: number; lon: number }>;
 const busShapes = busShapesData as unknown as Record<string, [number, number][]>;
 const busRouteStops = busRouteStopsData as Record<string, string[]>;
+let routeIdsByStopCache: Map<string, string[]> | null = null;
+
+function getRouteIdsByStop(): Map<string, string[]> {
+  if (routeIdsByStopCache) return routeIdsByStopCache;
+
+  routeIdsByStopCache = new Map();
+  for (const [routeId, stopIds] of Object.entries(busRouteStops)) {
+    for (const stopId of stopIds) {
+      const routes = routeIdsByStopCache.get(stopId) ?? [];
+      if (!routes.includes(routeId)) routes.push(routeId);
+      routeIdsByStopCache.set(stopId, routes);
+    }
+  }
+  for (const routes of routeIdsByStopCache.values()) routes.sort();
+  return routeIdsByStopCache;
+}
 
 /**
  * Get the shape (path) for a bus route
@@ -81,6 +99,44 @@ export function getBusStop(stopId: string): BusStop | null {
   };
 }
 
+export function getAllBusStops(): BusStop[] {
+  return Object.entries(busStops).map(([id, stop]) => ({ id, ...stop }));
+}
+
+/**
+ * Stop-first nearby lookup for future rider experiences. Realtime vehicles are
+ * intentionally not required to discover stops or the routes serving them.
+ */
+export function getNearbyBusStops(
+  latitude: number,
+  longitude: number,
+  radiusMiles = 0.5,
+  limit = 20,
+): NearbyBusStop[] {
+  const routeIdsByStop = getRouteIdsByStop();
+
+  return getAllBusStops()
+    .map((stop): NearbyBusStop => ({
+      id: stop.id,
+      stationId: null,
+      name: stop.name,
+      mode: "bus",
+      direction: "unknown",
+      location: { latitude: stop.lat, longitude: stop.lon },
+      platformCode: null,
+      routeIds: routeIdsByStop.get(stop.id) ?? [],
+      distanceMiles: haversineDistance(
+        latitude,
+        longitude,
+        stop.lat,
+        stop.lon,
+      ),
+    }))
+    .filter((stop) => stop.distanceMiles <= radiusMiles)
+    .sort((a, b) => a.distanceMiles - b.distanceMiles)
+    .slice(0, limit);
+}
+
 /**
  * Check if we have data for a route
  */
@@ -94,4 +150,3 @@ export function hasBusRouteData(routeId: string): boolean {
 export function getAvailableBusRoutes(): string[] {
   return Object.keys(busShapes);
 }
-

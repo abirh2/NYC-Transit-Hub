@@ -12,7 +12,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getBusArrivals, isBusApiConfigured } from "@/lib/mta";
+import { getBusRealtimeSnapshot, isBusApiConfigured } from "@/lib/mta";
+import { toLegacyBusArrivals } from "@/lib/transit/legacy";
 import type { BusRealtimeResponse, ApiResponse, ApiErrorResponse } from "@/types/api";
 
 export const dynamic = "force-dynamic";
@@ -37,22 +38,38 @@ export async function GET(
   const routeId = searchParams.get("routeId") ?? undefined;
   const stopId = searchParams.get("stopId") ?? undefined;
   const limitParam = searchParams.get("limit");
-  const limit = limitParam ? parseInt(limitParam, 10) : 20;
+  const parsedLimit = limitParam ? parseInt(limitParam, 10) : 20;
+  const limit = Number.isFinite(parsedLimit)
+    ? Math.min(Math.max(parsedLimit, 1), 500)
+    : 20;
 
   try {
-    // Fetch bus arrivals
-    const arrivals = await getBusArrivals({
+    const snapshot = await getBusRealtimeSnapshot({
       routeId,
       stopId,
       limit,
     });
 
+    if (snapshot.sourceState === "unavailable") {
+      return NextResponse.json({
+        success: false,
+        data: null,
+        error: "Bus realtime feed is unavailable",
+        timestamp: new Date().toISOString(),
+      }, { status: 503 });
+    }
+
     return NextResponse.json({
       success: true,
       data: {
-        arrivals,
+        arrivals: toLegacyBusArrivals(snapshot),
+        departures: snapshot.departures,
+        trips: snapshot.trips.filter((trip) => trip.mode === "bus"),
+        vehicles: snapshot.vehicles,
+        sourceState: snapshot.sourceState,
+        feedTimestamp: snapshot.feedTimestamp?.toISOString() ?? null,
         stopName: stopId ?? undefined,
-        lastUpdated: new Date().toISOString(),
+        lastUpdated: snapshot.generatedAt.toISOString(),
       },
       timestamp: new Date().toISOString(),
     });
@@ -67,4 +84,3 @@ export async function GET(
     }, { status: 500 });
   }
 }
-

@@ -460,7 +460,7 @@ A shared polling/query layer should deduplicate requests, pause when hidden or o
 
 ## J. Testing baseline
 
-The documented Node version, 20.19.5, was used for Node-based checks.
+The documented Node version, 24.12.0, was used for Node-based checks (baseline re-verified on Node 24.12.0).
 
 | Check | Result |
 | --- | --- |

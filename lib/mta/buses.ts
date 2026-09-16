@@ -6,6 +6,11 @@
 
 import type { BusArrival } from "@/types/mta";
 import { getAllKnownRoutes, getKnownRouteCount } from "@/lib/gtfs/bus-routes";
+import { normalizeSiriActivities } from "@/lib/transit/bus-adapter";
+import { toLegacyBusArrivals } from "@/lib/transit/legacy";
+import type { RealtimeSnapshot } from "@/types/transit";
+import { z } from "zod";
+import { TRANSIT_CACHE_SECONDS } from "@/lib/transit/cache-policy";
 
 // ============================================================================
 // Configuration
@@ -119,6 +124,76 @@ interface MonitoredVehicleJourney {
   };
 }
 
+const SiriCallSchema = z.object({
+  StopPointRef: z.string().optional(),
+  StopPointName: z.string().optional(),
+  VehicleAtStop: z.boolean().optional(),
+  ExpectedArrivalTime: z.string().optional(),
+  AimedArrivalTime: z.string().optional(),
+  ExpectedDepartureTime: z.string().optional(),
+  AimedDepartureTime: z.string().optional(),
+  ArrivalProximityText: z.string().optional(),
+  DistanceFromStop: z.number().optional(),
+  Extensions: z.object({
+    Distances: z.object({
+      DistanceFromCall: z.number().optional(),
+    }).passthrough().optional(),
+  }).passthrough().optional(),
+}).passthrough();
+
+const MonitoredVehicleJourneySchema = z.object({
+  LineRef: z.string(),
+  DirectionRef: z.string(),
+  FramedVehicleJourneyRef: z.object({
+    DataFrameRef: z.string(),
+    DatedVehicleJourneyRef: z.string(),
+  }).optional(),
+  JourneyPatternRef: z.string().optional(),
+  DestinationName: z.string().optional(),
+  VehicleLocation: z.object({
+    Longitude: z.number(),
+    Latitude: z.number(),
+  }).optional(),
+  Bearing: z.number().optional(),
+  ProgressStatus: z.string().optional(),
+  VehicleRef: z.string().optional(),
+  MonitoredCall: SiriCallSchema.optional(),
+  OnwardCalls: z.object({
+    OnwardCall: z.array(SiriCallSchema).optional(),
+  }).optional(),
+}).passthrough();
+
+const SiriActivitySchema = z.object({
+  MonitoredVehicleJourney: MonitoredVehicleJourneySchema,
+  RecordedAtTime: z.string(),
+}).passthrough();
+
+const SiriResponseSchema = z.object({
+  Siri: z.object({
+    ServiceDelivery: z.object({
+      ResponseTimestamp: z.string(),
+      VehicleMonitoringDelivery: z.array(z.object({
+        VehicleActivity: z.array(SiriActivitySchema).optional(),
+        ResponseTimestamp: z.string(),
+        ValidUntil: z.string(),
+      }).passthrough()).optional(),
+      StopMonitoringDelivery: z.array(z.object({
+        MonitoredStopVisit: z.array(SiriActivitySchema).optional(),
+        ResponseTimestamp: z.string(),
+      }).passthrough()).optional(),
+    }).passthrough(),
+  }).passthrough(),
+}).passthrough();
+
+function parseSiriResponse(data: unknown): SiriResponse | null {
+  const result = SiriResponseSchema.safeParse(data);
+  if (!result.success) {
+    console.error("Malformed SIRI response", result.error.issues);
+    return null;
+  }
+  return result.data as SiriResponse;
+}
+
 // ============================================================================
 // SIRI API Functions
 // ============================================================================
@@ -159,7 +234,9 @@ export async function fetchSiriVehicleMonitoring(options?: {
     const response = await fetch(url, {
       // Large responses (>2MB) can't use Next.js cache, use no-store for those
       cache: options?.maxVehicles && options.maxVehicles > 500 ? "no-store" : undefined,
-      next: options?.maxVehicles && options.maxVehicles > 500 ? undefined : { revalidate: 30 },
+      next: options?.maxVehicles && options.maxVehicles > 500
+        ? undefined
+        : { revalidate: TRANSIT_CACHE_SECONDS.realtime },
     });
 
     if (!response.ok) {
@@ -167,7 +244,7 @@ export async function fetchSiriVehicleMonitoring(options?: {
       return null;
     }
 
-    return await response.json();
+    return parseSiriResponse(await response.json());
   } catch (error) {
     console.error("Error fetching SIRI vehicle monitoring:", error);
     return null;
@@ -216,7 +293,7 @@ export async function fetchSiriStopMonitoring(options: {
 
   try {
     const response = await fetch(url, {
-      next: { revalidate: 30 },
+      next: { revalidate: TRANSIT_CACHE_SECONDS.realtime },
     });
 
     if (!response.ok) {
@@ -224,7 +301,7 @@ export async function fetchSiriStopMonitoring(options: {
       return null;
     }
 
-    return await response.json();
+    return parseSiriResponse(await response.json());
   } catch (error) {
     console.error("Error fetching SIRI stop monitoring:", error);
     return null;
@@ -242,51 +319,6 @@ function extractRouteId(lineRef: string): string {
   return lineRef.split("_").pop() ?? lineRef;
 }
 
-/**
- * Parse SIRI vehicle activity into BusArrival format
- */
-function parseVehicleActivity(activity: VehicleActivity): BusArrival | null {
-  const journey = activity.MonitoredVehicleJourney;
-  if (!journey) return null;
-
-  const routeId = extractRouteId(journey.LineRef);
-  const monitoredCall = journey.MonitoredCall;
-  
-  // Parse arrival time
-  let arrivalTime: Date | null = null;
-  let minutesAway: number | null = null;
-  
-  if (monitoredCall?.ExpectedArrivalTime) {
-    arrivalTime = new Date(monitoredCall.ExpectedArrivalTime);
-    minutesAway = Math.round((arrivalTime.getTime() - Date.now()) / 60000);
-  }
-
-  return {
-    vehicleId: journey.VehicleRef ?? "",
-    tripId: journey.FramedVehicleJourneyRef?.DatedVehicleJourneyRef ?? "",
-    routeId,
-    headsign: journey.DestinationName ?? null,
-    latitude: journey.VehicleLocation?.Latitude ?? null,
-    longitude: journey.VehicleLocation?.Longitude ?? null,
-    bearing: journey.Bearing ?? null,
-    nextStopId: monitoredCall?.StopPointRef?.split("_").pop() ?? null,
-    nextStopName: monitoredCall?.StopPointName ?? null,
-    arrivalTime,
-    distanceFromStop: monitoredCall?.DistanceFromStop ?? 
-      monitoredCall?.Extensions?.Distances?.DistanceFromCall ?? null,
-    progressStatus: monitoredCall?.ArrivalProximityText ?? 
-      journey.ProgressStatus ?? null,
-    minutesAway,
-  };
-}
-
-/**
- * Parse SIRI stop visit into BusArrival format
- */
-function parseStopVisit(visit: MonitoredStopVisit): BusArrival | null {
-  return parseVehicleActivity(visit as VehicleActivity);
-}
-
 // ============================================================================
 // Public API
 // ============================================================================
@@ -300,7 +332,20 @@ export async function getBusArrivals(options?: {
   stopId?: string;
   limit?: number;
 }): Promise<BusArrival[]> {
-  const arrivals: BusArrival[] = [];
+  return toLegacyBusArrivals(await getBusRealtimeSnapshot(options));
+}
+
+/**
+ * Fetch bus data once and expose the normalized trip/departure/vehicle graph.
+ * `getBusArrivals` above remains as a compatibility projection.
+ */
+export async function getBusRealtimeSnapshot(options?: {
+  routeId?: string;
+  stopId?: string;
+  limit?: number;
+}): Promise<RealtimeSnapshot> {
+  const activities: VehicleActivity[] = [];
+  let upstreamAvailable = false;
 
   // If stopId is provided, use stop monitoring (more accurate for arrivals)
   if (options?.stopId) {
@@ -309,13 +354,13 @@ export async function getBusArrivals(options?: {
       routeId: options.routeId,
       maxStopVisits: options?.limit ?? 20,
     });
+    upstreamAvailable = response !== null;
 
     if (response?.Siri?.ServiceDelivery?.StopMonitoringDelivery) {
       for (const delivery of response.Siri.ServiceDelivery.StopMonitoringDelivery) {
         if (delivery.MonitoredStopVisit) {
           for (const visit of delivery.MonitoredStopVisit) {
-            const arrival = parseStopVisit(visit);
-            if (arrival) arrivals.push(arrival);
+            activities.push(visit as VehicleActivity);
           }
         }
       }
@@ -326,33 +371,47 @@ export async function getBusArrivals(options?: {
       routeId: options?.routeId,
       maxVehicles: options?.limit ?? 100,
     });
+    upstreamAvailable = response !== null;
 
     if (response?.Siri?.ServiceDelivery?.VehicleMonitoringDelivery) {
       for (const delivery of response.Siri.ServiceDelivery.VehicleMonitoringDelivery) {
         if (delivery.VehicleActivity) {
           for (const activity of delivery.VehicleActivity) {
-            const arrival = parseVehicleActivity(activity);
-            if (arrival) arrivals.push(arrival);
+            activities.push(activity);
           }
         }
       }
     }
   }
 
-  // Sort by arrival time (earliest first), with null times at end
-  arrivals.sort((a, b) => {
-    if (!a.arrivalTime && !b.arrivalTime) return 0;
-    if (!a.arrivalTime) return 1;
-    if (!b.arrivalTime) return -1;
-    return a.arrivalTime.getTime() - b.arrivalTime.getTime();
-  });
+  const snapshot = normalizeSiriActivities(activities);
+  const sourceState = upstreamAvailable ? snapshot.sourceState : "unavailable";
 
-  // Apply limit
-  if (options?.limit) {
-    return arrivals.slice(0, options.limit);
-  }
+  const trips = snapshot.trips.filter(
+    (trip) => !options?.routeId || trip.route.id === options.routeId,
+  );
+  const allowedTripIds = new Set(trips.map((trip) => trip.id));
+  const departures = snapshot.departures
+    .filter(
+      (departure) =>
+        allowedTripIds.has(departure.tripId) &&
+        (!options?.stopId || departure.stopId === options.stopId),
+    )
+    .slice(0, options?.limit);
+  const visibleTripIds = options?.stopId
+    ? new Set(departures.map((departure) => departure.tripId))
+    : allowedTripIds;
 
-  return arrivals;
+  return {
+    ...snapshot,
+    sourceState,
+    trips: trips.filter((trip) => visibleTripIds.has(trip.id)),
+    departures,
+    vehicles: snapshot.vehicles.filter(
+      (vehicle) =>
+        vehicle.tripId !== null && visibleTripIds.has(vehicle.tripId),
+    ),
+  };
 }
 
 /**

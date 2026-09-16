@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Card, CardBody, Switch, Chip, Tabs, Tab, Button } from "@heroui/react";
 import { 
-  Accessibility, 
   Clock, 
   Wifi, 
   WifiOff, 
@@ -23,6 +22,7 @@ import {
 } from "@/components/accessibility";
 import type { EquipmentOutage } from "@/types/mta";
 import type { OutageStats as OutageStatsType } from "@/types/api";
+import { PageContainer, PageHeader } from "@/components/layout";
 
 const REFRESH_INTERVAL = 60; // seconds
 
@@ -236,21 +236,11 @@ export function AccessibilityClient() {
   }, [filteredOutages]);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-3">
-            <Accessibility className="h-7 w-7 text-primary" />
-            Accessibility
-          </h1>
-          <p className="mt-1 text-foreground/70">
-            Find accessible routes and check elevator/escalator status
-          </p>
-        </div>
-
-        {/* Auto-refresh Toggle */}
-        <div className="flex items-center gap-4">
+    <PageContainer>
+      <PageHeader
+        title="Accessibility"
+        description="Find accessible routes and check elevator/escalator status"
+        actions={
           <div className="flex items-center gap-2">
             <Switch
               size="sm"
@@ -264,9 +254,10 @@ export function AccessibilityClient() {
               <WifiOff className="h-4 w-4 text-foreground/30" />
             )}
           </div>
-        </div>
-      </div>
+        }
+      />
 
+      <div className="space-y-6">
       {/* Main Tabs */}
       <Tabs
         aria-label="Accessibility tabs"
@@ -403,7 +394,8 @@ export function AccessibilityClient() {
       {mainTab === "routes" && (
         <RouteFinder />
       )}
-    </div>
+      </div>
+    </PageContainer>
   );
 }
 

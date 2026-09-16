@@ -6,6 +6,7 @@
  */
 
 import busRoutesData from "@/data/gtfs/bus-routes.json";
+import { getSubwayRouteColor, pickContrastText } from "@/lib/transit/route-colors";
 
 // ============================================================================
 // Types
@@ -118,7 +119,8 @@ export function getBusRouteColor(routeId: string): string {
     return routeGroups[groupId].color;
   }
   
-  return "#808183"; // Default gray
+  // Default gray fallback, single-sourced from route-colors.ts (unknown id -> neutral gray).
+  return getSubwayRouteColor(routeId);
 }
 
 /**
@@ -136,7 +138,9 @@ export function getBusRouteTextColor(routeId: string): string {
     return routeGroups[groupId].textColor;
   }
   
-  return "#FFFFFF";
+  // Fallback text color derived from the resolved background via the shared
+  // WCAG contrast helper (single-sourced, matches the prior white default).
+  return pickContrastText(getBusRouteColor(routeId));
 }
 
 /**

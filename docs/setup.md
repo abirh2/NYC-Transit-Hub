@@ -21,14 +21,14 @@ This project requires Node.js 20.9.0 or higher. We recommend using [nvm](https:/
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
 
 # Install and use the correct Node version
-nvm install 20.19.5
-nvm use 20.19.5
+nvm install 24.12.0
+nvm use 24
 
 # Verify installation
-node --version  # Should output v20.19.5
+node --version  # Should output v24.12.0
 ```
 
-> **Important:** The terminal may reset to an older Node version between commands. Always prefix Node.js commands with `nvm use 20.19.5 &&` to ensure the correct version is used.
+> **Important:** The terminal may reset to an older Node version between commands. Always prefix Node.js commands with `nvm use 24 &&` to ensure the correct version is used.
 
 ---
 
@@ -40,10 +40,10 @@ git clone https://github.com/ahossain/NYC-Transit-Hub.git
 cd NYC-Transit-Hub
 
 # Install dependencies
-nvm use 20.19.5 && npm install
+nvm use 24 && npm install
 
 # Start the development server
-nvm use 20.19.5 && npm run dev
+nvm use 24 && npm run dev
 
 # Open http://localhost:3000 in your browser
 ```
@@ -132,7 +132,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY="your-anon-key"
 
 ```bash
 # Test all APIs
-nvm use 20.19.5 && npm run dev &
+nvm use 24 && npm run dev &
 sleep 10 && node scripts/test-all-apis.mjs
 ```
 
@@ -199,7 +199,7 @@ Add to your `.vscode/settings.json`:
 ```
 Error: The engine "node" is incompatible with this module
 ```
-**Solution:** Run `nvm use 20.19.5` before npm commands.
+**Solution:** Run `nvm use 24` before npm commands.
 
 #### Port already in use
 ```
@@ -217,7 +217,7 @@ Error: Cannot find module '...'
 **Solution:** Delete `node_modules` and reinstall:
 ```bash
 rm -rf node_modules .next
-nvm use 20.19.5 && npm install
+nvm use 24 && npm install
 ```
 
 ---
@@ -230,7 +230,7 @@ The app is a Progressive Web App (PWA) with offline support. PWA features only w
 
 ```bash
 # Build and start production server
-nvm use 20.19.5 && npm run build && npm start
+nvm use 24 && npm run build && npm start
 ```
 
 Then open http://localhost:3000 and:

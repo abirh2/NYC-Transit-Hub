@@ -7,23 +7,19 @@
  */
 
 import { Card, CardBody } from "@heroui/react";
-import { Navigation, MapPin } from "lucide-react";
+import { MapPin } from "lucide-react";
 import { RouteFinder } from "@/components/accessibility";
+import { PageContainer, PageHeader } from "@/components/layout";
 
 export function RoutesClient() {
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-3">
-          <Navigation className="h-7 w-7 text-primary" />
-          Route Finder
-        </h1>
-        <p className="mt-1 text-foreground/70">
-          Plan your transit trip between any two locations in NYC
-        </p>
-      </div>
+    <PageContainer>
+      <PageHeader
+        title="Route Finder"
+        description="Plan your transit trip between any two locations in NYC"
+      />
 
+      <div className="space-y-6">
       {/* Tips */}
       <Card className="bg-primary/5 border border-primary/20">
         <CardBody className="py-4">
@@ -43,7 +39,8 @@ export function RoutesClient() {
 
       {/* Route Finder */}
       <RouteFinder />
-    </div>
+      </div>
+    </PageContainer>
   );
 }
 

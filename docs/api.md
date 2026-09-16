@@ -91,8 +91,10 @@ curl "http://localhost:3000/api/stations?near=40.758,-73.985&radius=0.5&limit=5"
 | `allIds` | string[] | All station complex IDs sharing this name (for multi-complex stations like Times Sq) |
 | `allPlatforms.north` | string[] | All northbound platform IDs across all complexes |
 | `allPlatforms.south` | string[] | All southbound platform IDs across all complexes |
+| `sourceIds` | string[] | Every GTFS parent station represented by the rider-facing complex |
+| `stops` | TransitStop[] | Normalized directional/platform stops used by realtime feeds |
+| `routeIds` | string[] | Normalized routes serving the complex when known |
 | `distance` | number | Distance in miles (only present when using `near` parameter)
-```
 
 ---
 
@@ -573,6 +575,10 @@ curl "http://localhost:3000/api/routes/trip?fromLat=40.8731&fromLon=-73.8837&toL
 
 Get real-time train arrival predictions.
 
+The existing `arrivals` array remains for compatibility. New consumers should
+use `departures` plus `trips`: each departure's `tripId` resolves to one full
+individual subway trip, including its ordered stop updates and progress state.
+
 **Query Parameters:**
 
 | Parameter | Type | Description |
@@ -609,6 +615,28 @@ curl "http://localhost:3000/api/trains/realtime?routeId=A&limit=5"
         "minutesAway": 3
       }
     ],
+    "departures": [
+      {
+        "tripId": "123456_A..N",
+        "routeId": "A",
+        "stopId": "A15N",
+        "stationId": "A15",
+        "direction": "northbound",
+        "predictedArrival": "2024-01-15T12:05:00.000Z"
+      }
+    ],
+    "trips": [
+      {
+        "id": "123456_A..N",
+        "mode": "subway",
+        "direction": "northbound",
+        "stopTimeUpdates": [],
+        "progress": { "state": "between-stops", "source": "inferred" }
+      }
+    ],
+    "vehicles": [],
+    "sourceState": "ok",
+    "feedTimestamp": "2024-01-15T12:01:55.000Z",
     "lastUpdated": "2024-01-15T12:02:00.000Z"
   },
   "timestamp": "2024-01-15T12:02:00.000Z"
@@ -622,6 +650,10 @@ curl "http://localhost:3000/api/trains/realtime?routeId=A&limit=5"
 #### GET /api/buses/realtime
 
 Get real-time bus arrival predictions.
+
+As with trains, `arrivals` is the compatibility projection. `departures`,
+`trips`, and `vehicles` preserve the SIRI journey identity and actual vehicle
+coordinates when MTA Bus Time provides them.
 
 **Requires:** `MTA_BUS_API_KEY` environment variable
 
@@ -678,6 +710,21 @@ curl "http://localhost:3000/api/buses/realtime?routeId=M15&limit=5"
   "timestamp": "2024-01-15T12:02:00.000Z"
 }
 ```
+
+#### GET /api/buses/stops
+
+Find nearby static bus stops before fetching realtime arrivals. This supports
+the intended rider flow: location → stops → routes → departures → vehicle.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `near` | string | Required coordinates in `lat,lon` format |
+| `radius` | number | Radius in miles (default: 0.5, max: 5) |
+| `limit` | number | Maximum stops (default: 20, max: 100) |
+
+Each returned stop includes coordinates, `distanceMiles`, and `routeIds` for
+the routes serving it. This endpoint uses static metadata and does not require a
+Bus Time API key.
 
 #### GET /api/buses/routes
 

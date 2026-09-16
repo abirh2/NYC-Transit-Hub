@@ -9,7 +9,7 @@
 /* Dark mode variant for HeroUI */
 @custom-variant dark (&:is(.dark *));
 
-/* MTA-inspired color tokens */
+/* MTA-inspired color tokens (Layer 1 — raw palette, theme-independent) */
 :root {
   --mta-blue: #0039A6;
   --mta-orange: #FF6319;
@@ -22,6 +22,114 @@
   --mta-turquoise: #6CBE45;
 }
 
+/*
+ * Layer 2 — Semantic design tokens.
+ *
+ * next-themes toggles a `.dark` / `.light` class on <html>, and `defaultTheme`
+ * in `app/hero.ts` is `dark`. Therefore the `:root` values below are the DARK
+ * baseline, and the `.light` block further down overrides them for the light
+ * theme. Transit route-family colors are intentionally NOT defined here — they
+ * live in `lib/transit/route-colors.ts` and stay stable across themes
+ * (Requirement 5.9).
+ */
+:root {
+  /* Typography scale (Req 5.1, 6.1) — paired size / line-height / weight.
+     Applied via utilities/component styles; `--text-numeric` pairs with
+     tabular numerals for realtime values. */
+  --text-display: 700 2.25rem/2.5rem var(--font-sans);
+  --text-page-title: 700 1.5rem/2rem var(--font-sans);
+  --text-section-title: 600 1.25rem/1.75rem var(--font-sans);
+  --text-card-title: 600 1rem/1.5rem var(--font-sans);
+  --text-body: 400 1rem/1.5rem var(--font-sans);
+  --text-body-secondary: 400 0.875rem/1.375rem var(--font-sans);
+  --text-caption: 400 0.75rem/1rem var(--font-sans);
+  --text-numeric: 600 1rem/1.5rem var(--font-mono);
+
+  /* Spacing (Req 5.2) — mobile baseline; desktop values applied at the
+     `lg` breakpoint override below. */
+  --space-page-gutter: 1rem;
+  --space-section: 1.5rem;
+  --space-card-pad: 1rem;
+
+  /* Shape / radii (Req 5.3) — raw values kept under a `--shape-*` prefix so the
+     `--radius-*` name space is owned by the `@theme inline` block below, which
+     re-exposes these as Tailwind `rounded-*` utilities without a self-reference. */
+  --shape-sm: 0.25rem;
+  --shape-md: 0.5rem;
+  --shape-lg: 0.75rem;
+  --shape-pill: 9999px;
+  --shape-bullet: 9999px;
+
+  /* Surfaces (Req 5.4) — dark baseline. Elevation ordering:
+     app < panel < elevated < floating (see depth tokens below). */
+  --surface-app: #0a0a0a;
+  --surface-panel: #161616;
+  --surface-elevated: #1f1f1f;
+  --surface-floating: #262626;
+  --surface-selected: rgba(0, 57, 166, 0.24);
+  --surface-hover: rgba(255, 255, 255, 0.06);
+
+  /* Depth (Req 5.5) — borders + shadows. Documented elevation hierarchy:
+     app (0, flat) < panel (subtle border) < elevated (shadow-sm/md)
+     < floating (shadow-lg). Shadows deepen as elevation increases. */
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55);
+
+  /* Semantic states (Req 5.6) — one token per Semantic_State, derived from
+     the MTA palette where meaningful. `stale` is a neutral/muted value. */
+  --state-normal: var(--mta-green);
+  --state-advisory: var(--mta-yellow);
+  --state-delay: var(--mta-orange);
+  --state-severe: var(--mta-red);
+  --state-unavailable: var(--mta-gray);
+  --state-stale: #6b7280;
+  --state-selected: var(--mta-blue);
+
+  /* Focus ring (Req 9.2, 14.5) — the single, theme-aware focus token reused by
+     the global `:focus-visible` rule and every interactive primitive. Dark
+     baseline reads as a brightened MTA blue so the ring stays visible against
+     dark surfaces; the `.light` override drops back to the raw selected hue. */
+  --focus-ring: #4f83ff;
+}
+
+/* Desktop spacing scale (Req 5.2) — larger gutters/section/card padding at lg+. */
+@media (min-width: 1024px) {
+  :root {
+    --space-page-gutter: 2rem;
+    --space-section: 2.5rem;
+    --space-card-pad: 1.5rem;
+  }
+}
+
+/* Light theme overrides (Req 5.8) — class-scoped via next-themes `.light`.
+   Only theme-varying tokens are overridden; typography, spacing, radii, and
+   semantic-state hues stay shared with the dark baseline. */
+.light {
+  /* Surfaces */
+  --surface-app: #f5f5f5;
+  --surface-panel: #ffffff;
+  --surface-elevated: #ffffff;
+  --surface-floating: #ffffff;
+  --surface-selected: rgba(0, 57, 166, 0.12);
+  --surface-hover: rgba(0, 0, 0, 0.04);
+
+  /* Depth */
+  --border-subtle: rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.16);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.14);
+
+  /* Stale data reads as a lighter neutral on light surfaces */
+  --state-stale: #9ca3af;
+
+  /* Focus ring — the raw selected/MTA blue reads clearly on light surfaces. */
+  --focus-ring: var(--state-selected);
+}
+
 @theme inline {
   --color-mta-blue: var(--mta-blue);
   --color-mta-orange: var(--mta-orange);
@@ -32,7 +140,55 @@
   --color-mta-gray: var(--mta-gray);
   --color-mta-brown: var(--mta-brown);
   --color-mta-turquoise: var(--mta-turquoise);
-  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
+
+  /* Surface tokens (Req 5.4) → bg-surface-*, text-surface-*, border-surface-*.
+     Theme-aware via the `.light`/`.dark`-scoped Layer 2 variables above. */
+  --color-surface-app: var(--surface-app);
+  --color-surface-panel: var(--surface-panel);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-surface-floating: var(--surface-floating);
+  --color-surface-selected: var(--surface-selected);
+  --color-surface-hover: var(--surface-hover);
+
+  /* Depth border tokens (Req 5.5) → border-subtle, border-strong (and
+     the bg and text variants). Shadow tokens stay as CSS variables consumed
+     directly because the Tailwind shadow utilities expect full shadow values. */
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
+
+  /* Semantic-state tokens (Req 5.6) → bg-state-*, text-state-*, border-state-*.
+     One utility family per Semantic_State. */
+  --color-state-normal: var(--state-normal);
+  --color-state-advisory: var(--state-advisory);
+  --color-state-delay: var(--state-delay);
+  --color-state-severe: var(--state-severe);
+  --color-state-unavailable: var(--state-unavailable);
+  --color-state-stale: var(--state-stale);
+  --color-state-selected: var(--state-selected);
+
+  /* Focus-ring token (Req 9.2, 14.5) → ring-focus / border-focus / text-focus.
+     Theme-aware via the `.light`/`.dark`-scoped `--focus-ring` above so every
+     interactive primitive shares one consistent, visible focus treatment. */
+  --color-focus: var(--focus-ring);
+
+  /* Shape / radii tokens (Req 5.3) → rounded-sm/md/lg/pill/bullet. */
+  --radius-sm: var(--shape-sm);
+  --radius-md: var(--shape-md);
+  --radius-lg: var(--shape-lg);
+  --radius-pill: var(--shape-pill);
+  --radius-bullet: var(--shape-bullet);
+
+  /* Spacing tokens (Req 5.2) → p-*, px-*, gap-*, etc. Resolve to the
+     mobile/desktop-scoped Layer 2 variables. */
+  --spacing-page-gutter: var(--space-page-gutter);
+  --spacing-section: var(--space-section);
+  --spacing-card-pad: var(--space-card-pad);
+
+  /* System-font-first stack (Req 6.2). The Geist `next/font` variable stays
+     optional as the first entry, but application text resolves to system
+     fonts so no webfont download blocks text rendering. `--font-mono` stays
+     available for `--text-numeric` and monospace contexts. */
+  --font-sans: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
 
@@ -75,10 +231,20 @@ body {
   background: #505050;
 }
 
-/* Focus visible styles for accessibility */
+/* Focus visible styles for accessibility (Req 9.2, 14.5).
+   Promoted to the theme-aware `--focus-ring` token so the global outline and
+   the primitive `ring-focus` utility resolve to one shared, theme-aware value. */
 :focus-visible {
-  outline: 2px solid var(--mta-blue);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+}
+
+/* Tabular numerals (Req 6.3) — token-backed utility for realtime numeric
+   values (arrival minutes, counts, MetricCard metrics) so digits align in
+   columns. Applies the `--text-numeric` type pairing and locks digit width. */
+.tabular {
+  font: var(--text-numeric);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Sidebar transition utilities */

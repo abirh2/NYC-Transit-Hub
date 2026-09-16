@@ -18,10 +18,16 @@ import {
   ExternalLink
 } from "lucide-react";
 import Link from "next/link";
+import { PageContainer, PageHeader } from "@/components/layout";
 
 export default function AboutPage() {
   return (
-    <div className="space-y-12 max-w-4xl mx-auto">
+    <PageContainer>
+      <PageHeader
+        title="NYC Transit Hub"
+        description="A personal, non-commercial web application providing real-time MTA transit information, reliability analytics, and accessibility-aware routing for New York City."
+      />
+      <div className="space-y-12">
       {/* Hero Section */}
       <section className="text-center space-y-4">
         <div className="flex justify-center">
@@ -29,11 +35,6 @@ export default function AboutPage() {
             <Train className="h-10 w-10 text-white" />
           </div>
         </div>
-        <h1 className="text-4xl font-bold">NYC Transit Hub</h1>
-        <p className="text-xl text-foreground/70 max-w-2xl mx-auto">
-          A personal, non-commercial web application providing real-time MTA transit information, 
-          reliability analytics, and accessibility-aware routing for New York City.
-        </p>
         <div className="flex justify-center gap-3 flex-wrap">
           <Chip color="primary" variant="flat">Real-Time Data</Chip>
           <Chip color="secondary" variant="flat">Open Source</Chip>
@@ -317,7 +318,8 @@ export default function AboutPage() {
           <p>Built with <Link href="https://nextjs.org/" target="_blank" className="text-primary hover:underline">Next.js</Link> and <Link href="https://heroui.com/" target="_blank" className="text-primary hover:underline">HeroUI</Link></p>
         </div>
       </section>
-    </div>
+      </div>
+    </PageContainer>
   );
 }
 

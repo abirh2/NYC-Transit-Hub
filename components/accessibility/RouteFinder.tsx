@@ -14,6 +14,7 @@ import {
   AlertCircle
 } from "lucide-react";
 import { SubwayBullet } from "@/components/ui";
+import { getSubwayRouteColor } from "@/lib/transit/route-colors";
 import { format } from "date-fns";
 
 interface GeocodingResult {
@@ -149,28 +150,24 @@ function isSubwayLine(route: string | undefined): boolean {
   return SUBWAY_LINES.has(route.toUpperCase());
 }
 
+// Commuter rail routes (Metro-North, LIRR) that render in MTA blue.
+const COMMUTER_RAIL_BLUE = "#0039A6";
+const COMMUTER_RAIL_ROUTES = new Set([
+  "HARLEM", "HUDSON", "NEW HAVEN", "LIRR"
+]);
+
 function getLineColor(leg: OTPLeg): string {
+  // GTFS-provided color wins.
   if (leg.routeColor) return `#${leg.routeColor}`;
-  
-  // Subway line colors
-  const colors: Record<string, string> = {
-    "1": "#EE352E", "2": "#EE352E", "3": "#EE352E",
-    "4": "#00933C", "5": "#00933C", "6": "#00933C",
-    "7": "#B933AD", "7X": "#B933AD",
-    "A": "#0039A6", "C": "#0039A6", "E": "#0039A6",
-    "B": "#FF6319", "D": "#FF6319", "F": "#FF6319", "M": "#FF6319",
-    "G": "#6CBE45",
-    "J": "#996633", "Z": "#996633",
-    "L": "#A7A9AC",
-    "N": "#FCCC0A", "Q": "#FCCC0A", "R": "#FCCC0A", "W": "#FCCC0A",
-    "S": "#808183", "SI": "#0039A6", "SIR": "#0039A6",
-    // Metro-North
-    "HARLEM": "#0039A6", "HUDSON": "#0039A6", "NEW HAVEN": "#0039A6",
-    // LIRR - blue
-    "LIRR": "#0039A6"
-  };
-  
-  return colors[leg.route?.toUpperCase() || ""] || "#808183";
+
+  // Commuter rail (Metro-North / LIRR) fall back to MTA blue.
+  if (COMMUTER_RAIL_ROUTES.has(leg.route?.toUpperCase() || "")) {
+    return COMMUTER_RAIL_BLUE;
+  }
+
+  // Subway route-family color from the single source of truth
+  // (falls back to neutral gray for unknown lines).
+  return getSubwayRouteColor(leg.route || "");
 }
 
 // Render transit line badge - subway bullet or chip for commuter rail

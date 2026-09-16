@@ -13,9 +13,10 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { fetchAllSubwayFeeds, extractArrivals } from "@/lib/mta";
+import { normalizeSubwayDirection } from "@/lib/transit/direction";
+import { toLegacyTrainArrivals } from "@/lib/transit/legacy";
+import { getSubwayRealtimeSnapshot } from "@/lib/transit/realtime-service";
 import type { TrainRealtimeResponse, ApiResponse, ApiErrorResponse } from "@/types/api";
-import type { TrainArrival } from "@/types/mta";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 30; // Cache for 30 seconds
@@ -28,15 +29,35 @@ export async function GET(
   // Parse query parameters
   const stationId = searchParams.get("stationId") ?? undefined;
   const routeId = searchParams.get("routeId") ?? undefined;
-  const direction = searchParams.get("direction") as "N" | "S" | undefined;
+  const rawDirection = searchParams.get("direction");
+  const direction = rawDirection
+    ? normalizeSubwayDirection(rawDirection)
+    : undefined;
   const limitParam = searchParams.get("limit");
-  const limit = limitParam ? parseInt(limitParam, 10) : 20;
+  const parsedLimit = limitParam ? parseInt(limitParam, 10) : 20;
+  const limit = Number.isFinite(parsedLimit)
+    ? Math.min(Math.max(parsedLimit, 1), 500)
+    : 20;
+
+  if (rawDirection && direction === "unknown") {
+    return NextResponse.json({
+      success: false,
+      data: null,
+      error: "Invalid direction. Use N, S, E, W, or a normalized direction.",
+      timestamp: new Date().toISOString(),
+    }, { status: 400 });
+  }
 
   try {
-    // Fetch all subway feeds
-    const feeds = await fetchAllSubwayFeeds();
-    
-    if (feeds.size === 0) {
+    const snapshot = await getSubwayRealtimeSnapshot({
+      stationId: stationId?.replace(/[NS]$/, ""),
+      stopId: stationId && /[NS]$/.test(stationId) ? stationId : undefined,
+      routeId,
+      direction,
+      limit,
+    });
+
+    if (snapshot.sourceState === "unavailable") {
       return NextResponse.json({
         success: false,
         data: null,
@@ -45,36 +66,17 @@ export async function GET(
       }, { status: 503 });
     }
 
-    // Extract arrivals from all feeds
-    let allArrivals: TrainArrival[] = [];
-    
-    for (const [, feed] of feeds) {
-      const arrivals = extractArrivals(feed, {
-        stationId,
-        routeId,
-        limit: limit * 2, // Get extra for filtering
-      });
-      allArrivals = allArrivals.concat(arrivals);
-    }
-
-    // Apply direction filter
-    if (direction) {
-      allArrivals = allArrivals.filter(a => a.direction === direction);
-    }
-
-    // Sort by arrival time
-    allArrivals.sort((a, b) => a.arrivalTime.getTime() - b.arrivalTime.getTime());
-
-    // Apply limit
-    allArrivals = allArrivals.slice(0, limit);
-
-    // Build response
     return NextResponse.json({
       success: true,
       data: {
-        arrivals: allArrivals,
+        arrivals: toLegacyTrainArrivals(snapshot),
+        departures: snapshot.departures,
+        trips: snapshot.trips.filter((trip) => trip.mode === "subway"),
+        vehicles: snapshot.vehicles,
+        sourceState: snapshot.sourceState,
+        feedTimestamp: snapshot.feedTimestamp?.toISOString() ?? null,
         stationName: stationId ?? undefined,
-        lastUpdated: new Date().toISOString(),
+        lastUpdated: snapshot.generatedAt.toISOString(),
       },
       timestamp: new Date().toISOString(),
     });
@@ -89,4 +91,3 @@ export async function GET(
     }, { status: 500 });
   }
 }
-

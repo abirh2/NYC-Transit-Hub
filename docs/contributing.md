@@ -38,13 +38,13 @@ git checkout -b feature/your-feature
 # Make your changes...
 
 # Run tests
-nvm use 20.19.5 && npm run test
+nvm use 24 && npm run test
 
 # Run linting
-nvm use 20.19.5 && npm run lint
+nvm use 24 && npm run lint
 
 # Build to check for errors
-nvm use 20.19.5 && npm run build
+nvm use 24 && npm run build
 ```
 
 ### 3. Commit Messages

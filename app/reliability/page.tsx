@@ -1,4 +1,5 @@
 import { ReliabilityClient } from "@/components/reliability";
+import { PageContainer } from "@/components/layout";
 
 export const metadata = {
   title: "Reliability",
@@ -6,5 +7,9 @@ export const metadata = {
 };
 
 export default function ReliabilityPage() {
-  return <ReliabilityClient />;
+  return (
+    <PageContainer width="wide">
+      <ReliabilityClient />
+    </PageContainer>
+  );
 }

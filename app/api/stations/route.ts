@@ -14,9 +14,11 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getStations, searchStations, getStationById } from "@/lib/gtfs";
+import { getStations, searchStations, getStationById, loadStops } from "@/lib/gtfs";
+import { normalizeSubwayStations } from "@/lib/transit/station-adapter";
 import { findNearbyStations, type StationWithDistance } from "@/lib/utils/distance";
 import type { ApiResponse, ApiErrorResponse } from "@/types/api";
+import type { TransitStop } from "@/types/transit";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 3600; // Cache for 1 hour (static data)
@@ -37,6 +39,11 @@ interface StationResponse {
     north: string[];
     south: string[];
   };
+  /** Normalized directional/platform stops for this rider-facing complex. */
+  stops?: TransitStop[];
+  /** Every GTFS parent station represented by this complex. */
+  sourceIds?: string[];
+  routeIds?: string[];
   distance?: number; // Only present when using 'near' parameter
 }
 
@@ -148,6 +155,21 @@ export async function GET(
       const allStations = getStations();
       stations = Array.from(allStations.values()).slice(0, limit);
     }
+
+    const normalizedStations = normalizeSubwayStations(loadStops());
+    stations = stations.map((station) => {
+      const normalized = normalizedStations.find((candidate) =>
+        candidate.sourceIds.includes(station.id),
+      );
+      return normalized
+        ? {
+            ...station,
+            stops: normalized.stops,
+            sourceIds: normalized.sourceIds,
+            routeIds: normalized.routeIds,
+          }
+        : station;
+    });
 
     return NextResponse.json({
       success: true,

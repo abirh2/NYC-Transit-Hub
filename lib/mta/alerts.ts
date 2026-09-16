@@ -9,6 +9,7 @@
 import { z } from "zod";
 import type { ServiceAlert, AlertSeverity, AlertType } from "@/types/mta";
 import { ALERT_FEED_URLS } from "./config";
+import { TRANSIT_CACHE_SECONDS } from "@/lib/transit/cache-policy";
 
 // ============================================================================
 // Zod Schemas for Validation (matching actual MTA API response)
@@ -101,7 +102,7 @@ export async function fetchAlerts(
       headers: {
         "Accept": "application/json",
       },
-      next: { revalidate: 60 }, // Cache for 60 seconds
+      next: { revalidate: TRANSIT_CACHE_SECONDS.alerts },
     });
     
     if (!response.ok) {

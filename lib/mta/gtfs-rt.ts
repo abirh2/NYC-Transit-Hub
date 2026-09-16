@@ -4,11 +4,11 @@
  */
 
 import protobuf from "protobufjs";
-import type { 
-  MtaFeedMessage, 
-  NyctTripDescriptor 
-} from "@/types/gtfs";
-import type { TrainArrival, SubwayLine } from "@/types/mta";
+import type { MtaFeedMessage } from "@/types/gtfs";
+import type { TrainArrival } from "@/types/mta";
+import { toLegacyTrainArrivals } from "@/lib/transit/legacy";
+import { normalizeSubwayFeed } from "@/lib/transit/subway-adapter";
+import { TRANSIT_CACHE_SECONDS } from "@/lib/transit/cache-policy";
 import { SUBWAY_FEED_URLS, type SubwayFeedKey } from "./config";
 
 // ============================================================================
@@ -239,7 +239,7 @@ export async function fetchSubwayFeed(feedKey: SubwayFeedKey): Promise<MtaFeedMe
       headers: {
         "Accept": "application/x-protobuf",
       },
-      next: { revalidate: 30 }, // Cache for 30 seconds
+      next: { revalidate: TRANSIT_CACHE_SECONDS.realtime },
     });
     
     if (!response.ok) {
@@ -306,113 +306,17 @@ export function extractArrivals(
     limit?: number;
   }
 ): TrainArrival[] {
-  const arrivals: TrainArrival[] = [];
-  const now = Date.now();
-  
-  for (const entity of feed.entity) {
-    if (!entity.tripUpdate) continue;
-    
-    const tripUpdate = entity.tripUpdate;
-    const trip = tripUpdate.trip;
-    
-    // Skip if route filter doesn't match
-    if (options?.routeId && trip.routeId !== options.routeId) {
-      continue;
-    }
-    
-    // Get NYCT extension data
-    const nyctTrip = (trip as { nyctTripDescriptor?: NyctTripDescriptor }).nyctTripDescriptor;
-    const direction = nyctTrip?.direction === "NORTH" || nyctTrip?.direction === "EAST" 
-      ? "N" as const 
-      : "S" as const;
-    const isAssigned = nyctTrip?.isAssigned ?? true;
-    
-    // Process each stop time update
-    for (const stopTime of tripUpdate.stopTimeUpdate) {
-      // Skip if station filter doesn't match
-      // Note: stationId can be a parent station ID (e.g., "A27") or a platform ID (e.g., "A27N")
-      // GTFS feeds use platform IDs (with N/S suffix), so we check if the stopId starts with the stationId
-      if (options?.stationId) {
-        const stopId = stopTime.stopId ?? "";
-        const stationId = options.stationId;
-        // Match if: exact match, or stopId is a platform of this station (e.g., "A27N" matches "A27")
-        const isMatch = stopId === stationId || 
-                        stopId.startsWith(stationId) && /^[NS]$/.test(stopId.slice(stationId.length));
-        if (!isMatch) {
-          continue;
-        }
-      }
-      
-      const arrivalTime = stopTime.arrival?.time 
-        ? new Date(stopTime.arrival.time * 1000)
-        : null;
-      
-      const departureTime = stopTime.departure?.time
-        ? new Date(stopTime.departure.time * 1000)
-        : null;
-      
-      // Skip if no arrival time or already passed
-      if (!arrivalTime || arrivalTime.getTime() < now) {
-        continue;
-      }
-      
-      const delay = stopTime.arrival?.delay ?? 0;
-      const minutesAway = Math.round((arrivalTime.getTime() - now) / 60000);
-      
-      arrivals.push({
-        tripId: trip.tripId ?? "",
-        routeId: (trip.routeId ?? "?") as SubwayLine,
-        direction,
-        headsign: extractHeadsign(trip.tripId ?? ""),
-        stopId: stopTime.stopId ?? "",
-        stationName: "", // Will be populated from station lookup
-        arrivalTime,
-        departureTime,
-        delay,
-        isAssigned,
-        minutesAway,
-      });
-    }
-  }
-  
-  // Sort by arrival time
-  arrivals.sort((a, b) => a.arrivalTime.getTime() - b.arrivalTime.getTime());
-  
-  // Apply limit
-  if (options?.limit) {
-    return arrivals.slice(0, options.limit);
-  }
-  
-  return arrivals;
-}
-
-/**
- * Extract headsign from trip ID (MTA encodes destination in trip ID)
- * Format: tripId like "073850_A..N03R" where N03R is the destination
- * 
- * Note: The extracted code is often an internal terminal ID like "N05R" 
- * which is not user-friendly. We return null in those cases to allow
- * the UI to fall back to a friendly terminal name lookup.
- */
-function extractHeadsign(tripId: string): string | null {
-  // MTA trip IDs often contain the terminal station code after ".."
-  const match = tripId.match(/\.\.([A-Z0-9]+)/);
-  if (!match) return null;
-  
-  const code = match[1];
-  
-  // Internal terminal codes look like "N05R", "S05R", "N03R" etc.
-  // These are direction (N/S) + stop number + route indicator
-  // Also filter out bare direction letters like "N" or "S"
-  // They're not user-friendly, so return null to use default headsigns
-  if (
-    /^[NS]$/.test(code) ||           // Just "N" or "S"
-    /^[NS]\d{2}[A-Z]?$/.test(code)   // "N05R", "S05R", etc.
-  ) {
-    return null;
-  }
-  
-  return code;
+  const snapshot = normalizeSubwayFeed(feed);
+  return toLegacyTrainArrivals({
+    trips: snapshot.trips,
+    departures: snapshot.departures.filter(
+      (departure) =>
+        (!options?.routeId || departure.routeId === options.routeId) &&
+        (!options?.stationId ||
+          departure.stopId === options.stationId ||
+          departure.stationId === options.stationId),
+    ),
+  }).slice(0, options?.limit);
 }
 
 /**
@@ -421,4 +325,3 @@ function extractHeadsign(tripId: string): string | null {
 export function getFeedTimestamp(feed: MtaFeedMessage): Date {
   return new Date(feed.header.timestamp * 1000);
 }
-

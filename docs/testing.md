@@ -55,26 +55,26 @@ scripts/                             # Development test scripts
 
 ```bash
 # Run all unit and component tests
-nvm use 20.19.5 && npm run test
+nvm use 24 && npm run test
 
 # Run tests in watch mode
-nvm use 20.19.5 && npm run test:watch
+nvm use 24 && npm run test:watch
 
 # Run tests with coverage
-nvm use 20.19.5 && npm run test:coverage
+nvm use 24 && npm run test:coverage
 ```
 
 ### E2E Tests
 
 ```bash
 # Run end-to-end tests
-nvm use 20.19.5 && npm run test:e2e
+nvm use 24 && npm run test:e2e
 
 # Run E2E tests with UI
-nvm use 20.19.5 && npm run test:e2e:ui
+nvm use 24 && npm run test:e2e:ui
 
 # Run specific test file
-nvm use 20.19.5 && npx playwright test tests/e2e/home.spec.ts
+nvm use 24 && npx playwright test tests/e2e/home.spec.ts
 ```
 
 ---
@@ -237,7 +237,7 @@ mockFn.mockReturnValue('mocked value');
 ### Running Coverage
 
 ```bash
-nvm use 20.19.5 && npm run test:coverage
+nvm use 24 && npm run test:coverage
 ```
 
 ### Coverage Thresholds
@@ -288,26 +288,26 @@ export default defineConfig({
 
 ```bash
 # Run specific test file
-nvm use 20.19.5 && npx vitest tests/unit/utils/formatTime.test.ts
+nvm use 24 && npx vitest tests/unit/utils/formatTime.test.ts
 
 # Run tests matching pattern
-nvm use 20.19.5 && npx vitest -t "formats minutes"
+nvm use 24 && npx vitest -t "formats minutes"
 
 # Debug mode
-nvm use 20.19.5 && npx vitest --inspect-brk
+nvm use 24 && npx vitest --inspect-brk
 ```
 
 ### Playwright
 
 ```bash
 # Debug mode with inspector
-nvm use 20.19.5 && npx playwright test --debug
+nvm use 24 && npx playwright test --debug
 
 # Generate test from actions
-nvm use 20.19.5 && npx playwright codegen http://localhost:3000
+nvm use 24 && npx playwright codegen http://localhost:3000
 
 # View trace on failure
-nvm use 20.19.5 && npx playwright show-trace
+nvm use 24 && npx playwright show-trace
 ```
 
 ---

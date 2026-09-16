@@ -23,14 +23,14 @@ export function DashboardCard({
     <Link href={href} className="block h-full">
       <Card
         isPressable
-        className="h-full transition-transform hover:scale-[1.02]"
+        className="h-full border border-border-subtle bg-surface-panel transition-transform hover:scale-[1.02] hover:bg-surface-hover"
       >
         <CardHeader className="flex gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
             {icon}
           </div>
           <div className="flex flex-col">
-            <p className="text-lg font-semibold">{title}</p>
+            <p className="text-lg font-semibold text-foreground">{title}</p>
             {status && (
               <p className="text-sm text-foreground/50">{status}</p>
             )}

@@ -3,6 +3,10 @@
  * Types for normalized/processed MTA data
  */
 
+import { getSubwayRouteColor } from "@/lib/transit/route-colors";
+import type { TransitMode as SharedTransitMode } from "@/types/transit";
+export type { AlertSeverity, AlertType, ServiceAlert } from "@/types/transit";
+
 // ============================================================================
 // Subway Line Information
 // ============================================================================
@@ -41,6 +45,24 @@ export const LINE_COLORS: Record<SubwayLine, LineColor> = {
   "SR": "gray",
   "SIR": "blue",
 };
+
+/**
+ * Hex color per `SubwayLine` id, derived from the route-color single source of
+ * truth (`lib/transit/route-colors.ts`).
+ *
+ * `LINE_COLORS` above stays authoritative for the named route *family* of each
+ * id. This map exists so consumers that need an actual hex value do not keep
+ * their own hardcoded table: every value is resolved through
+ * `getSubwayRouteColor`, which normalizes express/SIR/shuttle variants and
+ * falls back to neutral gray for ids without a canonical route color (e.g. the
+ * Franklin Av shuttle `SF`).
+ */
+export const LINE_COLOR_HEX: Record<SubwayLine, string> = Object.fromEntries(
+  (Object.keys(LINE_COLORS) as SubwayLine[]).map((line) => [
+    line,
+    getSubwayRouteColor(line),
+  ]),
+) as Record<SubwayLine, string>;
 
 // Feed URL identifiers
 export type SubwayFeedId =
@@ -120,30 +142,6 @@ export interface RailArrival {
 // ============================================================================
 // Normalized Service Alert
 // ============================================================================
-
-export type AlertSeverity = "INFO" | "WARNING" | "SEVERE";
-
-export type AlertType =
-  | "DELAY"
-  | "DETOUR"
-  | "STATION_CLOSURE"
-  | "PLANNED_WORK"
-  | "SERVICE_CHANGE"
-  | "REDUCED_SERVICE"
-  | "SHUTTLE_BUS"
-  | "OTHER";
-
-export interface ServiceAlert {
-  id: string;
-  affectedRoutes: string[];
-  affectedStops: string[];
-  headerText: string;
-  descriptionText: string | null;
-  severity: AlertSeverity;
-  alertType: AlertType;
-  activePeriodStart: Date | null;
-  activePeriodEnd: Date | null;
-}
 
 // ============================================================================
 // Elevator/Escalator Status
@@ -245,7 +243,7 @@ export interface RouteCrowding {
 // Crowding (Enhanced - Multi-Factor Segment-Level)
 // ============================================================================
 
-export type TransitMode = "subway" | "bus" | "lirr" | "metro-north";
+export type TransitMode = SharedTransitMode;
 
 export type Direction = "N" | "S" | "E" | "W" | "inbound" | "outbound";
 
@@ -331,4 +329,3 @@ export interface TimeContext {
   isPeakDirection: boolean; // true if direction aligns with typical commute flow
   demandMultiplier: number; // 0-1 based on historical ridership
 }
-

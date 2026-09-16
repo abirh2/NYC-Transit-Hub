@@ -6,6 +6,11 @@
  */
 
 import lineStationsData from "@/data/gtfs/line-stations.json";
+import {
+  getSubwayRouteColor,
+  pickContrastText,
+  SUBWAY_ROUTE_COLORS,
+} from "@/lib/transit/route-colors";
 
 // ============================================================================
 // Types
@@ -48,6 +53,56 @@ export const LINE_GROUPS = {
 
 export type LineGroupId = keyof typeof LINE_GROUPS;
 
+/**
+ * Validate that each `LINE_GROUPS` color agrees with the canonical route-colors
+ * map for every line in that group.
+ *
+ * The canonical map in `route-colors.ts` is the single source of truth for
+ * subway route-family colors. Group colors are kept here for UI organization,
+ * but they must not drift from the canonical values. This returns the list of
+ * mismatches (empty when everything agrees) so drift is detectable in tests and
+ * dev tooling without changing runtime behavior.
+ */
+export function validateLineGroupColors(): Array<{
+  group: LineGroupId;
+  line: string;
+  groupColor: string;
+  canonicalColor: string;
+}> {
+  const mismatches: Array<{
+    group: LineGroupId;
+    line: string;
+    groupColor: string;
+    canonicalColor: string;
+  }> = [];
+
+  for (const [groupId, group] of Object.entries(LINE_GROUPS)) {
+    for (const line of group.lines) {
+      const canonicalColor = getSubwayRouteColor(line);
+      // Only flag lines the canonical map actually knows about; a line absent
+      // from the canonical map falls back to gray and is not a real mismatch.
+      const key = line.toUpperCase();
+      const known = Object.prototype.hasOwnProperty.call(
+        SUBWAY_ROUTE_COLORS,
+        key,
+      );
+      if (
+        known &&
+        group.color.toUpperCase() !== canonicalColor.toUpperCase()
+      ) {
+        mismatches.push({
+          group: groupId as LineGroupId,
+          line,
+          groupColor: group.color,
+          canonicalColor,
+        });
+      }
+    }
+  }
+
+  return mismatches;
+}
+
 // ============================================================================
 // Data Access
 // ============================================================================
@@ -79,18 +134,25 @@ export function getLineStations(lineId: LineId): LineStation[] {
 
 /**
  * Get line color
+ *
+ * `lineData` (JSON) stays authoritative; when a line is missing a color we fall
+ * back to the canonical route-colors module rather than a local hex literal so
+ * fallbacks stay single-sourced.
  */
 export function getLineColor(lineId: LineId): string {
   const line = lineData[lineId];
-  return line?.color ?? "#808183";
+  return line?.color ?? getSubwayRouteColor(lineId);
 }
 
 /**
  * Get line text color (for contrast on line color background)
+ *
+ * Prefers the JSON-provided `textColor`; otherwise derives a contrast-safe text
+ * color from the resolved background via the route-colors module.
  */
 export function getLineTextColor(lineId: LineId): string {
   const line = lineData[lineId];
-  return line?.textColor ?? "#FFFFFF";
+  return line?.textColor ?? pickContrastText(getLineColor(lineId));
 }
 
 /**

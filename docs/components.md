@@ -174,18 +174,24 @@ import { PlaceholderCard } from "@/components/ui";
 
 ---
 
-### StatusCard
+### Status metric (MetricCard + StatusChip)
 
-A simple card for displaying status information.
+The former `StatusCard` primitive is superseded. Compose a `MetricCard`
+(optionally with a `state` accent, which renders a `StatusChip`) to display a
+labeled status value.
 
 ```tsx
-import { StatusCard } from "@/components/ui";
+import { MetricCard } from "@/components/ui";
 
-<StatusCard
+<MetricCard
   label="System Status"
-  status="All systems operational"
+  value="All systems operational"
+  state="advisory"
 />
 ```
+
+`state` accepts any `SemanticState` (`normal`, `advisory`, `delay`, `severe`,
+`unavailable`, `stale`, `selected`) and maps to a single `--state-*` token.
 
 ---
 

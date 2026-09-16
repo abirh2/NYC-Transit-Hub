@@ -38,7 +38,7 @@ export function AuthButton() {
   // Loading state
   if (isLoading) {
     return (
-      <Button isIconOnly variant="light" isDisabled>
+      <Button isIconOnly variant="light" isDisabled aria-label="Loading account">
         <Spinner size="sm" />
       </Button>
     );
