@@ -20,13 +20,13 @@
 - Personal commute assistant
 
 ### Node.js Version Requirement
-This project requires Node.js >= 20.9.0. The terminal may reset to an older version between commands.
+This project requires Node.js >= 24. The terminal may reset to an older version between commands.
 
 **Always prefix Node.js commands with the correct nvm version:**
 ```bash
-nvm use 20.19.5 && npm run dev
-nvm use 20.19.5 && npm run build
-nvm use 20.19.5 && npm install <package>
+nvm use 24 && npm run dev
+nvm use 24 && npm run build
+nvm use 24 && npm install <package>
 ```
 
 ---
