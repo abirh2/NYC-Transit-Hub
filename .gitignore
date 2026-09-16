@@ -54,3 +54,10 @@ storybook-static
 # AI
 .kiro/*
 /graphify-out/*
+.agent/*
+.agents/*
+.claude/*
+.codex/*
+.cursor/*
+AGENTS.md 
+CLAUDE.md

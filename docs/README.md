@@ -19,6 +19,8 @@ Welcome to the NYC Transit Hub documentation. This guide will help you understan
 - [API Reference](./api.md)
 - [Testing Guide](./testing.md)
 - [Contributing](./contributing.md)
+- [Agent Engineering Workflow](./ai/engineering-workflow.md)
+- [Transit Domain Conventions](./ai/transit-domain.md)
 
 ### User Guide
 - [Using the App](./user-guide.md)
@@ -46,12 +48,12 @@ NYC Transit Hub is a personal, non-commercial web application that provides real
 
 | Layer | Technology |
 |-------|------------|
-| Framework | Next.js 15 (App Router) |
+| Framework | Next.js 16 (App Router) |
 | Language | TypeScript (strict mode) |
 | UI Library | HeroUI v2 |
 | Styling | Tailwind CSS v4 |
 | Database | PostgreSQL (Supabase) |
-| ORM | Prisma or Drizzle |
+| ORM | Prisma 7 |
 | Charts | Recharts |
 | Testing | Vitest, React Testing Library, Playwright |
 
@@ -82,4 +84,3 @@ This project follows these documentation conventions:
 4. **Code Comments** - Focus on "why" not "what"
 
 See [Contributing](./contributing.md) for more details on documentation standards.
-

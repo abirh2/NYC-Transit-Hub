@@ -2,7 +2,7 @@
 
 A personal web application providing real-time MTA transit information, reliability analytics, and accessibility-aware routing for New York City's subway, bus, LIRR, and Metro-North systems.
 
-![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js)
+![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38bdf8?logo=tailwindcss)
 ![License](https://img.shields.io/badge/License-MIT-green)
@@ -96,6 +96,7 @@ Comprehensive documentation is available in the [`/docs`](./docs) folder:
 - [Components](./docs/components.md) - Component usage guide
 - [Testing](./docs/testing.md) - Testing guide and best practices
 - [Contributing](./docs/contributing.md) - Contribution guidelines
+- [Agent Instructions](./AGENTS.md) - Canonical guidance for coding agents
 
 ## Data Sources
 
