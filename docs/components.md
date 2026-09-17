@@ -298,7 +298,9 @@ const [selectedLine, setSelectedLine] = useState<LineId | null>(null);
 
 ### ModeSelector
 
-Tab selector for switching between transit modes (Subway, Bus, LIRR, Metro-North).
+Switches between transit modes (Subway, Bus, LIRR, Metro-North). Built on the
+shared `SegmentedControl`, so it exposes the WAI-ARIA radio-group pattern
+(`role="radiogroup"` with arrow-key navigation), not a tab list.
 
 ```tsx
 import { ModeSelector } from "@/components/realtime";
@@ -315,6 +317,79 @@ import { ModeSelector } from "@/components/realtime";
 |------|------|---------|-------------|
 | `selectedMode` | TransitMode | required | Currently selected mode |
 | `onModeChange` | (mode: TransitMode) => void | required | Callback when mode changes |
+| `compact` | boolean | false | Shorter labels and smaller icons |
+| `availableModes` | TransitMode[] | all four | Restrict the offered modes |
+
+---
+
+### RealtimeToolbar
+
+The single row of page chrome above the map: mode, route, map/diagram view, and
+refresh. Picks the route control per mode — `SubwayRouteRail` for subway,
+`BusSelector` for bus, `RailSelector` for LIRR and Metro-North.
+
+```tsx
+import { RealtimeToolbar } from "@/components/realtime";
+
+<RealtimeToolbar
+  mode={mode}
+  onModeChange={setMode}
+  view={view}
+  onViewChange={setView}
+  routeId={routeId}
+  onRouteChange={setRoute}
+  busRoutes={busRoutes}
+  isBusRoutesLoading={false}
+  railBranches={railBranches}
+  isRailBranchesLoading={false}
+  isRefreshing={isLoading}
+  onRefresh={refresh}
+  updatedLabel="Updated 12 seconds ago"
+/>
+```
+
+---
+
+### SubwayRouteRail
+
+Single-select subway picker: every line as its real bullet in one horizontally
+scrollable rail, ordered by color family. One tap to choose a route instead of
+opening a popover. Implemented as a `radiogroup` with a roving tabindex and
+arrow/Home/End support, with 44×44px touch targets.
+
+```tsx
+import { SubwayRouteRail } from "@/components/realtime";
+
+<SubwayRouteRail selectedLine={routeId} onSelect={setRoute} />
+```
+
+---
+
+### TransitDetailPanel / TransitBottomSheet
+
+The contextual detail surface. `TransitDetailPanel` renders a
+`TransitDetailContent` view model (station, vehicle, or route) and is used
+unchanged in both shells: a desktop side panel and, inside
+`TransitBottomSheet`, a mobile sheet.
+
+`TransitBottomSheet` wraps HeroUI's `Drawer` with `placement="bottom"`,
+following the `MoreDrawer` pattern for focus trapping and safe-area padding. It
+caps its height at `75dvh` so the map stays visible behind it. `LineDiagram` and
+`RailDiagram` both use it for their train detail, replacing the bottom `Modal`
+each had duplicated.
+
+```tsx
+import { TransitBottomSheet, TransitDetailPanel } from "@/components/realtime";
+
+<TransitBottomSheet isOpen={isOpen} onClose={clearDetail} title={content.title}>
+  <TransitDetailPanel content={content} />
+</TransitBottomSheet>
+```
+
+Build content with the framework-free builders in
+`components/realtime/detailContent.ts`: `buildStationDetail`,
+`buildSubwayVehicleDetail`, `buildRailVehicleDetail`, `buildBusVehicleDetail`,
+`buildRouteDetail`, and `buildMissingSelectionDetail`.
 
 ---
 
@@ -506,20 +581,27 @@ import { RailDiagram } from "@/components/realtime";
 
 ---
 
-### TransitMap
+### RealtimeMap
 
-Interactive Leaflet map showing transit lines, stations, and live vehicle positions.
+Interactive Leaflet map showing transit routes, stations, and live vehicle
+positions. Replaces the former `TransitMap`.
 
 ```tsx
-import { TransitMap } from "@/components/realtime";
+import { RealtimeMap } from "@/components/realtime/map";
 
-<TransitMap
+<RealtimeMap
   mode="subway"
-  selectedLine="A"
+  routeId="A"
+  routeColor="#0039A6"
+  routeLabel="A train"
   stations={stationsWithCoords}
-  lineColor="#0039A6"
   trains={trainArrivals}
-  isLoading={false}
+  onSelectStation={setStation}
+  onSelectVehicle={setTrip}
+  userLocation={position}
+  locationPermission={permissionState}
+  isLocating={isLocating}
+  onRequestLocation={requestLocation}
 />
 ```
 
@@ -528,25 +610,55 @@ import { TransitMap } from "@/components/realtime";
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
 | `mode` | TransitMode | required | Transit mode |
-| `selectedLine` | string \| null | required | Line/route/branch ID |
+| `routeId` | string \| null | required | Line/route/branch ID |
+| `routeColor` | string | required | Route color for the polyline and markers |
+| `routeLabel` | string | required | Human-readable route name for state copy |
 | `stations` | StationWithCoords[] | required | Stations with lat/lon |
-| `lineColor` | string | required | Line color for polyline |
 | `trains` | TrainArrival[] | [] | Subway train arrivals |
 | `railTrains` | RailArrival[] | [] | LIRR/Metro-North arrivals |
 | `buses` | BusArrival[] | [] | Bus arrivals with GPS |
 | `busRouteShape` | [number, number][] | [] | Bus route path coordinates |
-| `isLoading` | boolean | false | Show loading state |
+| `isLoading` | boolean | false | Show the refreshing indicator |
+| `error` | string \| null | null | Render `ErrorState` instead of the map |
+| `isStale` | boolean | false | Show the stale-data notice and dim vehicles |
+| `vehicleCount` | number | 0 | Drives the no-vehicles notice |
+| `selectedStationId` | string | - | Emphasized station, from URL state |
+| `selectedVehicleId` | string | - | Emphasized vehicle, from URL state |
+| `onSelectStation` | (id: string \| null) => void | required | Station click handler |
+| `onSelectVehicle` | (id: string \| null) => void | required | Vehicle click handler |
+| `onRetry` | () => void | - | Retry action on the error state |
+| `userLocation` | GeolocationPosition \| null | required | Current fix, or null |
+| `locationPermission` | GeolocationPermissionState | required | Drives control state |
+| `isLocating` | boolean | required | Location request in flight |
+| `onRequestLocation` | () => void | required | Called only on explicit press |
 
 **Features:**
-- CartoDB dark theme tiles
-- Polyline showing route path
-- Circle markers for stations with popups
-- Custom markers for vehicles:
-  - Subway: Line bullet with direction arrow
-  - Rail: Train icon with train number
-  - Bus: Bus icon with route number and bearing
-- Click markers for detailed popups
-- Auto-centers on line/route extent
+- Theme-aware CartoDB tiles (`dark_all` / `light_all`) following `next-themes`
+- Explicit Leaflet panes for layer order: route (400) < stations (450) <
+  vehicles (600) < selected (650)
+- `fitBounds` on route change, so a whole line frames itself
+- Route color sourced from `lib/transit/route-colors.ts` only
+- Zoom-gated station labels via permanent Leaflet tooltips
+- Grouped `MapControls` overlay (zoom, fit route, locate, legend) rendered
+  outside the Leaflet container so it stays in document focus order
+- Opt-in user location with a pulsing dot and a GPS accuracy circle
+- Loading, error, no-geometry, no-vehicles, and stale states
+
+**Marker strategy** (`components/realtime/map/markerIcons.ts`):
+
+| Mode | Marker | Direction |
+|------|--------|-----------|
+| Subway | Route bullet dominates, circular | Chevron rotated to travel bearing |
+| Rail | Branch-colored glyph plus train number | Chevron rotated to travel bearing |
+| Bus | Squared puck, distinct from the bullet | Chevron rotated to reported GPS bearing |
+
+Green, amber, and red are reserved for service condition (`delay`, `severe`,
+`stale`); direction is never encoded as color. Every marker carries screen
+reader text naming its route, so color is never the only route cue.
+
+**Approximate route geometry:** subway and rail polylines connect station
+coordinates in order. They have no curvature and render a branching line as one
+zig-zag. Buses use real GTFS shapes and are geographically accurate.
 
 **Smart Train Positioning:**
 

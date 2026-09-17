@@ -13,11 +13,17 @@
  */
 
 import { useState, useMemo, useCallback } from "react";
-import { Card, CardBody, Spinner, Modal, ModalContent } from "@heroui/react";
+import { Card, CardBody, Spinner } from "@heroui/react";
 import { Train } from "lucide-react";
-import { SubwayBullet } from "@/components/ui";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingSkeleton,
+  SubwayBullet,
+} from "@/components/ui";
 import { TrainMarker } from "./TrainMarker";
 import { TrainDetailPopover } from "./TrainDetailPopover";
+import { TransitBottomSheet } from "./TransitBottomSheet";
 import {
   getLineStations,
   getLineColor,
@@ -38,6 +44,13 @@ interface LineDiagramProps {
 
 // Pixel spacing per station
 const STATION_SPACING = 65;
+
+/** Centers a shared state primitive in the panel the diagram would have filled. */
+function DiagramState({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex h-full items-center justify-center p-4">{children}</div>
+  );
+}
 
 export function LineDiagram({
   selectedLine,
@@ -126,41 +139,45 @@ export function LineDiagram({
     setSelectedTrain(null);
   }, []);
 
-  // Empty state - no line selected
+  // Empty/loading/error all route through the shared state primitives so
+  // every surface on the page reports conditions the same way.
   if (!selectedLine) {
     return (
-      <Card className="h-full">
-        <CardBody className="flex flex-col items-center justify-center h-full text-center">
-          <Train className="h-12 w-12 text-foreground/30 mb-4" />
-          <p className="text-foreground/60">
-            Select a subway line above to see live train positions
-          </p>
-        </CardBody>
-      </Card>
+      <DiagramState>
+        <EmptyState
+          icon={<Train className="h-6 w-6" aria-hidden="true" />}
+          title="Choose a subway route"
+          description="Pick a line above to see live train positions along it."
+        />
+      </DiagramState>
     );
   }
 
-  // Loading state
-  if (isLoading && trains.length === 0) {
-    return (
-      <Card className="h-full">
-        <CardBody className="flex flex-col items-center justify-center h-full">
-          <Spinner size="lg" />
-          <p className="text-foreground/60 mt-4">Loading trains...</p>
-        </CardBody>
-      </Card>
-    );
-  }
-
-  // Error state
   if (error) {
     return (
-      <Card className="h-full">
-        <CardBody className="flex flex-col items-center justify-center h-full text-center">
-          <p className="text-danger mb-2">{error}</p>
-          <p className="text-foreground/60 text-sm">Please try again later</p>
-        </CardBody>
-      </Card>
+      <DiagramState>
+        <ErrorState title="Train data unavailable" description={error} />
+      </DiagramState>
+    );
+  }
+
+  if (isLoading && trains.length === 0) {
+    return (
+      <DiagramState>
+        <LoadingSkeleton variant="list" count={6} className="w-full max-w-md" />
+      </DiagramState>
+    );
+  }
+
+  if (trains.length === 0) {
+    return (
+      <DiagramState>
+        <EmptyState
+          icon={<Train className="h-6 w-6" aria-hidden="true" />}
+          title={`No ${selectedLine} trains reporting`}
+          description="Nothing is running on this line right now. Positions refresh automatically."
+        />
+      </DiagramState>
     );
   }
 
@@ -276,27 +293,20 @@ export function LineDiagram({
           </div>
         </div>
 
-        {/* Train Detail Modal */}
-        <Modal
+        {/* Train detail, on the shared sheet surface. */}
+        <TransitBottomSheet
           isOpen={selectedTrain !== null}
-          onOpenChange={(open) => !open && closeTrainDetail()}
-          placement="bottom"
-          size="sm"
-          hideCloseButton
-          classNames={{
-            base: "m-0 sm:m-4",
-            wrapper: "items-end sm:items-center",
-          }}
+          onClose={closeTrainDetail}
+          title={
+            selectedTrain
+              ? `${selectedTrain.routeId} train details`
+              : "Train details"
+          }
         >
-          <ModalContent className="p-0">
-            {selectedTrain && (
-              <TrainDetailPopover
-                train={selectedTrain}
-                onClose={closeTrainDetail}
-              />
-            )}
-          </ModalContent>
-        </Modal>
+          {selectedTrain && (
+            <TrainDetailPopover train={selectedTrain} onClose={closeTrainDetail} />
+          )}
+        </TransitBottomSheet>
 
         {/* Train Count Summary */}
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-background via-background/80 to-transparent pt-12 pb-4 px-4">

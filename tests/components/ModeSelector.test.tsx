@@ -19,6 +19,22 @@ describe('ModeSelector', () => {
     expect(screen.getByText('Metro-North')).toBeInTheDocument();
   });
 
+  // ModeSelector is built on the shared SegmentedControl, so it exposes the
+  // WAI-ARIA radio-group pattern rather than a tab list.
+  it('exposes a labelled radiogroup', () => {
+    const onModeChange = vi.fn();
+    render(
+      <ModeSelector 
+        selectedMode="subway" 
+        onModeChange={onModeChange} 
+      />
+    );
+
+    expect(
+      screen.getByRole('radiogroup', { name: /transit mode/i })
+    ).toBeInTheDocument();
+  });
+
   it('shows selected mode as active', () => {
     const onModeChange = vi.fn();
     render(
@@ -28,9 +44,8 @@ describe('ModeSelector', () => {
       />
     );
     
-    // The Bus tab should be selected
-    const busTab = screen.getByRole('tab', { name: /bus/i });
-    expect(busTab).toHaveAttribute('aria-selected', 'true');
+    const busOption = screen.getByRole('radio', { name: /bus/i });
+    expect(busOption).toHaveAttribute('aria-checked', 'true');
   });
 
   it('calls onModeChange when a different mode is selected', async () => {
@@ -44,9 +59,25 @@ describe('ModeSelector', () => {
       />
     );
     
-    const busTab = screen.getByRole('tab', { name: /bus/i });
-    await user.click(busTab);
+    await user.click(screen.getByRole('radio', { name: /bus/i }));
     
+    expect(onModeChange).toHaveBeenCalledWith('bus');
+  });
+
+  it('moves selection with the arrow keys', async () => {
+    const user = userEvent.setup();
+    const onModeChange = vi.fn();
+
+    render(
+      <ModeSelector 
+        selectedMode="subway" 
+        onModeChange={onModeChange} 
+      />
+    );
+
+    await user.tab();
+    await user.keyboard('{ArrowRight}');
+
     expect(onModeChange).toHaveBeenCalledWith('bus');
   });
 

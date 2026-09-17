@@ -251,3 +251,250 @@ body {
 .sidebar-transition {
   transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
 }
+
+/* ---------------------------------------------------------------------------
+   Realtime map (Leaflet)
+
+   Marker HTML is injected by Leaflet through `L.divIcon`, so it sits outside
+   React and cannot use Tailwind's scanned utilities reliably. These rules are
+   the styling contract for `components/realtime/map/markerIcons.ts`: they are
+   token-backed, so markers stay legible in both themes, and only per-route
+   color is inlined at the call site.
+   --------------------------------------------------------------------------- */
+
+/* Let the basemap recede so transit information reads first. Dark basemaps
+   need a touch of extra contrast; light basemaps need desaturating so MTA
+   route colors are the most saturated thing on screen. */
+.dark .rt-map .leaflet-tile-pane {
+  filter: brightness(0.92) contrast(1.04);
+}
+
+.light .rt-map .leaflet-tile-pane {
+  filter: saturate(0.62) brightness(1.02);
+}
+
+.rt-map .leaflet-container {
+  background: var(--surface-app);
+  font-family: var(--font-sans);
+  outline: none;
+}
+
+/* Leaflet's own zoom/attribution chrome is replaced by MapControls. */
+.rt-map .leaflet-control-attribution {
+  background: color-mix(in srgb, var(--surface-panel) 82%, transparent);
+  color: var(--foreground);
+  border-top-left-radius: var(--shape-sm);
+  font-size: 10px;
+}
+
+.rt-map .leaflet-control-attribution a {
+  color: var(--state-selected);
+}
+
+/* Popups and tooltips adopt the panel surface instead of Leaflet's white. */
+.rt-map .leaflet-popup-content-wrapper,
+.rt-map .leaflet-popup-tip {
+  background: var(--surface-floating);
+  color: var(--foreground);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-lg);
+  border-radius: var(--shape-md);
+}
+
+.rt-map .leaflet-popup-content {
+  margin: 0.75rem;
+}
+
+.rt-map .rt-station-label {
+  background: color-mix(in srgb, var(--surface-floating) 92%, transparent);
+  color: var(--foreground);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--shape-sm);
+  box-shadow: var(--shadow-sm);
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.rt-map .rt-station-label::before {
+  display: none;
+}
+
+.rt-map .rt-station-label--selected {
+  border-color: var(--state-selected);
+  color: var(--state-selected);
+}
+
+/* --- Vehicle markers --- */
+
+.rt-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 100%;
+  height: 100%;
+  /* Builders size the icon from these exact values; keep them in sync with
+     the constants in `markerIcons.ts`. */
+  box-sizing: border-box;
+  padding: 2px;
+  border-radius: var(--shape-pill);
+  background: var(--surface-floating);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-md);
+  color: var(--foreground);
+  line-height: 1;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.rt-marker__bullet {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font: 700 15px/1 Helvetica, Arial, sans-serif;
+  flex: none;
+}
+
+.rt-marker__glyph,
+.rt-marker__puck {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--shape-sm);
+  flex: none;
+}
+
+.rt-marker__puck {
+  width: auto;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  font: 700 12px/1 var(--font-sans);
+}
+
+.rt-marker__label {
+  font: 600 12px/1 var(--font-sans);
+  color: var(--foreground);
+}
+
+.rt-marker__chevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--foreground);
+  opacity: 0.85;
+  flex: none;
+}
+
+/* Condition indicator. Green/amber/red appear here and nowhere else on a
+   marker, so color always means service condition and never direction. */
+.rt-marker__status {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--state-unavailable);
+  flex: none;
+}
+
+.rt-marker--arriving .rt-marker__status {
+  background: var(--state-normal);
+}
+
+.rt-marker--delay .rt-marker__status {
+  background: var(--state-delay);
+}
+
+.rt-marker--severe .rt-marker__status {
+  background: var(--state-severe);
+}
+
+.rt-marker--stale {
+  opacity: 0.6;
+}
+
+.rt-marker--stale .rt-marker__status {
+  background: var(--state-stale);
+}
+
+.rt-marker--selected {
+  border-color: var(--state-selected);
+  box-shadow: var(--shadow-lg), 0 0 0 3px var(--state-selected);
+  transform: scale(1.12);
+}
+
+.rt-map .leaflet-marker-icon:focus-visible .rt-marker {
+  border-color: var(--focus-ring);
+  box-shadow: var(--shadow-lg), 0 0 0 3px var(--focus-ring);
+}
+
+/* Screen-reader text for marker identity, so route color is never the only
+   cue for which route a vehicle belongs to. */
+.rt-marker__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* --- User location --- */
+
+.rt-user-location {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.rt-user-location__dot {
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: var(--state-selected);
+  border: 2px solid #ffffff;
+  box-shadow: var(--shadow-md);
+}
+
+.rt-user-location__pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--state-selected);
+  opacity: 0.25;
+  animation: rt-pulse 2.4s ease-out infinite;
+}
+
+@keyframes rt-pulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.35;
+  }
+  70% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+/* Motion is comprehension-only here; the dot itself stays fully visible. */
+@media (prefers-reduced-motion: reduce) {
+  .rt-user-location__pulse {
+    animation: none;
+  }
+
+  .rt-marker {
+    transition: none;
+  }
+}

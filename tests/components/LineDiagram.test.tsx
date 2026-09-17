@@ -31,6 +31,7 @@ const mockTrains: TrainArrival[] = [
 ];
 
 describe('LineDiagram', () => {
+  // Empty/loading/error/no-data render through the shared state primitives.
   it('shows empty state when no line is selected', () => {
     render(
       <LineDiagram 
@@ -38,7 +39,7 @@ describe('LineDiagram', () => {
         trains={[]} 
       />
     );
-    expect(screen.getByText(/Select a subway line above/)).toBeInTheDocument();
+    expect(screen.getByText(/Choose a subway route/)).toBeInTheDocument();
   });
 
   it('shows loading state when loading and no trains', () => {
@@ -49,7 +50,7 @@ describe('LineDiagram', () => {
         isLoading={true}
       />
     );
-    expect(screen.getByText('Loading trains...')).toBeInTheDocument();
+    expect(screen.getByText('Loading…')).toBeInTheDocument();
   });
 
   it('shows error state when there is an error', () => {
@@ -60,8 +61,19 @@ describe('LineDiagram', () => {
         error="Failed to fetch train data"
       />
     );
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    expect(screen.getByText('Train data unavailable')).toBeInTheDocument();
     expect(screen.getByText('Failed to fetch train data')).toBeInTheDocument();
-    expect(screen.getByText('Please try again later')).toBeInTheDocument();
+  });
+
+  it('shows a no-vehicles state when the line has no trains reporting', () => {
+    render(
+      <LineDiagram 
+        selectedLine="A" 
+        trains={[]} 
+      />
+    );
+    expect(screen.getByText(/No A trains reporting/)).toBeInTheDocument();
   });
 
   it('displays train count in footer', () => {

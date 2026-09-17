@@ -37,9 +37,10 @@ const mockBuses: BusArrival[] = [
 ];
 
 describe('BusList', () => {
+  // Empty/loading/error/no-data render through the shared state primitives.
   it('shows empty state when no route is selected', () => {
     render(<BusList selectedRoute={null} buses={[]} />);
-    expect(screen.getByText(/Select a bus route above/)).toBeInTheDocument();
+    expect(screen.getByText(/Choose a bus route/)).toBeInTheDocument();
   });
 
   it('shows loading state when loading and no buses', () => {
@@ -50,7 +51,7 @@ describe('BusList', () => {
         isLoading={true} 
       />
     );
-    expect(screen.getByText('Loading buses...')).toBeInTheDocument();
+    expect(screen.getByText('Loading…')).toBeInTheDocument();
   });
 
   it('shows error state when there is an error', () => {
@@ -61,8 +62,9 @@ describe('BusList', () => {
         error="Failed to fetch bus data" 
       />
     );
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    expect(screen.getByText('Bus data unavailable')).toBeInTheDocument();
     expect(screen.getByText('Failed to fetch bus data')).toBeInTheDocument();
-    expect(screen.getByText('Please try again later')).toBeInTheDocument();
   });
 
   it('shows no buses message when route has no active buses', () => {
@@ -72,7 +74,7 @@ describe('BusList', () => {
         buses={[]} 
       />
     );
-    expect(screen.getByText(/No active buses found for M15/)).toBeInTheDocument();
+    expect(screen.getByText(/No active buses on M15/)).toBeInTheDocument();
   });
 
   it('displays bus arrivals grouped by destination', () => {

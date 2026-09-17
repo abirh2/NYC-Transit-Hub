@@ -10,6 +10,13 @@ export { Surface } from "./Surface";
 export type { SurfaceProps, SurfaceElevation } from "./Surface";
 export { FloatingSurface } from "./FloatingSurface";
 export type { FloatingSurfaceProps } from "./FloatingSurface";
+export { SegmentedControl } from "./SegmentedControl";
+export type {
+  SegmentedControlOption,
+  SegmentedControlProps,
+} from "./SegmentedControl";
+export { RouteSelector } from "./RouteSelector";
+export type { RouteSelectorProps } from "./RouteSelector";
 export { SubwayBullet } from "./SubwayBullet";
 export { BusBadge } from "./BusBadge";
 export { RailBadge } from "./RailBadge";

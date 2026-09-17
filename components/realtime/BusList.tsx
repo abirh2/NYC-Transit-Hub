@@ -10,8 +10,16 @@
 import { Card, CardBody, Spinner, Chip } from "@heroui/react";
 import { Bus, MapPin, Clock, Navigation } from "lucide-react";
 import { BusBadge } from "@/components/ui/BusBadge";
+import { EmptyState, ErrorState, LoadingSkeleton } from "@/components/ui";
 import type { BusArrival } from "@/types/mta";
 import { formatDistanceToNow } from "date-fns";
+
+/** Centers a shared state primitive in the panel the list would have filled. */
+function StateWrapper({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex h-full items-center justify-center p-4">{children}</div>
+  );
+}
 
 interface BusListProps {
   /** Selected route ID */
@@ -63,58 +71,48 @@ export function BusList({
   error = null,
   lastUpdated = null,
 }: BusListProps) {
-  // Empty state - no route selected
+  // Empty/loading/error/no-data all route through the shared state primitives
+  // so every surface on the page reports conditions the same way.
   if (!selectedRoute) {
     return (
-      <Card className="h-full">
-        <CardBody className="flex flex-col items-center justify-center h-full text-center">
-          <Bus className="h-12 w-12 text-foreground/30 mb-4" />
-          <p className="text-foreground/60">
-            Select a bus route above to see live arrivals
-          </p>
-        </CardBody>
-      </Card>
+      <StateWrapper>
+        <EmptyState
+          icon={<Bus className="h-6 w-6" aria-hidden="true" />}
+          title="Choose a bus route"
+          description="Pick a route above to see every bus currently running on it."
+        />
+      </StateWrapper>
     );
   }
 
-  // Loading state
-  if (isLoading && buses.length === 0) {
-    return (
-      <Card className="h-full">
-        <CardBody className="flex flex-col items-center justify-center h-full">
-          <Spinner size="lg" />
-          <p className="text-foreground/60 mt-4">Loading buses...</p>
-        </CardBody>
-      </Card>
-    );
-  }
-
-  // Error state
   if (error) {
     return (
-      <Card className="h-full">
-        <CardBody className="flex flex-col items-center justify-center h-full text-center">
-          <p className="text-danger mb-2">{error}</p>
-          <p className="text-foreground/60 text-sm">Please try again later</p>
-        </CardBody>
-      </Card>
+      <StateWrapper>
+        <ErrorState
+          title="Bus data unavailable"
+          description={error}
+        />
+      </StateWrapper>
     );
   }
 
-  // No buses found
+  if (isLoading && buses.length === 0) {
+    return (
+      <StateWrapper>
+        <LoadingSkeleton variant="list" count={5} className="w-full max-w-md" />
+      </StateWrapper>
+    );
+  }
+
   if (buses.length === 0) {
     return (
-      <Card className="h-full">
-        <CardBody className="flex flex-col items-center justify-center h-full text-center">
-          <Bus className="h-12 w-12 text-foreground/30 mb-4" />
-          <p className="text-foreground/60">
-            No active buses found for {selectedRoute}
-          </p>
-          <p className="text-foreground/40 text-sm mt-2">
-            This route may not be running right now
-          </p>
-        </CardBody>
-      </Card>
+      <StateWrapper>
+        <EmptyState
+          icon={<Bus className="h-6 w-6" aria-hidden="true" />}
+          title={`No active buses on ${selectedRoute}`}
+          description="This route may not be running right now. Positions refresh automatically."
+        />
+      </StateWrapper>
     );
   }
 

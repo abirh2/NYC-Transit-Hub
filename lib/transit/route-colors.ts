@@ -72,6 +72,16 @@ export const SUBWAY_ROUTE_COLORS: Record<string, string> = {
   T: "#00ADD0",
 };
 
+/**
+ * Official MTA bullet letter colors.
+ *
+ * Almost every subway bullet is white on its route color. Only the yellow
+ * Broadway family (N/Q/R/W) uses black — matching `data/gtfs/line-stations.json`
+ * and the printed map, not a pure WCAG pick against `#FF6319` orange (which
+ * would incorrectly render D/B/F/M as black).
+ */
+const BLACK_TEXT_SUBWAY_ROUTES = new Set(["N", "Q", "R", "W"]);
+
 /** Bullet descriptor for the Route_Bullet primitive. */
 export interface RouteColorPair {
   bg: string;
@@ -158,11 +168,23 @@ export function getSubwayRouteColor(line: string): string {
 /**
  * Resolve the `{ bg, text }` descriptor for the Route_Bullet primitive.
  *
- * The text color is always derived from the background via `pickContrastText`,
- * so contrast is single-sourced rather than maintained per line.
+ * Text color follows official MTA bullet identity for known subway routes
+ * (white on orange/blue/red/etc., black only on the yellow Broadway family),
+ * and falls back to `pickContrastText` for unknown ids. Pure WCAG contrast
+ * would paint B/D/F/M black on `#FF6319`, which is accessible but wrong for
+ * the bullet riders recognize.
  */
 export function getRouteColorPair(line: string): RouteColorPair {
-  const bg = getSubwayRouteColor(line);
+  const key = normalizeLine(line);
+  const bg = SUBWAY_ROUTE_COLORS[key] ?? FALLBACK_COLOR;
+
+  if (key in SUBWAY_ROUTE_COLORS) {
+    return {
+      bg,
+      text: BLACK_TEXT_SUBWAY_ROUTES.has(key) ? "#000000" : "#ffffff",
+    };
+  }
+
   return { bg, text: pickContrastText(bg) };
 }
 
