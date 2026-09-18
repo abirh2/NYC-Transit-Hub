@@ -11,7 +11,9 @@ import busStopsData from "@/data/gtfs/bus-stops.json";
 import busShapesData from "@/data/gtfs/bus-shapes.json";
 import busRouteStopsData from "@/data/gtfs/bus-route-stops.json";
 import { haversineDistance } from "@/lib/utils/distance";
-import type { NearbyBusStop } from "@/types/transit";
+import type { NearbyBusStop, NearbyBusStopGroup } from "@/types/transit";
+
+export const NEARBY_BUS_STOP_GROUP_DISTANCE_MILES = 0.025;
 
 // Type definitions
 export interface BusStop {
@@ -135,6 +137,86 @@ export function getNearbyBusStops(
     .filter((stop) => stop.distanceMiles <= radiusMiles)
     .sort((a, b) => a.distanceMiles - b.distanceMiles)
     .slice(0, limit);
+}
+
+function normalizeStopName(name: string): string {
+  return name
+    .normalize("NFKC")
+    .toUpperCase()
+    .replace(/\b(AVENUE|AVE)\b/g, "AV")
+    .replace(/\b(STREET)\b/g, "ST")
+    .replace(/\b(BOULEVARD|BLVD)\b/g, "BLVD")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function compareNearbyStops(a: NearbyBusStop, b: NearbyBusStop): number {
+  return (
+    a.distanceMiles - b.distanceMiles ||
+    a.name.localeCompare(b.name) ||
+    a.id.localeCompare(b.id)
+  );
+}
+
+export function groupNearbyBusStops(
+  inputStops: readonly NearbyBusStop[],
+  limit = 6,
+): NearbyBusStopGroup[] {
+  const groups: Array<{ normalizedName: string; stops: NearbyBusStop[] }> = [];
+
+  for (const stop of [...inputStops].sort(compareNearbyStops)) {
+    if (!stop.location) continue;
+    const normalizedName = normalizeStopName(stop.name);
+    const group = groups.find((candidate) => {
+      if (candidate.normalizedName !== normalizedName) return false;
+      return candidate.stops.some((member) => member.location && haversineDistance(
+        stop.location!.latitude,
+        stop.location!.longitude,
+        member.location.latitude,
+        member.location.longitude,
+      ) <= NEARBY_BUS_STOP_GROUP_DISTANCE_MILES);
+    });
+
+    if (group) group.stops.push(stop);
+    else groups.push({ normalizedName, stops: [stop] });
+  }
+
+  return groups
+    .map(({ stops }): NearbyBusStopGroup => {
+      const sortedStops = [...stops].sort(compareNearbyStops);
+      const nearest = sortedStops[0];
+      const ids = sortedStops.map((stop) => stop.id).sort();
+      return {
+        id: `bus-stop-group:${ids.join("+")}`,
+        name: nearest.name,
+        mode: "bus",
+        location: nearest.location!,
+        distanceMiles: nearest.distanceMiles,
+        routeIds: [...new Set(sortedStops.flatMap((stop) => stop.routeIds))].sort(),
+        stops: sortedStops,
+      };
+    })
+    .sort((a, b) => (
+      a.distanceMiles - b.distanceMiles ||
+      a.name.localeCompare(b.name) ||
+      a.id.localeCompare(b.id)
+    ))
+    .slice(0, Math.max(0, Math.trunc(limit)));
+}
+
+export function getNearbyBusStopGroups(
+  latitude: number,
+  longitude: number,
+  radiusMiles = 0.5,
+  limit = 6,
+): NearbyBusStopGroup[] {
+  // Search beyond the display limit so nearby duplicates cannot crowd out
+  // otherwise useful locations before grouping.
+  const candidateLimit = Math.max(limit * 8, 48);
+  return groupNearbyBusStops(
+    getNearbyBusStops(latitude, longitude, radiusMiles, candidateLimit),
+    limit,
+  );
 }
 
 /**

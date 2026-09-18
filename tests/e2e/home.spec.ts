@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from 'playwright/test';
 
 test.describe('Home Page', () => {
   test.beforeEach(async ({ page }) => {
@@ -102,4 +102,3 @@ test.describe('Responsive Design', () => {
     await expect(sidebar).toBeVisible();
   });
 });
-

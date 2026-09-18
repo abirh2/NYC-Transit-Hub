@@ -50,7 +50,7 @@ import type { BusArrival, RailArrival } from "@/types/mta";
 import type { StationWithCoords } from "@/lib/utils/train-positioning";
 import {
   arrivalState,
-  buildBusVehicleDetail,
+  buildNormalizedBusTripDetail,
   buildMissingSelectionDetail,
   buildRailVehicleDetail,
   buildRouteDetail,
@@ -64,12 +64,17 @@ import {
   getDeparturesForStop,
   getFollowingDepartures,
 } from "@/lib/transit/departures";
-import { parseSubwayRealtimePayload } from "@/lib/transit/realtime-client-payload";
+import {
+  parseBusRealtimePayload,
+  parseSubwayRealtimePayload,
+} from "@/lib/transit/realtime-client-payload";
 import { getActiveSubwayTrips } from "@/lib/transit/trips";
 import type {
+  BusTrip,
   Departure,
   RealtimeSourceState,
   SubwayTrip,
+  TransitVehicle,
 } from "@/types/transit";
 
 const REFRESH_INTERVAL_SECONDS = 30;
@@ -91,6 +96,10 @@ interface TrainData {
 
 interface BusData {
   arrivals: BusArrival[];
+  trips: BusTrip[];
+  departures: Departure[];
+  vehicles: TransitVehicle[];
+  sourceState: RealtimeSourceState;
   availableRoutes: string[];
   lastUpdated: Date | null;
   isLoading: boolean;
@@ -142,6 +151,10 @@ export function RealtimeClient() {
 
   const [busData, setBusData] = useState<BusData>({
     arrivals: [],
+    trips: [],
+    departures: [],
+    vehicles: [],
+    sourceState: "empty",
     availableRoutes: [],
     lastUpdated: null,
     isLoading: false,
@@ -243,7 +256,15 @@ export function RealtimeClient() {
 
   const fetchBuses = useCallback(async () => {
     if (!routeId) {
-      setBusData((prev) => ({ ...prev, arrivals: [], error: null }));
+      setBusData((prev) => ({
+        ...prev,
+        arrivals: [],
+        trips: [],
+        departures: [],
+        vehicles: [],
+        sourceState: "empty",
+        error: null,
+      }));
       return;
     }
 
@@ -251,12 +272,16 @@ export function RealtimeClient() {
 
     try {
       // Encoded because SBS route ids contain `+`.
+      const stopQuery = selection.stopId
+        ? `&stopId=${encodeURIComponent(selection.stopId)}`
+        : "";
       const response = await fetch(
-        `/api/buses/realtime?routeId=${encodeURIComponent(routeId)}&limit=50`,
+        `/api/buses/realtime?routeId=${encodeURIComponent(routeId)}${stopQuery}&limit=50`,
       );
       const data = await response.json();
 
       if (data.success && data.data?.arrivals) {
+        const payload = parseBusRealtimePayload(data.data);
         const arrivals: BusArrival[] = data.data.arrivals.map(
           (arrival: BusArrival) => ({
             ...arrival,
@@ -267,7 +292,11 @@ export function RealtimeClient() {
         setBusData((prev) => ({
           ...prev,
           arrivals,
-          lastUpdated: new Date(),
+          trips: payload.trips,
+          departures: payload.departures,
+          vehicles: payload.vehicles,
+          sourceState: payload.sourceState,
+          lastUpdated: payload.lastUpdated,
           isLoading: false,
           error: null,
         }));
@@ -283,7 +312,7 @@ export function RealtimeClient() {
           error instanceof Error ? error.message : "Failed to fetch bus data",
       }));
     }
-  }, [routeId]);
+  }, [routeId, selection.stopId]);
 
   const fetchRailBranches = useCallback(
     async (railMode: "lirr" | "metro-north") => {
@@ -450,6 +479,7 @@ export function RealtimeClient() {
 
   const isStale =
     (mode === "subway" && trainData.sourceState === "stale") ||
+    (mode === "bus" && busData.sourceState === "stale") ||
     (lastUpdated !== null && now - lastUpdated.getTime() > STALE_AFTER_MS);
 
   const mapStations = useMemo<StationWithCoords[]>(() => {
@@ -544,13 +574,15 @@ export function RealtimeClient() {
     return railData.arrivals;
   }, [isRailMode, railData.arrivals, selection.direction]);
 
-  const visibleBuses = mode === "bus" ? busData.arrivals : [];
+  const visibleBusTrips = mode === "bus" ? busData.trips : [];
+  const visibleBusDepartures = mode === "bus" ? busData.departures : [];
+  const visibleBusVehicles = mode === "bus" ? busData.vehicles : [];
 
   const vehicleCount =
     mode === "subway"
       ? visibleSubwayTrips.length
       : mode === "bus"
-        ? visibleBuses.filter((b) => b.latitude && b.longitude).length
+        ? visibleBusVehicles.filter((vehicle) => vehicle.position.source === "actual").length
         : visibleRailTrains.filter((t) => t.routeId === routeId).length;
 
   // -------------------------------------------------------------------------
@@ -642,16 +674,17 @@ export function RealtimeClient() {
       }
 
       if (mode === "bus") {
-        const bus = busData.arrivals.find(
-          (b) => b.vehicleId === selectedVehicleId,
-        );
-        if (!bus) {
-          return buildMissingSelectionDetail({
-            kind: "vehicle",
-            label: "Bus no longer reporting",
-          });
-        }
-        return buildBusVehicleDetail({ bus, isStale });
+        return buildNormalizedBusTripDetail({
+          selectedTripId: selectedVehicleId,
+          boardingStopId: selectedStationId,
+          boardingStopName: selectedStationId
+            ? getBusStop(selectedStationId)?.name ?? null
+            : null,
+          trips: busData.trips,
+          departures: busData.departures,
+          vehicles: busData.vehicles,
+          isStale,
+        });
       }
 
       const train = railData.arrivals.find((t) => t.tripId === selectedVehicleId);
@@ -681,16 +714,16 @@ export function RealtimeClient() {
             label: "Stop not on this route",
           });
         }
-        const arrivals: DetailArrival[] = busData.arrivals
-          .filter((b) => b.nextStopId === selectedStationId)
+        const arrivals: DetailArrival[] = busData.departures
+          .filter((departure) => departure.stopId === selectedStationId)
           .slice(0, 8)
-          .map((b) => ({
-            id: b.vehicleId,
-            badge: { kind: "bus", route: b.routeId },
-            primary: b.headsign ?? `${b.routeId} bus`,
-            secondary: `Vehicle ${b.vehicleId}`,
-            minutesAway: b.minutesAway,
-            state: arrivalState({ minutesAway: b.minutesAway, isStale }),
+          .map((departure) => ({
+            id: departure.tripId,
+            badge: { kind: "bus", route: departure.routeId },
+            primary: departure.destination ?? `${departure.routeId} bus`,
+            secondary: departure.progressText ?? undefined,
+            minutesAway: departure.minutesAway,
+            state: arrivalState({ minutesAway: departure.minutesAway, isStale }),
           }));
 
         return buildStationDetail({
@@ -808,7 +841,9 @@ export function RealtimeClient() {
     selectedStationId,
     trainData.trips,
     trainData.departures,
-    busData.arrivals,
+    busData.departures,
+    busData.trips,
+    busData.vehicles,
     railData.arrivals,
     directionLabel,
     selection.direction,
@@ -833,26 +868,29 @@ export function RealtimeClient() {
   );
 
   const handleSelectVehicle = useCallback(
-    (vehicleId: string | null) => {
-      if (mode === "subway" && vehicleId) {
-        const trip = trainData.trips.find((item) => item.id === vehicleId);
+    (tripId: string | null) => {
+      if ((mode === "subway" || mode === "bus") && tripId) {
+        const trip = mode === "subway"
+          ? trainData.trips.find((item) => item.id === tripId)
+          : busData.trips.find((item) => item.id === tripId);
         setTrip(
-          vehicleId,
+          tripId,
           trip
             ? { routeId: trip.route.id, direction: trip.direction }
             : undefined,
         );
         return;
       }
-      setTrip(vehicleId);
+      setTrip(tripId);
     },
-    [mode, setTrip, trainData.trips],
+    [busData.trips, mode, setTrip, trainData.trips],
   );
 
   const handleViewFullRoute = useCallback(() => {
     setTrip(null);
     setStation(null);
-  }, [setStation, setTrip]);
+    setStop(null);
+  }, [setStation, setStop, setTrip]);
 
   const updatedLabel = lastUpdated
     ? `Updated ${formatDistanceToNow(lastUpdated, { addSuffix: true })}`
@@ -901,7 +939,9 @@ export function RealtimeClient() {
                 subwayTrips={visibleSubwayTrips}
                 subwayDepartures={trainData.departures}
                 railTrains={visibleRailTrains}
-                buses={visibleBuses}
+                busTrips={visibleBusTrips}
+                busDepartures={visibleBusDepartures}
+                busVehicles={visibleBusVehicles}
                 busRouteShape={busRouteShape}
                 isLoading={isLoading}
                 error={error}
@@ -909,7 +949,7 @@ export function RealtimeClient() {
                 vehicleCount={vehicleCount}
                 selectedStationId={selectedStationId}
                 selectedVehicleId={selectedVehicleId}
-                focusSelectedTrip={mode === "subway" && Boolean(selectedVehicleId && selectedStationId)}
+                focusSelectedTrip={(mode === "subway" || mode === "bus") && Boolean(selectedVehicleId && selectedStationId)}
                 onSelectStation={handleSelectStation}
                 onSelectVehicle={handleSelectVehicle}
                 onRetry={refresh}
@@ -934,7 +974,7 @@ export function RealtimeClient() {
                     <TransitDetailPanel
                       content={detailContent}
                       onClose={clearDetail}
-                      onViewFullRoute={mode === "subway" && Boolean(selectedVehicleId) ? handleViewFullRoute : undefined}
+                      onViewFullRoute={(mode === "subway" || mode === "bus") && Boolean(selectedVehicleId) ? handleViewFullRoute : undefined}
                       onSelectArrival={
                         detailContent.arrivals?.length
                           ? handleSelectVehicle
@@ -966,7 +1006,7 @@ export function RealtimeClient() {
                     // Only an explicit pick is dismissable; the route summary
                     // is the panel's resting state.
                     onClose={hasExplicitSelection ? clearDetail : undefined}
-                    onViewFullRoute={mode === "subway" && Boolean(selectedVehicleId) ? handleViewFullRoute : undefined}
+                    onViewFullRoute={(mode === "subway" || mode === "bus") && Boolean(selectedVehicleId) ? handleViewFullRoute : undefined}
                     onSelectArrival={
                       detailContent.arrivals?.length
                         ? handleSelectVehicle

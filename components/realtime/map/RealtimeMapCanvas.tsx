@@ -32,8 +32,8 @@ import L, { type Map as LeafletMap } from "leaflet";
 import { useTheme } from "next-themes";
 import "leaflet/dist/leaflet.css";
 
-import type { BusArrival, RailArrival, TransitMode } from "@/types/mta";
-import type { Departure, SubwayTrip } from "@/types/transit";
+import type { RailArrival, TransitMode } from "@/types/mta";
+import type { BusTrip, Departure, SubwayTrip, TransitVehicle } from "@/types/transit";
 import {
   getRenderableSubwayGeometries,
   projectTripOnSubwayGeometry,
@@ -127,9 +127,11 @@ export interface RealtimeMapCanvasProps {
   subwayDepartures: Departure[];
   subwayGeometry: SubwayGeometryArtifact | null;
   railTrains: RailArrival[];
-  buses: BusArrival[];
+  busTrips: BusTrip[];
+  busDepartures: Departure[];
+  busVehicles: TransitVehicle[];
   busRouteShape: [number, number][];
-  /** `tripId` (subway/rail) or `vehicleId` (bus) of the selected vehicle. */
+  /** Canonical `tripId` of the selected vehicle. */
   selectedVehicleId?: string;
   selectedStationId?: string;
   isStale: boolean;
@@ -231,7 +233,9 @@ export default function RealtimeMapCanvas({
   subwayDepartures,
   subwayGeometry,
   railTrains,
-  buses,
+  busTrips,
+  busDepartures,
+  busVehicles,
   busRouteShape,
   selectedVehicleId,
   selectedStationId,
@@ -353,16 +357,23 @@ export default function RealtimeMapCanvas({
 
   const busPositions = useMemo(() => {
     if (mode !== "bus") return [];
-    return buses
-      .filter((b) => b.latitude && b.longitude)
-      .map((bus) => ({
-        bus,
-        position: [bus.latitude as number, bus.longitude as number] as [
-          number,
-          number,
-        ],
-      }));
-  }, [mode, buses]);
+    const tripsById = new Map(busTrips.map((trip) => [trip.id, trip]));
+    const departuresByTrip = new Map(busDepartures.map((departure) => [departure.tripId, departure]));
+    return busVehicles.flatMap((vehicle) => {
+      if (vehicle.position.source !== "actual" || !vehicle.tripId) return [];
+      const trip = tripsById.get(vehicle.tripId);
+      if (!trip) return [];
+      return [{
+        vehicle,
+        trip,
+        departure: departuresByTrip.get(trip.id) ?? null,
+        position: [
+          vehicle.position.coordinates.latitude,
+          vehicle.position.coordinates.longitude,
+        ] as [number, number],
+      }];
+    });
+  }, [mode, busDepartures, busTrips, busVehicles]);
 
   const labelsPermanent = zoom >= STATION_LABEL_ZOOM;
 
@@ -563,33 +574,35 @@ export default function RealtimeMapCanvas({
         );
       })}
 
-      {busPositions.map(({ bus, position }) => {
-        const isSelected = bus.vehicleId === selectedVehicleId;
+      {busPositions.map(({ vehicle, trip, departure, position }) => {
+        const isSelected = trip.id === selectedVehicleId;
         const status = getMarkerStatus({
-          minutesAway: bus.minutesAway,
+          minutesAway: departure?.minutesAway ?? null,
           isStale,
         });
 
         return (
           <Marker
-            key={`bus-${bus.vehicleId}`}
+            key={`bus-${vehicle.id}`}
             pane={isSelected ? PANES.selected.name : PANES.vehicles.name}
             position={position}
             riseOnHover
             zIndexOffset={isSelected ? 1000 : 0}
             icon={toDivIcon(
               buildBusMarkerHtml({
-                routeId: bus.routeId,
+                routeId: trip.route.id,
                 routeColor,
-                bearingDegrees: bus.bearing,
+                bearingDegrees: vehicle.position.source === "actual"
+                  ? vehicle.position.bearing
+                  : null,
                 status,
                 isSelected,
-                accessibleSuffix: bus.headsign ? `to ${bus.headsign}` : undefined,
+                accessibleSuffix: trip.destination ? `to ${trip.destination}; live GPS position` : "live GPS position",
               }),
             )}
             eventHandlers={{
-              click: () => onSelectVehicle(bus.vehicleId),
-              keypress: () => onSelectVehicle(bus.vehicleId),
+              click: () => onSelectVehicle(trip.id),
+              keypress: () => onSelectVehicle(trip.id),
             }}
           />
         );

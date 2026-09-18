@@ -1,14 +1,25 @@
 import { z } from "zod";
 
 import type {
+  BusTrip,
   Departure,
   RealtimeSourceState,
   SubwayTrip,
+  TransitVehicle,
 } from "@/types/transit";
 
 export interface SubwayRealtimePayload {
   trips: SubwayTrip[];
   departures: Departure[];
+  sourceState: RealtimeSourceState;
+  feedTimestamp: Date | null;
+  lastUpdated: Date;
+}
+
+export interface BusRealtimePayload {
+  trips: BusTrip[];
+  departures: Departure[];
+  vehicles: TransitVehicle[];
   sourceState: RealtimeSourceState;
   feedTimestamp: Date | null;
   lastUpdated: Date;
@@ -132,4 +143,79 @@ export function parseSubwayRealtimePayload(
   input: unknown,
 ): SubwayRealtimePayload {
   return payloadSchema.parse(input) as SubwayRealtimePayload;
+}
+
+function hydrateProgress<T extends { timestamp?: string | Date | null }>(progress: T): T {
+  return {
+    ...progress,
+    timestamp: progress.timestamp ? new Date(progress.timestamp) : progress.timestamp,
+  };
+}
+
+export function parseBusRealtimePayload(input: unknown): BusRealtimePayload {
+  const raw = z.object({
+    trips: z.array(z.record(z.string(), z.unknown())),
+    departures: z.array(z.record(z.string(), z.unknown())),
+    vehicles: z.array(z.record(z.string(), z.unknown())),
+    sourceState: z.enum(["ok", "stale", "unavailable", "malformed", "empty"]),
+    feedTimestamp: z.string().datetime().nullable(),
+    lastUpdated: z.string().datetime(),
+  }).parse(input);
+
+  const trips = raw.trips.map((value) => {
+    const trip = value as unknown as BusTrip & {
+      updatedAt: string | null;
+      progress: BusTrip["progress"] & { timestamp?: string | null };
+      stopTimeUpdates: Array<BusTrip["stopTimeUpdates"][number] & {
+        arrivalTime: string | null;
+        departureTime: string | null;
+      }>;
+    };
+    return {
+      ...trip,
+      updatedAt: trip.updatedAt ? new Date(trip.updatedAt) : null,
+      progress: hydrateProgress(trip.progress),
+      stopTimeUpdates: trip.stopTimeUpdates.map((prediction) => ({
+        ...prediction,
+        arrivalTime: prediction.arrivalTime ? new Date(prediction.arrivalTime) : null,
+        departureTime: prediction.departureTime ? new Date(prediction.departureTime) : null,
+      })),
+    } as BusTrip;
+  });
+  const departures = raw.departures.map((value) => {
+    const departure = value as unknown as Departure & {
+      predictedArrival: string;
+      predictedDeparture: string | null;
+    };
+    return {
+      ...departure,
+      predictedArrival: new Date(departure.predictedArrival),
+      predictedDeparture: departure.predictedDeparture
+        ? new Date(departure.predictedDeparture)
+        : null,
+    } as Departure;
+  });
+  const vehicles = raw.vehicles.map((value) => {
+    const vehicle = value as unknown as TransitVehicle & {
+      position: TransitVehicle["position"] & { timestamp: string | null };
+    };
+    return {
+      ...vehicle,
+      position: {
+        ...vehicle.position,
+        timestamp: vehicle.position.timestamp
+          ? new Date(vehicle.position.timestamp)
+          : null,
+      },
+    } as TransitVehicle;
+  });
+
+  return {
+    trips,
+    departures,
+    vehicles,
+    sourceState: raw.sourceState,
+    feedTimestamp: raw.feedTimestamp ? new Date(raw.feedTimestamp) : null,
+    lastUpdated: new Date(raw.lastUpdated),
+  };
 }

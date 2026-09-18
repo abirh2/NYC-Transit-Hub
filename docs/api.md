@@ -720,11 +720,30 @@ the intended rider flow: location → stops → routes → departures → vehicl
 |-----------|------|-------------|
 | `near` | string | Required coordinates in `lat,lon` format |
 | `radius` | number | Radius in miles (default: 0.5, max: 5) |
-| `limit` | number | Maximum stops (default: 20, max: 100) |
+| `limit` | number | Maximum stop groups (default: 6, max: 12) |
 
-Each returned stop includes coordinates, `distanceMiles`, and `routeIds` for
-the routes serving it. This endpoint uses static metadata and does not require a
-Bus Time API key.
+The response contains `groups`. Each group has a stable ID, nearest coordinate,
+`distanceMiles`, a route union, and its complete `stops` array. Grouping reduces
+duplicate cards at one practical boarding location without discarding the
+directional stop IDs required by Bus Time. This endpoint uses static metadata
+and does not require a Bus Time API key.
+
+#### GET /api/buses/nearby
+
+Fetch bounded SIRI StopMonitoring predictions for nearby directional stops.
+Repeat `stopId` for one to twelve unique stop IDs. The server runs at most four
+upstream requests concurrently, retains at most six future visits per stop,
+and returns one independent result per stop in request order. A failed stop has
+its own `sourceState` and `error`; successful neighbors are preserved.
+
+```bash
+curl "http://localhost:3000/api/buses/nearby?stopId=405297&stopId=403259"
+```
+
+Each departure links to a normalized trip and optional vehicle. Bus progress
+uses SIRI `PresentableDistance`/`StopsFromCall`; coordinates marked `actual`
+come directly from the reported vehicle position. Static stop discovery and
+realtime predictions keep their separate one-hour and 30-second cache cycles.
 
 #### GET /api/buses/routes
 

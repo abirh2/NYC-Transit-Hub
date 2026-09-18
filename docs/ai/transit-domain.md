@@ -101,6 +101,19 @@ Checking only the end time incorrectly classifies future planned work as active.
 - Realtime snapshots report `sourceState` (`ok`, `stale`, `empty`,
   `unavailable`, or `malformed`) so consumers do not infer upstream health from
   an empty array.
+- Nearby bus discovery is stop-first: static GTFS determines boardable
+  locations, while SIRI StopMonitoring supplies predictions for retained stop
+  IDs. Never use geographic vehicle proximity as a substitute.
+- SIRI v2 localized text fields may be arrays of `{ value, lang }` records.
+  Normalize them at the validated boundary before constructing domain objects.
+- In StopMonitoring, `MonitoredCall` is the requested boarding stop. The first
+  `OnwardCall` is normally the vehicle's actual next stop and can precede the
+  boarding stop. Model those roles separately.
+- Stops-away and rider-facing progress come from SIRI `StopsFromCall`,
+  `NumberOfStopsAway`, and `PresentableDistance`; do not derive them from GPS.
+- Nearby multi-stop work is capped at twelve unique stop IDs, four concurrent
+  upstream requests, and six future visits per stop. Preserve one source state
+  per stop so partial failure remains visible and usable.
 
 ## External response changes
 

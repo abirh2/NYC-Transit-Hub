@@ -50,6 +50,16 @@ export interface NearbyBusStop extends TransitStop {
   distanceMiles: number;
 }
 
+export interface NearbyBusStopGroup {
+  id: string;
+  name: string;
+  mode: "bus";
+  location: Coordinates;
+  distanceMiles: number;
+  routeIds: string[];
+  stops: NearbyBusStop[];
+}
+
 export interface TransitStation {
   id: string;
   sourceIds: string[];
@@ -130,8 +140,13 @@ export interface SubwayTrip extends BaseTrip {
 export interface BusTrip extends BaseTrip {
   mode: "bus";
   journeyPatternId: string | null;
+  boardingStopId?: string | null;
+  boardingStopName?: string | null;
+  nextStopId?: string | null;
   nextStopName: string | null;
   distanceFromNextStopMeters: number | null;
+  distanceFromBoardingStopMeters?: number | null;
+  stopsFromBoardingStop?: number | null;
   progressStatus: string | null;
 }
 
@@ -187,6 +202,8 @@ export interface Departure {
   delaySeconds: number;
   status: "realtime" | "scheduled" | "canceled" | "no-prediction";
   minutesAway: number | null;
+  progressText?: string | null;
+  stopsAway?: number | null;
 }
 
 export type AlertSeverity = "INFO" | "WARNING" | "SEVERE";
@@ -236,3 +253,27 @@ export interface RealtimeSnapshot {
   trips: TransitTrip[];
   vehicles: TransitVehicle[];
 }
+
+export interface NearbyBusRealtimeResult {
+  stopId: string;
+  sourceState: RealtimeSourceState;
+  departures: Departure[];
+  trips: BusTrip[];
+  vehicles: TransitVehicle[];
+  feedTimestamp: Date | null;
+  error: string | null;
+}
+
+export type NearbyLocation =
+  | {
+      id: string;
+      mode: "subway";
+      station: TransitStation;
+      distanceMiles: number;
+    }
+  | {
+      id: string;
+      mode: "bus";
+      stopGroup: NearbyBusStopGroup;
+      distanceMiles: number;
+    };

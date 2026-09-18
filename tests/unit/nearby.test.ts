@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  createBusDeepLink,
   createTrainDeepLink,
   formatDepartureEta,
   getRiderDirectionLabel,
   groupDeparturesByDirection,
   selectNextDeparture,
+  sortNearbyLocations,
   sortUniqueDepartures,
 } from "@/lib/transit/nearby";
 import type { Departure } from "@/types/transit";
@@ -66,5 +68,48 @@ describe("nearby train helpers", () => {
     expect(link).toContain("station=D15");
     expect(link).toContain("stop=D15N");
     expect(link).toContain("trip=073850_D..S03R%2Fencoded%2Bidentity");
+  });
+
+  it("builds an exact bus trip link and sorts mixed locations by distance", () => {
+    const busDeparture = departure({
+      mode: "bus",
+      routeId: "M1",
+      stopId: "400001",
+      stationId: null,
+      tripId: "bus/trip+1",
+    });
+    expect(createBusDeepLink(busDeparture)).toContain("trip=bus%2Ftrip%2B1");
+
+    const locations = sortNearbyLocations([
+      {
+        id: "bus:far",
+        mode: "bus",
+        distanceMiles: 0.4,
+        stopGroup: {
+          id: "far",
+          name: "Far stop",
+          mode: "bus",
+          location: { latitude: 40.7, longitude: -73.9 },
+          distanceMiles: 0.4,
+          routeIds: ["M1"],
+          stops: [],
+        },
+      },
+      {
+        id: "subway:near",
+        mode: "subway",
+        distanceMiles: 0.1,
+        station: {
+          id: "near",
+          sourceIds: ["near"],
+          name: "Near station",
+          mode: "subway",
+          location: null,
+          stops: [],
+          routeIds: ["1"],
+        },
+      },
+    ]);
+    expect(locations.map((location) => location.id)).toEqual(["subway:near", "bus:far"]);
   });
 });

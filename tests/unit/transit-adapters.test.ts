@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { getAllBusStops, getNearbyBusStops } from "@/lib/gtfs/bus-stops";
+import { parseSiriResponse } from "@/lib/mta/buses";
 import { normalizeSiriActivities } from "@/lib/transit/bus-adapter";
 import { normalizeSubwayStations } from "@/lib/transit/station-adapter";
 
@@ -87,6 +88,38 @@ describe("normalizeSubwayStations", () => {
 });
 
 describe("normalizeSiriActivities", () => {
+  it("normalizes SIRI v2 localized text arrays at the boundary", () => {
+    const parsed = parseSiriResponse({
+      Siri: {
+        ServiceDelivery: {
+          ResponseTimestamp: "2026-09-18T12:00:00Z",
+          StopMonitoringDelivery: [{
+            ResponseTimestamp: "2026-09-18T12:00:00Z",
+            MonitoredStopVisit: [{
+              RecordedAtTime: "2026-09-18T12:00:00Z",
+              MonitoredVehicleJourney: {
+                LineRef: "MTA NYCT_M1",
+                DirectionRef: "0",
+                DestinationName: [{ value: "East Village", lang: "en" }],
+                ProgressStatus: ["layover"],
+                MonitoredCall: {
+                  StopPointRef: "MTA_400001",
+                  StopPointName: [{ value: "5 AV/W 42 ST", lang: "en" }],
+                },
+              },
+            }],
+          }],
+        },
+      },
+    });
+
+    const journey = parsed?.Siri.ServiceDelivery.StopMonitoringDelivery?.[0]
+      .MonitoredStopVisit?.[0].MonitoredVehicleJourney;
+    expect(journey?.DestinationName).toBe("East Village");
+    expect(journey?.ProgressStatus).toBe("layover");
+    expect(journey?.MonitoredCall?.StopPointName).toBe("5 AV/W 42 ST");
+  });
+
   it("preserves bus trip identity and actual vehicle coordinates", () => {
     const snapshot = normalizeSiriActivities(
       [

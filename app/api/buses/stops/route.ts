@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
-import { getNearbyBusStops } from "@/lib/gtfs/bus-stops";
+import { getNearbyBusStopGroups } from "@/lib/gtfs/bus-stops";
 import type { ApiErrorResponse, ApiResponse, BusStopsResponse } from "@/types/api";
 
 export const dynamic = "force-dynamic";
@@ -52,14 +52,14 @@ export async function GET(
   }
 
   const radiusValue = Number(request.nextUrl.searchParams.get("radius") ?? 0.5);
-  const limitValue = Number(request.nextUrl.searchParams.get("limit") ?? 20);
+  const limitValue = Number(request.nextUrl.searchParams.get("limit") ?? 6);
   const radiusMiles = Number.isFinite(radiusValue)
     ? Math.min(Math.max(radiusValue, 0.05), 5)
     : 0.5;
   const limit = Number.isFinite(limitValue)
-    ? Math.min(Math.max(Math.trunc(limitValue), 1), 100)
-    : 20;
-  const stops = getNearbyBusStops(
+    ? Math.min(Math.max(Math.trunc(limitValue), 1), 12)
+    : 6;
+  const groups = getNearbyBusStopGroups(
     coordinates.latitude,
     coordinates.longitude,
     radiusMiles,
@@ -69,7 +69,7 @@ export async function GET(
   return NextResponse.json({
     success: true,
     data: {
-      stops,
+      groups,
       nearLocation: { ...coordinates, radiusMiles },
     },
     timestamp: new Date().toISOString(),

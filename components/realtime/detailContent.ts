@@ -16,7 +16,8 @@ import { getDirectionLabel } from "@/lib/transit/direction";
 import { getSubwayTripProgressContext } from "@/lib/transit/subway-trip-position";
 import { getSubwayTripRiderContext } from "@/lib/transit/subway-trip-detail";
 import type { BusArrival, RailArrival, TrainArrival, TransitMode } from "@/types/mta";
-import type { Departure, SubwayTrip } from "@/types/transit";
+import { getBusTripDetail } from "@/lib/transit/bus-trip-detail";
+import type { BusTrip, Departure, SubwayTrip, TransitVehicle } from "@/types/transit";
 
 /** Declarative badge, rendered by the panel with the existing UI primitives. */
 export type RouteBadgeDescriptor =
@@ -468,6 +469,88 @@ export function buildBusVehicleDetail(input: {
         : formatMinutesAway(bus.minutesAway),
     },
     rows,
+  };
+}
+
+export function buildNormalizedBusTripDetail(input: {
+  selectedTripId: string;
+  boardingStopId?: string | null;
+  boardingStopName?: string | null;
+  trips: readonly BusTrip[];
+  departures: readonly Departure[];
+  vehicles: readonly TransitVehicle[];
+  isStale: boolean;
+}): TransitDetailContent {
+  const model = getBusTripDetail(input);
+  const trip = model.trip;
+  const departure = model.departure;
+  if (!trip) {
+    return buildMissingSelectionDetail({
+      kind: "vehicle",
+      label: "Bus no longer approaching",
+      arrivals: model.followingDepartures.map((following) => ({
+        id: following.tripId,
+        badge: { kind: "bus", route: following.routeId },
+        primary: following.destination ?? `${following.routeId} bus`,
+        secondary: following.progressText ?? undefined,
+        minutesAway: following.minutesAway,
+        state: arrivalState({ minutesAway: following.minutesAway, isStale: input.isStale }),
+      })),
+    });
+  }
+
+  const rows: DetailRow[] = [];
+  if (input.boardingStopName ?? trip.boardingStopName) {
+    rows.push({ label: "Boarding stop", value: input.boardingStopName ?? trip.boardingStopName! });
+  }
+  if (trip.nextStopName) rows.push({ label: "Next stop", value: trip.nextStopName });
+  if (departure && model.lifecycle !== "passed" && model.lifecycle !== "disappeared") {
+    rows.push({ label: "Arriving", value: formatMinutesAway(departure.minutesAway) });
+  }
+  if (departure?.progressText ?? trip.progressStatus) {
+    rows.push({ label: "Progress", value: departure?.progressText ?? trip.progressStatus! });
+  }
+  if (departure?.stopsAway !== null && departure?.stopsAway !== undefined) {
+    rows.push({ label: "Stops away", value: String(departure.stopsAway) });
+  }
+  if (trip.vehicleId) rows.push({ label: "Vehicle", value: trip.vehicleId });
+
+  const lifecycleCopy = {
+    approaching: departure ? formatMinutesAway(departure.minutesAway) : "Approaching",
+    "at-stop": "At stop",
+    passed: "Passed stop",
+    disappeared: "No longer reporting",
+    stale: "Updates may be delayed",
+  }[model.lifecycle];
+  const notice = model.lifecycle === "passed"
+    ? "This bus has passed the selected boarding stop. Choose a following bus below."
+    : model.lifecycle === "disappeared"
+      ? "This bus is no longer reporting for the selected stop."
+      : undefined;
+
+  return {
+    kind: "vehicle",
+    eyebrow: `${trip.route.id} bus`,
+    title: trip.destination ?? `${trip.route.id} bus`,
+    subtitle: model.vehicle?.position.source === "actual"
+      ? "Reporting a live GPS position"
+      : "Vehicle position unavailable",
+    badge: { kind: "bus", route: trip.route.id },
+    status: {
+      state: arrivalState({ minutesAway: departure?.minutesAway, isStale: input.isStale }),
+      label: lifecycleCopy,
+    },
+    rows,
+    notice,
+    arrivalsTitle: "Following buses",
+    arrivals: model.followingDepartures.map((following) => ({
+      id: following.tripId,
+      badge: { kind: "bus", route: following.routeId },
+      primary: following.destination ?? `${following.routeId} bus`,
+      secondary: following.progressText ?? undefined,
+      minutesAway: following.minutesAway,
+      state: arrivalState({ minutesAway: following.minutesAway, isStale: input.isStale }),
+    })),
   };
 }
 

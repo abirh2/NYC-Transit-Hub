@@ -1,5 +1,10 @@
 import { createRealtimeSearchParams } from "@/lib/transit/deep-link";
-import type { Departure, TransitDirection, TransitStation } from "@/types/transit";
+import type {
+  Departure,
+  NearbyLocation,
+  TransitDirection,
+  TransitStation,
+} from "@/types/transit";
 
 export interface NearbyDirectionGroup {
   direction: TransitDirection;
@@ -117,6 +122,32 @@ export function createTrainDeepLink(departure: Departure): string {
     tripId: departure.tripId,
   });
   return `/realtime?${params.toString()}`;
+}
+
+export function createBusDeepLink(departure: Departure): string {
+  const params = createRealtimeSearchParams({
+    mode: "bus",
+    routeId: departure.routeId,
+    stopId: departure.stopId,
+    direction: departure.direction,
+    tripId: departure.tripId,
+  });
+  return `/realtime?${params.toString()}`;
+}
+
+export function sortNearbyLocations(
+  locations: readonly NearbyLocation[],
+): NearbyLocation[] {
+  return [...locations].sort((a, b) => {
+    const nameA = a.mode === "subway" ? a.station.name : a.stopGroup.name;
+    const nameB = b.mode === "subway" ? b.station.name : b.stopGroup.name;
+    return (
+      a.distanceMiles - b.distanceMiles ||
+      a.mode.localeCompare(b.mode) ||
+      nameA.localeCompare(nameB) ||
+      a.id.localeCompare(b.id)
+    );
+  });
 }
 
 export function getFreshnessLabel(

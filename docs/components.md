@@ -626,7 +626,9 @@ import { RealtimeMap } from "@/components/realtime/map";
 | `stations` | StationWithCoords[] | required | Stations with lat/lon |
 | `trains` | TrainArrival[] | [] | Subway train arrivals |
 | `railTrains` | RailArrival[] | [] | LIRR/Metro-North arrivals |
-| `buses` | BusArrival[] | [] | Bus arrivals with GPS |
+| `busTrips` | BusTrip[] | [] | Normalized bus journeys keyed by trip ID |
+| `busDepartures` | Departure[] | [] | Stop predictions linked to bus trips |
+| `busVehicles` | TransitVehicle[] | [] | Bus vehicles with actual GPS positions |
 | `busRouteShape` | [number, number][] | [] | Bus route path coordinates |
 | `isLoading` | boolean | false | Show the refreshing indicator |
 | `error` | string \| null | null | Render `ErrorState` instead of the map |
@@ -686,7 +688,21 @@ This prevents issues like a train "16 min away" from appearing at its next stop.
 **Bus Mode:**
 - Shows route shape from GTFS data
 - Displays all stops along the route
-- Live bus GPS positions with bearing
+- Uses the normalized trip ID for selection and refresh stability
+- Shows live bus GPS positions with bearing; missing GPS is never fabricated
+- Focuses an exact Nearby selection with its boarding stop and actual vehicle
+
+### NearbyClient
+
+`NearbyClient` requests location once, independently loads subway stations and
+grouped static bus stops, then presents an All/Subway/Bus proximity feed. Bus
+cards lead with the next chronological prediction and progressively disclose
+additional exact-trip links through `BusDepartureCard`. No route choice is
+required before the first bus ETA appears.
+
+The initial view is capped at six bus-stop groups and twelve directional stop
+IDs per realtime refresh. Subway and bus loading/error states remain isolated;
+polling updates retain stable cards and do not use live-region announcements.
 
 ---
 

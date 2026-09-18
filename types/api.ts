@@ -6,7 +6,8 @@ import type { ServiceAlert, TrainArrival, EquipmentOutage, BusArrival, StationIn
 import type {
   Departure,
   BusTrip,
-  NearbyBusStop,
+  NearbyBusRealtimeResult,
+  NearbyBusStopGroup,
   RealtimeSourceState,
   SubwayTrip,
   TransitVehicle,
@@ -156,12 +157,20 @@ export interface BusRealtimeResponse {
 }
 
 export interface BusStopsResponse {
-  stops: NearbyBusStop[];
+  groups: NearbyBusStopGroup[];
   nearLocation: {
     latitude: number;
     longitude: number;
     radiusMiles: number;
   };
+}
+
+export interface NearbyBusRealtimeResponse {
+  results: Array<Omit<NearbyBusRealtimeResult, "feedTimestamp"> & {
+    feedTimestamp: string | null;
+  }>;
+  requestedStopIds: string[];
+  generatedAt: string;
 }
 
 // ============================================================================

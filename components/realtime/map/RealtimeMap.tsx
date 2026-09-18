@@ -15,8 +15,13 @@ import type { LatLngBoundsExpression, Map as LeafletMap } from "leaflet";
 import { MapPin, RadioTower, WifiOff } from "lucide-react";
 import { Spinner } from "@heroui/react";
 import { EmptyState, ErrorState } from "@/components/ui";
-import type { BusArrival, RailArrival, TransitMode } from "@/types/mta";
-import type { Departure, SubwayTrip } from "@/types/transit";
+import type { RailArrival, TransitMode } from "@/types/mta";
+import type {
+  BusTrip,
+  Departure,
+  SubwayTrip,
+  TransitVehicle,
+} from "@/types/transit";
 import type { StationWithCoords } from "@/lib/utils/train-positioning";
 import {
   getRenderableSubwayGeometries,
@@ -65,7 +70,9 @@ export interface RealtimeMapProps {
   subwayTrips?: SubwayTrip[];
   subwayDepartures?: Departure[];
   railTrains?: RailArrival[];
-  buses?: BusArrival[];
+  busTrips?: BusTrip[];
+  busDepartures?: Departure[];
+  busVehicles?: TransitVehicle[];
   busRouteShape?: [number, number][];
   isLoading?: boolean;
   error?: string | null;
@@ -94,7 +101,9 @@ export function RealtimeMap({
   subwayTrips = [],
   subwayDepartures = [],
   railTrains = [],
-  buses = [],
+  busTrips = [],
+  busDepartures = [],
+  busVehicles = [],
   busRouteShape = [],
   isLoading = false,
   error = null,
@@ -122,16 +131,28 @@ export function RealtimeMap({
   const routeBounds = useMemo<LatLngBoundsExpression | null>(() => {
     const points: [number, number][] = [];
 
-    if (focusSelectedTrip && mode === "subway" && selectedVehicleId) {
-      const selectedTrip = subwayTrips.find((trip) => trip.id === selectedVehicleId);
+    if (focusSelectedTrip && selectedVehicleId && (mode === "subway" || mode === "bus")) {
       const boardingStation = stations.find((station) => station.id === selectedStationId);
       if (boardingStation) points.push([boardingStation.lat, boardingStation.lon]);
-      if (selectedTrip) {
+      const selectedTrip = subwayTrips.find((trip) => trip.id === selectedVehicleId);
+      if (mode === "subway" && selectedTrip) {
         const geometry = subwayGeometry ? resolveGeometryForTrip(selectedTrip, subwayGeometry) : null;
         const projection = geometry
           ? projectTripOnSubwayGeometry(selectedTrip, geometry) ?? projectSubwayTripPosition(selectedTrip, stations)
           : projectSubwayTripPosition(selectedTrip, stations);
         if (projection) points.push(projection.coordinates);
+      }
+      const selectedBusTrip = busTrips.find((trip) => trip.id === selectedVehicleId);
+      const selectedBusVehicle = selectedBusTrip?.vehicleId
+        ? busVehicles.find((vehicle) =>
+            vehicle.id === selectedBusTrip.vehicleId &&
+            vehicle.position.source === "actual")
+        : null;
+      if (selectedBusVehicle?.position.source === "actual") {
+        points.push([
+          selectedBusVehicle.position.coordinates.latitude,
+          selectedBusVehicle.position.coordinates.longitude,
+        ]);
       }
       if (points.length > 0) return points;
     }
@@ -152,8 +173,13 @@ export function RealtimeMap({
       if (station.lat && station.lon) points.push([station.lat, station.lon]);
     }
     if (mode === "bus") {
-      for (const bus of buses) {
-        if (bus.latitude && bus.longitude) points.push([bus.latitude, bus.longitude]);
+      for (const vehicle of busVehicles) {
+        if (vehicle.position.source === "actual") {
+          points.push([
+            vehicle.position.coordinates.latitude,
+            vehicle.position.coordinates.longitude,
+          ]);
+        }
       }
     }
 
@@ -165,7 +191,8 @@ export function RealtimeMap({
     subwayGeometry,
     selectedVehicleId,
     busRouteShape,
-    buses,
+    busTrips,
+    busVehicles,
     focusSelectedTrip,
     selectedStationId,
   ]);
@@ -269,7 +296,9 @@ export function RealtimeMap({
         subwayDepartures={subwayDepartures}
         subwayGeometry={subwayGeometry}
         railTrains={railTrains}
-        buses={buses}
+        busTrips={busTrips}
+        busDepartures={busDepartures}
+        busVehicles={busVehicles}
         busRouteShape={busRouteShape}
         selectedStationId={selectedStationId}
         selectedVehicleId={selectedVehicleId}

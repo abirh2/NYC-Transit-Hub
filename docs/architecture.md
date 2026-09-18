@@ -175,6 +175,8 @@ NYC-Transit-Hub/
 | `/api/elevators/upcoming` | GET | Get planned elevator/escalator outages |
 | `/api/trains/realtime` | GET | Get train arrivals (live GTFS-RT) |
 | `/api/buses/realtime` | GET | Get bus arrivals (requires API key) |
+| `/api/buses/stops` | GET | Group and rank nearby static bus stops |
+| `/api/buses/nearby` | GET | Bounded multi-stop SIRI predictions with partial results |
 | `/api/reliability` | GET | Get line reliability metrics (30-day history) |
 | `/api/status` | GET | Get system health status |
 

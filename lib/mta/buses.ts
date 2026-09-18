@@ -18,6 +18,18 @@ import { TRANSIT_CACHE_SECONDS } from "@/lib/transit/cache-policy";
 
 const SIRI_BASE_URL = "https://bustime.mta.info/api/siri";
 
+const SiriTextSchema = z.union([
+  z.string(),
+  z.array(z.union([
+    z.string(),
+    z.object({ value: z.string() }).passthrough(),
+  ])).min(1),
+]).transform((value) => {
+  if (typeof value === "string") return value;
+  const first = value[0];
+  return typeof first === "string" ? first : first.value;
+});
+
 /**
  * Check if bus API key is configured
  */
@@ -126,17 +138,21 @@ interface MonitoredVehicleJourney {
 
 const SiriCallSchema = z.object({
   StopPointRef: z.string().optional(),
-  StopPointName: z.string().optional(),
+  StopPointName: SiriTextSchema.optional(),
   VehicleAtStop: z.boolean().optional(),
   ExpectedArrivalTime: z.string().optional(),
   AimedArrivalTime: z.string().optional(),
   ExpectedDepartureTime: z.string().optional(),
   AimedDepartureTime: z.string().optional(),
-  ArrivalProximityText: z.string().optional(),
+  ArrivalProximityText: SiriTextSchema.optional(),
   DistanceFromStop: z.number().optional(),
+  NumberOfStopsAway: z.number().optional(),
   Extensions: z.object({
     Distances: z.object({
       DistanceFromCall: z.number().optional(),
+      PresentableDistance: z.string().optional(),
+      StopsFromCall: z.number().optional(),
+      CallDistanceAlongRoute: z.number().optional(),
     }).passthrough().optional(),
   }).passthrough().optional(),
 }).passthrough();
@@ -149,13 +165,13 @@ const MonitoredVehicleJourneySchema = z.object({
     DatedVehicleJourneyRef: z.string(),
   }).optional(),
   JourneyPatternRef: z.string().optional(),
-  DestinationName: z.string().optional(),
+  DestinationName: SiriTextSchema.optional(),
   VehicleLocation: z.object({
     Longitude: z.number(),
     Latitude: z.number(),
   }).optional(),
   Bearing: z.number().optional(),
-  ProgressStatus: z.string().optional(),
+  ProgressStatus: SiriTextSchema.optional(),
   VehicleRef: z.string().optional(),
   MonitoredCall: SiriCallSchema.optional(),
   OnwardCalls: z.object({
@@ -185,7 +201,7 @@ const SiriResponseSchema = z.object({
   }).passthrough(),
 }).passthrough();
 
-function parseSiriResponse(data: unknown): SiriResponse | null {
+export function parseSiriResponse(data: unknown): SiriResponse | null {
   const result = SiriResponseSchema.safeParse(data);
   if (!result.success) {
     console.error("Malformed SIRI response", result.error.issues);
@@ -256,7 +272,7 @@ export async function fetchSiriVehicleMonitoring(options?: {
  * Returns arrivals at a specific stop
  */
 export async function fetchSiriStopMonitoring(options: {
-  stopId?: string;
+  stopId: string;
   routeId?: string;
   maxStopVisits?: number;
 }): Promise<SiriResponse | null> {
@@ -268,15 +284,17 @@ export async function fetchSiriStopMonitoring(options: {
 
   const params = new URLSearchParams({
     key: apiKey,
+    version: "2",
+    OperatorRef: "MTA",
+    StopMonitoringDetailLevel: "calls",
+    MaximumNumberOfCallsOnwards: "6",
   });
 
-  if (options.stopId) {
-    // StopRef format: "MTA_308215" or just the stop ID
-    const stopRef = options.stopId.includes("_")
-      ? options.stopId
-      : `MTA_${options.stopId}`;
-    params.set("MonitoringRef", stopRef);
-  }
+  // StopRef format: "MTA_308215" or just the stop ID
+  const stopRef = options.stopId.includes("_")
+    ? options.stopId
+    : `MTA_${options.stopId}`;
+  params.set("MonitoringRef", stopRef);
 
   if (options.routeId) {
     const lineRef = options.routeId.includes("_")
@@ -384,7 +402,9 @@ export async function getBusRealtimeSnapshot(options?: {
     }
   }
 
-  const snapshot = normalizeSiriActivities(activities);
+  const snapshot = normalizeSiriActivities(activities, {
+    monitoredStopId: options?.stopId,
+  });
   const sourceState = upstreamAvailable ? snapshot.sourceState : "unavailable";
 
   const trips = snapshot.trips.filter(

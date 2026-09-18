@@ -23,9 +23,12 @@ interface SiriCallInput {
   DistanceFromStop?: number;
   VehicleAtStop?: boolean;
   ArrivalProximityText?: string;
+  NumberOfStopsAway?: number;
   Extensions?: {
     Distances?: {
       DistanceFromCall?: number;
+      PresentableDistance?: string;
+      StopsFromCall?: number;
     };
   };
 }
@@ -95,7 +98,7 @@ function createStopPrediction(
 
 export function normalizeSiriActivities(
   activities: readonly SiriVehicleActivityInput[],
-  options: { now?: Date } = {},
+  options: { now?: Date; monitoredStopId?: string } = {},
 ): RealtimeSnapshot {
   const now = options.now ?? new Date();
   const trips: BusTrip[] = [];
@@ -111,16 +114,35 @@ export function normalizeSiriActivities(
       `${routeId}:${activity.RecordedAtTime}`;
     const recordedAt = parseDate(activity.RecordedAtTime);
     const monitoredCall = journey.MonitoredCall;
+    const onwardCalls = journey.OnwardCalls?.OnwardCall ?? [];
     const stopTimeUpdates = [
       ...(monitoredCall ? [monitoredCall] : []),
-      ...(journey.OnwardCalls?.OnwardCall ?? []),
+      ...onwardCalls,
     ]
       .map(createStopPrediction)
       .filter((prediction): prediction is StopTimePrediction => prediction !== null);
-    const currentStopId = stripMtaPrefix(monitoredCall?.StopPointRef);
+    const boardingStopId = options.monitoredStopId ?? null;
+    const monitoredCallStopId = stripMtaPrefix(monitoredCall?.StopPointRef);
     const direction = normalizeBusDirection(journey.DirectionRef);
     const isAtStop = monitoredCall?.VehicleAtStop === true;
-    const nextStop = stopTimeUpdates[0];
+    const nextCall = options.monitoredStopId
+      ? onwardCalls[0] ?? monitoredCall
+      : monitoredCall ?? onwardCalls[0];
+    const nextStopId = stripMtaPrefix(nextCall?.StopPointRef);
+    const departureCall = options.monitoredStopId ? monitoredCall : nextCall;
+    const departureStopId = stripMtaPrefix(departureCall?.StopPointRef);
+    const departureArrival = parseDate(
+      departureCall?.ExpectedArrivalTime ?? departureCall?.AimedArrivalTime,
+    );
+    const departureTime = parseDate(
+      departureCall?.ExpectedDepartureTime ?? departureCall?.AimedDepartureTime,
+    );
+    const distanceData = monitoredCall?.Extensions?.Distances;
+    const stopsAway = monitoredCall?.NumberOfStopsAway ?? distanceData?.StopsFromCall ?? null;
+    const progressText = distanceData?.PresentableDistance ??
+      monitoredCall?.ArrivalProximityText ??
+      journey.ProgressStatus ??
+      null;
 
     const trip: BusTrip = {
       id: tripId,
@@ -133,18 +155,18 @@ export function normalizeSiriActivities(
       startTime: null,
       scheduleRelationship: "scheduled",
       stopTimeUpdates,
-      progress: isAtStop && currentStopId
+      progress: isAtStop && monitoredCallStopId
         ? {
             state: "at-stop",
             source: "vehicle",
-            stopId: currentStopId,
+            stopId: monitoredCallStopId,
             timestamp: recordedAt,
           }
-        : nextStop
+        : nextStopId
           ? {
               state: "approaching",
               source: "vehicle",
-              nextStopId: nextStop.stopId,
+              nextStopId,
               previousStopId: null,
               timestamp: recordedAt,
             }
@@ -152,13 +174,18 @@ export function normalizeSiriActivities(
       vehicleId: journey.VehicleRef ?? null,
       updatedAt: recordedAt,
       journeyPatternId: journey.JourneyPatternRef ?? null,
-      nextStopName: monitoredCall?.StopPointName ?? null,
+      boardingStopId,
+      boardingStopName: options.monitoredStopId ? monitoredCall?.StopPointName ?? null : null,
+      nextStopId,
+      nextStopName: nextCall?.StopPointName ?? null,
       distanceFromNextStopMeters:
-        monitoredCall?.DistanceFromStop ??
-        monitoredCall?.Extensions?.Distances?.DistanceFromCall ??
+        nextCall?.DistanceFromStop ??
+        nextCall?.Extensions?.Distances?.DistanceFromCall ??
         null,
-      progressStatus:
-        monitoredCall?.ArrivalProximityText ?? journey.ProgressStatus ?? null,
+      distanceFromBoardingStopMeters:
+        monitoredCall?.DistanceFromStop ?? distanceData?.DistanceFromCall ?? null,
+      stopsFromBoardingStop: stopsAway,
+      progressStatus: progressText,
     };
     trips.push(trip);
 
@@ -181,29 +208,31 @@ export function normalizeSiriActivities(
               timestamp: recordedAt,
             }
           : { source: "unknown", timestamp: recordedAt },
-        currentStopId,
-        status: isAtStop ? "stopped" : nextStop ? "incoming" : "unknown",
+        currentStopId: isAtStop ? monitoredCallStopId : null,
+        status: isAtStop ? "stopped" : nextStopId ? "incoming" : "unknown",
       });
     }
 
-    if (nextStop?.arrivalTime && nextStop.arrivalTime >= now) {
+    if (departureStopId && departureArrival && departureArrival >= now) {
       departures.push({
-        id: `${tripId}:${nextStop.stopId}:${nextStop.sequence}`,
+        id: `${tripId}:${departureStopId}`,
         mode: "bus",
         tripId,
         routeId,
-        stopId: nextStop.stopId,
+        stopId: departureStopId,
         stationId: null,
         direction,
         destination: trip.destination,
-        predictedArrival: nextStop.arrivalTime,
-        predictedDeparture: nextStop.departureTime,
+        predictedArrival: departureArrival,
+        predictedDeparture: departureTime,
         delaySeconds: 0,
         status: "realtime",
         minutesAway: Math.max(
           0,
-          Math.round((nextStop.arrivalTime.getTime() - now.getTime()) / 60_000),
+          Math.round((departureArrival.getTime() - now.getTime()) / 60_000),
         ),
+        progressText,
+        stopsAway,
       });
     }
   }
