@@ -666,9 +666,12 @@ Green, amber, and red are reserved for service condition (`delay`, `severe`,
 `stale`); direction is never encoded as color. Every marker carries screen
 reader text naming its route, so color is never the only route cue.
 
-**Approximate route geometry:** subway and rail polylines connect station
-coordinates in order. They have no curvature and render a branching line as one
-zig-zag. Buses use real GTFS shapes and are geographically accurate.
+**Route geometry:** subway polylines use compact, route-scoped artifacts built
+from the official MTA `shapes.txt` data. Trip aliases and ordered stop matching
+select the correct branch/direction, and shape-distance anchors keep inferred
+train positions on the selected path. Missing artifacts or unresolved trips
+fall back to the existing ordered-station estimate. Rail keeps station geometry;
+buses use their existing GTFS shapes and actual GPS positions.
 
 **Smart Train Positioning:**
 

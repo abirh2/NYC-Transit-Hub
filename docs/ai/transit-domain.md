@@ -39,6 +39,11 @@ Trip selection and visualization use the normalized objects directly:
   departed, and between-stop positions are conservative estimates along the
   known adjacent station segment. Unknown and not-started progress is not
   projected.
+- `lib/gtfs/subway-route-geometry.ts` optionally replaces that station segment
+  with official MTA GTFS shape geometry. Exact static-trip aliases are preferred,
+  followed by ordered stop-pattern matching; unresolved trips retain the
+  station fallback. This changes only map projection, never trip identity,
+  progress semantics, or the individual realtime `TransitTrip` model.
 - Subway map and line-diagram copy must call these positions estimated. The
   current station-to-station projector does not imply GPS precision and may be
   replaced by GTFS shape/topology geometry without changing trip selection.

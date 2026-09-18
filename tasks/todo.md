@@ -92,67 +92,67 @@
 ## Task 8: Geometry contract and deterministic fixtures
 
 **Acceptance criteria:**
-- [ ] Exact trip aliases resolve to the corresponding static service pattern.
-- [ ] Direction/branch fallback uses ordered stops and never a route-only polyline assumption.
-- [ ] Stop-to-shape anchors are monotonic and train interpolation stays within the adjacent-stop shape segment.
+- [x] Exact trip aliases resolve to the corresponding static service pattern.
+- [x] Direction/branch fallback uses ordered stops and never a route-only polyline assumption.
+- [x] Stop-to-shape anchors are monotonic and train interpolation stays within the adjacent-stop shape segment.
 
 **Verification:**
-- [ ] Focused geometry tests fail before implementation and pass afterward.
+- [x] Focused geometry tests fail before implementation and pass afterward.
 
 **Dependencies:** Individual realtime subway train phase
 
 ## Task 9: Offline official-GTFS preprocessing
 
 **Acceptance criteria:**
-- [ ] Generator consumes verified MTA `trips.txt`, `stop_times.txt`, `stops.txt`, and `shapes.txt` relationships.
-- [ ] Output is split by route and records feed provenance/version.
-- [ ] Malformed rows/shapes are rejected or skipped with actionable diagnostics.
+- [x] Generator consumes verified MTA `trips.txt`, `stop_times.txt`, `stops.txt`, and `shapes.txt` relationships.
+- [x] Output is split by route and records feed provenance/version.
+- [x] Malformed rows/shapes are rejected or skipped with actionable diagnostics.
 
 **Verification:**
-- [ ] Generator completes against the downloaded official feed and validates every emitted artifact.
+- [x] Generator completes against the downloaded official feed and validates every emitted artifact.
 
 **Dependencies:** Task 8
 
 ## Task 10: Static geometry loading and caching
 
 **Acceptance criteria:**
-- [ ] Only the selected route's compact geometry is downloaded.
-- [ ] Geometry cache lifetime is independent from 30-second realtime polling.
-- [ ] Missing or malformed artifacts degrade to the station-derived fallback.
+- [x] Only the selected route's compact geometry is downloaded.
+- [x] Geometry cache lifetime is independent from 30-second realtime polling.
+- [x] Missing or malformed artifacts degrade to the station-derived fallback.
 
 **Verification:**
-- [ ] Loader/cache tests pass and route changes do not refetch an already cached artifact.
+- [x] Loader/cache tests pass and route changes do not refetch an already cached artifact.
 
 **Dependencies:** Task 9
 
 ## Task 11: Shape-aware Leaflet rendering and projection
 
 **Acceptance criteria:**
-- [ ] Selected trips render only their resolved service shape; unselected route views deduplicate active variants.
-- [ ] Individual train markers interpolate between monotonic stop anchors on the resolved shape.
-- [ ] Bus and commuter-rail rendering/positioning paths remain unchanged.
+- [x] Selected trips render only their resolved service shape; unselected route views deduplicate active variants.
+- [x] Individual train markers interpolate between monotonic stop anchors on the resolved shape.
+- [x] Bus and commuter-rail rendering/positioning paths remain unchanged.
 
 **Verification:**
-- [ ] Map/unit tests and representative browser checks pass.
+- [ ] Map/unit tests and representative browser checks pass (local server bind blocked by sandbox).
 
 **Dependencies:** Tasks 8-10
 
 ## Task 12: Geometry operations documentation
 
 **Acceptance criteria:**
-- [ ] Data source, resolver hierarchy, preprocessing, caching, refresh command, and limitations are documented.
-- [ ] Transit-domain and component docs distinguish geographic shapes from schematic topology.
+- [x] Data source, resolver hierarchy, preprocessing, caching, refresh command, and limitations are documented.
+- [x] Transit-domain and component docs distinguish geographic shapes from schematic topology.
 
 **Verification:**
-- [ ] Documentation commands, paths, and claims match the implementation.
+- [x] Documentation commands, paths, and claims match the implementation.
 
 **Dependencies:** Tasks 9-11
 
 ## GTFS geometry final checkpoint
 
-- [ ] `npm run lint`
-- [ ] `npx tsc --noEmit`
-- [ ] Focused geometry and realtime tests
-- [ ] `npm run test`
-- [ ] `npm run build`
+- [x] `npm run lint` (bundled Node; existing warnings only)
+- [x] `npx tsc --noEmit` (bundled Node)
+- [x] Focused geometry and realtime tests
+- [x] `npm run test` (44 files, 467 tests)
+- [x] `npm run build` (offline MTA fetch warnings only)
 - [ ] Simple, express/shared-track, and branched routes visually verified.

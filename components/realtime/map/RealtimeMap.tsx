@@ -18,7 +18,11 @@ import { EmptyState, ErrorState } from "@/components/ui";
 import type { BusArrival, RailArrival, TransitMode } from "@/types/mta";
 import type { Departure, SubwayTrip } from "@/types/transit";
 import type { StationWithCoords } from "@/lib/utils/train-positioning";
+import {
+  getRenderableSubwayGeometries,
+} from "@/lib/gtfs/subway-route-geometry";
 import type { GeolocationPosition, GeolocationPermissionState } from "@/lib/hooks/useGeolocation";
+import { useSubwayRouteGeometry } from "@/lib/hooks/useSubwayRouteGeometry";
 import { MapControls } from "./MapControls";
 import { MapLegend } from "./MapLegend";
 
@@ -104,6 +108,10 @@ export function RealtimeMap({
 }: RealtimeMapProps) {
   const [map, setMap] = useState<LeafletMap | null>(null);
   const [isLegendOpen, setIsLegendOpen] = useState(false);
+  const subwayGeometryState = useSubwayRouteGeometry(
+    mode === "subway" ? routeId : null,
+  );
+  const subwayGeometry = subwayGeometryState.artifact;
 
   /** Every coordinate worth framing for the active route. */
   const routeBounds = useMemo<LatLngBoundsExpression | null>(() => {
@@ -111,6 +119,15 @@ export function RealtimeMap({
 
     if (mode === "bus" && busRouteShape.length > 0) {
       points.push(...busRouteShape);
+    }
+    if (mode === "subway" && subwayGeometry) {
+      for (const geometry of getRenderableSubwayGeometries(
+        subwayTrips,
+        subwayGeometry,
+        selectedVehicleId,
+      )) {
+        points.push(...geometry.shape.coordinates);
+      }
     }
     for (const station of stations) {
       if (station.lat && station.lon) points.push([station.lat, station.lon]);
@@ -122,7 +139,15 @@ export function RealtimeMap({
     }
 
     return points.length > 0 ? points : null;
-  }, [mode, stations, busRouteShape, buses]);
+  }, [
+    mode,
+    stations,
+    subwayTrips,
+    subwayGeometry,
+    selectedVehicleId,
+    busRouteShape,
+    buses,
+  ]);
 
   const fitRoute = useCallback(() => {
     if (!map || !routeBounds) return;
@@ -135,13 +160,14 @@ export function RealtimeMap({
    * off-screen. Keyed on mode+route so panning within a route is not undone.
    */
   const framedKey = useRef<string | null>(null);
+  const geometryVersion = subwayGeometry?.source.feedVersion ?? "fallback";
   useEffect(() => {
     if (!map || !routeBounds || !routeId) return;
-    const key = `${mode}:${routeId}`;
+    const key = `${mode}:${routeId}:${geometryVersion}`;
     if (framedKey.current === key) return;
     framedKey.current = key;
     map.fitBounds(routeBounds, { padding: [48, 48], animate: false });
-  }, [map, routeBounds, routeId, mode]);
+  }, [map, routeBounds, routeId, mode, geometryVersion]);
 
   /** Leaflet needs a nudge when its container is resized by the layout. */
   useEffect(() => {
@@ -220,6 +246,7 @@ export function RealtimeMap({
         stations={stations}
         subwayTrips={subwayTrips}
         subwayDepartures={subwayDepartures}
+        subwayGeometry={subwayGeometry}
         railTrains={railTrains}
         buses={buses}
         busRouteShape={busRouteShape}

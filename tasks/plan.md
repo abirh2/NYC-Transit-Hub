@@ -81,19 +81,19 @@ shape geometry can replace only the projector.
 
 ### Task List
 
-- [ ] Task 8: Define and test the route-geometry resolver/projection contract.
-- [ ] Task 9: Generate route-scoped subway shape and service-pattern artifacts.
-- [ ] Task 10: Load geometry with a static-data cache independent of realtime polling.
-- [ ] Task 11: Render resolved shapes and shape-aware individual train positions.
-- [ ] Task 12: Document refresh, caching, fallbacks, and known topology limits.
+- [x] Task 8: Define and test the route-geometry resolver/projection contract.
+- [x] Task 9: Generate route-scoped subway shape and service-pattern artifacts.
+- [x] Task 10: Load geometry with a static-data cache independent of realtime polling.
+- [x] Task 11: Render resolved shapes and shape-aware individual train positions.
+- [x] Task 12: Document refresh, caching, fallbacks, and known topology limits.
 
 ### Checkpoint: GTFS geometry
 
-- [ ] Simple, bidirectional, branched, shared-corridor, terminal, malformed,
+- [x] Simple, bidirectional, branched, shared-corridor, terminal, malformed,
   and unresolved cases pass deterministic tests.
 - [ ] Representative simple, express/shared-track, and branched routes are
-  visually verified in a real browser.
-- [ ] Lint, typecheck, geometry/realtime tests, and production build pass.
+  visually verified in a real browser (sandbox prevented local server bind).
+- [x] Lint, typecheck, geometry/realtime tests, and production build pass.
 
 ### Additional Risks and Mitigations
 

@@ -206,8 +206,17 @@ NYC-Transit-Hub/
 - **stops.txt** - 496 subway stations with coordinates
 - **routes.txt** - 29 subway routes with colors
 - **line-stations.json** - Ordered station sequences for all 26 subway lines
+- **subway-geometry/*.json** - Route-scoped generated MTA shape artifacts with
+  branch patterns, monotonic stop anchors, and realtime trip aliases
+- **subway-geometry/manifest.json** - Feed metadata and generated route list
 - **mnr-schedule-lookup.json** - Metro-North train schedules (1,541 trains)
 - **lirr-schedule-lookup.json** - LIRR train schedules (1,713 trains)
+
+Subway geometry is refreshed offline with `npm run data:subway-geometry` from
+the official MTA static feed. The browser loads only the compact route artifact
+for the selected line; it never parses the raw GTFS archive. The loader caches
+each route independently of realtime polling and falls back to ordered station
+coordinates if an artifact cannot be loaded or matched.
 
 ### GTFS-RT Schedule Merging
 

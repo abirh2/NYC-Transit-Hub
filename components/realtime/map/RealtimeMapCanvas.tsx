@@ -16,7 +16,7 @@
  *   base map (200) < route (400) < stations (450) < vehicles (600) < selected (650)
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   Circle,
   CircleMarker,
@@ -34,6 +34,12 @@ import "leaflet/dist/leaflet.css";
 
 import type { BusArrival, RailArrival, TransitMode } from "@/types/mta";
 import type { Departure, SubwayTrip } from "@/types/transit";
+import {
+  getRenderableSubwayGeometries,
+  projectTripOnSubwayGeometry,
+  resolveGeometryForTrip,
+  type SubwayGeometryArtifact,
+} from "@/lib/gtfs/subway-route-geometry";
 import { getDirectionLabel } from "@/lib/transit/direction";
 import { projectSubwayTripPosition } from "@/lib/transit/subway-trip-position";
 import {
@@ -42,6 +48,11 @@ import {
   staggerTrainPositions,
   type StationWithCoords,
 } from "@/lib/utils/train-positioning";
+
+// Subway routes use compact, route-scoped GTFS shape artifacts when available;
+// station-to-station geometry remains the safe fallback for missing or
+// unresolved static data. Bus shapes and realtime vehicle semantics stay on
+// their existing paths.
 import {
   buildBusMarkerHtml,
   buildRailMarkerHtml,
@@ -114,6 +125,7 @@ export interface RealtimeMapCanvasProps {
   stations: StationWithCoords[];
   subwayTrips: SubwayTrip[];
   subwayDepartures: Departure[];
+  subwayGeometry: SubwayGeometryArtifact | null;
   railTrains: RailArrival[];
   buses: BusArrival[];
   busRouteShape: [number, number][];
@@ -179,13 +191,35 @@ function useRouteGeometry(
   mode: TransitMode,
   stations: StationWithCoords[],
   busRouteShape: [number, number][],
-): [number, number][] {
+  subwayTrips: SubwayTrip[],
+  subwayGeometry: SubwayGeometryArtifact | null,
+  selectedVehicleId?: string,
+): [number, number][][] {
   return useMemo(() => {
-    if (mode === "bus" && busRouteShape.length > 0) return busRouteShape;
-    return stations
-      .filter((s) => s.lat && s.lon)
-      .map((s) => [s.lat, s.lon] as [number, number]);
-  }, [mode, stations, busRouteShape]);
+    if (mode === "bus" && busRouteShape.length > 0) return [busRouteShape];
+    if (mode === "subway" && subwayGeometry) {
+      const resolved = getRenderableSubwayGeometries(
+        subwayTrips,
+        subwayGeometry,
+        selectedVehicleId,
+      );
+      if (resolved.length > 0) {
+        return resolved.map((geometry) => geometry.shape.coordinates);
+      }
+    }
+    return [
+      stations
+        .filter((s) => s.lat && s.lon)
+        .map((s) => [s.lat, s.lon] as [number, number]),
+    ];
+  }, [
+    mode,
+    stations,
+    busRouteShape,
+    subwayTrips,
+    subwayGeometry,
+    selectedVehicleId,
+  ]);
 }
 
 export default function RealtimeMapCanvas({
@@ -195,6 +229,7 @@ export default function RealtimeMapCanvas({
   stations,
   subwayTrips,
   subwayDepartures,
+  subwayGeometry,
   railTrains,
   buses,
   busRouteShape,
@@ -212,7 +247,14 @@ export default function RealtimeMapCanvas({
 
   const tileUrl = resolvedTheme === "light" ? TILE_URLS.light : TILE_URLS.dark;
 
-  const routeCoords = useRouteGeometry(mode, stations, busRouteShape);
+  const routeGeometries = useRouteGeometry(
+    mode,
+    stations,
+    busRouteShape,
+    subwayTrips,
+    subwayGeometry,
+    selectedVehicleId,
+  );
 
   const stationDistances = useMemo(
     () => calculateStationDistances(stations),
@@ -260,7 +302,13 @@ export default function RealtimeMapCanvas({
     return subwayTrips
       .filter((trip) => trip.route.id === routeId)
       .map((trip) => {
-        const projection = projectSubwayTripPosition(trip, stations);
+        const geometry = subwayGeometry
+          ? resolveGeometryForTrip(trip, subwayGeometry)
+          : null;
+        const projection = geometry
+          ? projectTripOnSubwayGeometry(trip, geometry) ??
+            projectSubwayTripPosition(trip, stations)
+          : projectSubwayTripPosition(trip, stations);
         return projection
           ? {
               trip,
@@ -271,7 +319,14 @@ export default function RealtimeMapCanvas({
           : null;
       })
       .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
-  }, [mode, subwayTrips, subwayDepartures, routeId, stations]);
+  }, [
+    mode,
+    subwayTrips,
+    subwayDepartures,
+    routeId,
+    stations,
+    subwayGeometry,
+  ]);
 
   const railPositions = useMemo(() => {
     if (mode !== "lirr" && mode !== "metro-north") return [];
@@ -334,8 +389,9 @@ export default function RealtimeMapCanvas({
       <Pane name={PANES.vehicles.name} style={{ zIndex: PANES.vehicles.zIndex }} />
       <Pane name={PANES.selected.name} style={{ zIndex: PANES.selected.zIndex }} />
 
-      {routeCoords.length > 1 && (
-        <>
+      {routeGeometries.map((routeCoords, index) =>
+        routeCoords.length > 1 ? (
+        <Fragment key={`route-geometry-${index}`}>
           {/* Casing beneath the route gives the line separation from the
               basemap in both themes without hardcoding an opacity. */}
           <Polyline
@@ -362,7 +418,8 @@ export default function RealtimeMapCanvas({
               lineJoin: "round",
             }}
           />
-        </>
+        </Fragment>
+        ) : null,
       )}
 
       {stations
