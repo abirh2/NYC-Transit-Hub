@@ -1,20 +1,20 @@
-import { MapPin } from "lucide-react";
-
+import type { Metadata } from "next";
 import { PageContainer, PageHeader } from "@/components/layout";
-import { EmptyState } from "@/components/ui";
+import { NearbyClient } from "@/components/nearby/NearbyClient";
+
+export const metadata: Metadata = {
+  title: "Nearby Subway | NYC Transit Hub",
+  description: "Find nearby subway stations and the next individual train.",
+};
 
 export default function NearbyPage() {
   return (
-    <PageContainer>
+    <PageContainer width="wide">
       <PageHeader
         title="Nearby"
-        description="Find transit options around your current location."
+        description="The next subway train from the stations around you."
       />
-      <EmptyState
-        icon={<MapPin className="h-6 w-6" />}
-        title="Coming soon"
-        description="Nearby stations, stops, and arrivals will appear here soon."
-      />
+      <NearbyClient />
     </PageContainer>
   );
 }
