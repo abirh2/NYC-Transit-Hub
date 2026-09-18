@@ -12,7 +12,10 @@
  */
 
 import type { SemanticState } from "@/components/ui/StatusChip";
+import { getDirectionLabel } from "@/lib/transit/direction";
+import { getSubwayTripProgressContext } from "@/lib/transit/subway-trip-position";
 import type { BusArrival, RailArrival, TrainArrival, TransitMode } from "@/types/mta";
+import type { Departure, SubwayTrip } from "@/types/transit";
 
 /** Declarative badge, rendered by the panel with the existing UI primitives. */
 export type RouteBadgeDescriptor =
@@ -34,6 +37,13 @@ export interface DetailArrival {
   state: SemanticState;
 }
 
+export interface DetailProgressStop {
+  id: string;
+  name: string;
+  time: string | null;
+  state: "completed" | "current" | "next" | "upcoming";
+}
+
 export interface TransitDetailContent {
   /** What kind of thing is selected, used for the shell's heading semantics. */
   kind: "station" | "vehicle" | "route";
@@ -48,6 +58,8 @@ export interface TransitDetailContent {
   rows: DetailRow[];
   arrivalsTitle?: string;
   arrivals?: DetailArrival[];
+  progressTitle?: string;
+  progressStops?: DetailProgressStop[];
   /** Shown when the selection is no longer present in the feed. */
   notice?: string;
   footnote?: string;
@@ -195,6 +207,128 @@ export function buildSubwayVehicleDetail(input: {
     rows,
     footnote:
       "Position is estimated from arrival predictions; this feed does not report GPS.",
+  };
+}
+
+export function buildSubwayTripDetail(input: {
+  trip: SubwayTrip;
+  selectedDeparture: Departure | null;
+  followingDepartures: Departure[];
+  stationName: (stopId: string) => string;
+  isStale: boolean;
+}): TransitDetailContent {
+  const { trip } = input;
+  const context = getSubwayTripProgressContext(trip);
+  const previousName = context.previousStop
+    ? input.stationName(context.previousStop.stopId)
+    : null;
+  const currentName = context.currentStop
+    ? input.stationName(context.currentStop.stopId)
+    : null;
+  const nextName = context.nextStop
+    ? input.stationName(context.nextStop.stopId)
+    : null;
+
+  const progressLabel = (() => {
+    switch (trip.progress.state) {
+      case "at-stop":
+        return `At ${currentName ?? input.stationName(trip.progress.stopId)}`;
+      case "approaching":
+        return `Approaching ${nextName ?? input.stationName(trip.progress.nextStopId)}`;
+      case "departed-previous-stop":
+        return `Departed ${previousName ?? input.stationName(trip.progress.previousStopId)}`;
+      case "between-stops":
+        return previousName && nextName
+          ? `Between ${previousName} and ${nextName}`
+          : "Between stations";
+      case "not-started":
+        return `Scheduled from ${nextName ?? input.stationName(trip.progress.nextStopId)}`;
+      case "unknown":
+        return "Estimated position unavailable";
+    }
+  })();
+
+  const completedIds = new Set(
+    context.completedStops.map((stop) => stop.stopId),
+  );
+  const currentId = context.currentStop?.stopId ?? null;
+  const nextId = context.nextStop?.stopId ?? null;
+  const focusIndex = Math.max(
+    0,
+    trip.stopTimeUpdates.findIndex(
+      (stop) => stop.stopId === (currentId ?? nextId),
+    ),
+  );
+  const startIndex = Math.max(0, focusIndex - 1);
+  const progressStops: DetailProgressStop[] = trip.stopTimeUpdates
+    .slice(startIndex, startIndex + 6)
+    .map((stop) => ({
+      id: stop.stopId,
+      name: input.stationName(stop.stopId),
+      time: formatClockTime(stop.arrivalTime),
+      state: completedIds.has(stop.stopId)
+        ? "completed"
+        : stop.stopId === currentId
+          ? "current"
+          : stop.stopId === nextId
+            ? "next"
+            : "upcoming",
+    }));
+
+  const rows: DetailRow[] = [
+    { label: "Direction", value: getDirectionLabel(trip.direction) },
+  ];
+  if (nextName) rows.push({ label: "Next stop", value: nextName });
+  if (input.selectedDeparture) {
+    rows.push({
+      label: "Arriving",
+      value: formatMinutesAway(input.selectedDeparture.minutesAway),
+    });
+    rows.push(...delayRow(input.selectedDeparture.delaySeconds));
+  }
+  if (trip.updatedAt) {
+    rows.push({
+      label: "Realtime update",
+      value: trip.updatedAt.toLocaleTimeString([], {
+        hour: "numeric",
+        minute: "2-digit",
+        second: "2-digit",
+      }),
+    });
+  }
+
+  return {
+    kind: "vehicle",
+    eyebrow: `${trip.route.displayName} train`,
+    title: trip.destination ?? `${trip.route.displayName} train`,
+    subtitle: getDirectionLabel(trip.direction),
+    badge: { kind: "subway", line: trip.route.id },
+    status: {
+      state: input.isStale
+        ? "stale"
+        : trip.progress.state === "unknown"
+          ? "unavailable"
+          : "normal",
+      label: input.isStale ? "Position may be stale" : progressLabel,
+    },
+    rows,
+    progressTitle: "Route progress",
+    progressStops,
+    arrivalsTitle: `Following ${trip.route.displayName} trains`,
+    arrivals: input.followingDepartures.map((departure) => ({
+      id: departure.tripId,
+      badge: { kind: "subway", line: departure.routeId },
+      primary: departure.destination ?? `${departure.routeId} train`,
+      secondary: getDirectionLabel(departure.direction),
+      minutesAway: departure.minutesAway,
+      state: arrivalState({
+        minutesAway: departure.minutesAway,
+        delaySeconds: departure.delaySeconds,
+        isStale: input.isStale,
+      }),
+    })),
+    footnote:
+      "Subway position is estimated from realtime stop progress and predictions; it is not a GPS location.",
   };
 }
 

@@ -147,4 +147,59 @@ describe("normalizeSubwayFeed", () => {
       nextStopId: "D14S",
     });
   });
+
+  it("marks an unstarted trip explicitly when its first stop is still ahead", () => {
+    const feedWithoutVehicle = structuredClone(feed) as MtaFeedMessage;
+    feedWithoutVehicle.entity = feedWithoutVehicle.entity.filter(
+      (entity) => !entity.vehicle,
+    );
+
+    const snapshot = normalizeSubwayFeed(feedWithoutVehicle, {
+      now: new Date(1_789_573_000 * 1000),
+    });
+
+    expect(snapshot.trips[0].progress).toEqual({
+      state: "not-started",
+      source: "inferred",
+      nextStopId: "D13S",
+      timestamp: new Date(1_789_573_000 * 1000),
+    });
+  });
+
+  it("infers an at-stop state during the prediction dwell window", () => {
+    const feedWithoutVehicle = structuredClone(feed) as MtaFeedMessage;
+    feedWithoutVehicle.entity = feedWithoutVehicle.entity.filter(
+      (entity) => !entity.vehicle,
+    );
+
+    const snapshot = normalizeSubwayFeed(feedWithoutVehicle, {
+      now: new Date(1_789_573_090 * 1000),
+    });
+
+    expect(snapshot.trips[0].progress).toEqual({
+      state: "at-stop",
+      source: "inferred",
+      stopId: "D13S",
+      timestamp: new Date(1_789_573_090 * 1000),
+    });
+  });
+
+  it("falls back to timing progress when a vehicle status is unusable", () => {
+    const feedWithUnknownVehicleStatus = structuredClone(feed) as unknown as {
+      entity: Array<{ vehicle?: { currentStatus?: string } }>;
+    };
+    delete feedWithUnknownVehicleStatus.entity[1].vehicle!.currentStatus;
+
+    const snapshot = normalizeSubwayFeed(
+      feedWithUnknownVehicleStatus as unknown as MtaFeedMessage,
+      { now: new Date(1_789_573_200 * 1000) },
+    );
+
+    expect(snapshot.trips[0].progress).toMatchObject({
+      state: "departed-previous-stop",
+      source: "inferred",
+      previousStopId: "D13S",
+      nextStopId: "D14S",
+    });
+  });
 });

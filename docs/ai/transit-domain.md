@@ -28,6 +28,23 @@ live in `lib/transit/departures.ts` and `lib/transit/realtime-service.ts`.
 - Machine directions (`northbound`, `southbound`, and so on) never contain
   station-specific copy. Pass contextual rider labels separately.
 
+Trip selection and visualization use the normalized objects directly:
+
+- `lib/transit/trips.ts` owns client-safe trip lookup and active-trip filters.
+  An active subway trip must be assigned, non-canceled, reporting ordered stop
+  updates, and have positionable progress; preserve its source `trip.id` as the
+  UI, React-key, and deep-link identity.
+- `lib/transit/subway-trip-position.ts` separates progress context from map
+  projection. At-stop positions use the station coordinate; approaching,
+  departed, and between-stop positions are conservative estimates along the
+  known adjacent station segment. Unknown and not-started progress is not
+  projected.
+- Subway map and line-diagram copy must call these positions estimated. The
+  current station-to-station projector does not imply GPS precision and may be
+  replaced by GTFS shape/topology geometry without changing trip selection.
+- `lib/transit/realtime-client-payload.ts` validates the API payload and
+  hydrates serialized dates before normalized data enters client state.
+
 Legacy `TrainArrival` and `BusArrival` remain compatibility projections for
 existing components. New features should use departures, trips, and vehicles
 directly. See [ADR-001](../decisions/001-normalized-transit-domain.md).

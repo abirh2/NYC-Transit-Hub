@@ -74,6 +74,12 @@ export interface StopTimePrediction {
 
 export type TripProgress =
   | {
+      state: "not-started";
+      source: "inferred";
+      nextStopId: string;
+      timestamp: Date | null;
+    }
+  | {
       state: "at-stop";
       source: "vehicle" | "inferred";
       stopId: string;

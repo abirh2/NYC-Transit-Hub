@@ -156,10 +156,31 @@ function inferProgress(
   updates: StopTimePrediction[],
   now: Date,
 ): TripProgress {
+  const nowMs = now.getTime();
+  const atStop = updates.find((update) => {
+    const arrivalTime = update.arrivalTime?.getTime();
+    const departureTime = update.departureTime?.getTime();
+    return (
+      arrivalTime !== undefined &&
+      departureTime !== undefined &&
+      arrivalTime <= nowMs &&
+      departureTime >= nowMs
+    );
+  });
+
+  if (atStop) {
+    return {
+      state: "at-stop",
+      source: "inferred",
+      stopId: atStop.stopId,
+      timestamp: now,
+    };
+  }
+
   const nextIndex = updates.findIndex(
     (update) => {
       const predictionTime = (update.arrivalTime ?? update.departureTime)?.getTime();
-      return predictionTime !== undefined && predictionTime >= now.getTime();
+      return predictionTime !== undefined && predictionTime >= nowMs;
     },
   );
   const next = updates[nextIndex];
@@ -167,18 +188,17 @@ function inferProgress(
 
   if (!next) return { state: "unknown", source: "inferred", timestamp: now };
 
-  const arrivalTime = next.arrivalTime?.getTime();
-  const departureTime = next.departureTime?.getTime();
-  if (
-    arrivalTime !== undefined &&
-    departureTime !== undefined &&
-    arrivalTime <= now.getTime() &&
-    departureTime >= now.getTime()
-  ) {
-    return { state: "at-stop", source: "inferred", stopId: next.stopId, timestamp: now };
+  if (nextIndex === 0) {
+    return {
+      state: "not-started",
+      source: "inferred",
+      nextStopId: next.stopId,
+      timestamp: now,
+    };
   }
 
-  if (arrivalTime !== undefined && arrivalTime - now.getTime() <= 60_000) {
+  const arrivalTime = next.arrivalTime?.getTime();
+  if (arrivalTime !== undefined && arrivalTime - nowMs <= 60_000) {
     return {
       state: "approaching",
       source: "inferred",
@@ -206,7 +226,11 @@ function normalizeVehicle(
   raw: GtfsVehiclePosition,
   updates: StopTimePrediction[],
 ): TransitVehicle {
-  const progress = progressFromVehicle(updates, raw);
+  const vehicleProgress = progressFromVehicle(updates, raw);
+  const progress =
+    vehicleProgress.state === "unknown"
+      ? inferProgress(updates, toDate(raw.timestamp) ?? new Date())
+      : vehicleProgress;
   const coordinates = raw.position;
   const hasActualCoordinates =
     coordinates != null &&
@@ -332,6 +356,9 @@ export function normalizeSubwayFeed(
     const destination = lastStop ? stopNameResolver(lastStop.stopId) : null;
     const platformDirection = stopTimeUpdates[0]?.stopId.at(-1);
 
+    const vehicleProgress = rawVehicle
+      ? progressFromVehicle(stopTimeUpdates, rawVehicle)
+      : null;
     const trip: SubwayTrip = {
       id: tripId,
       mode: "subway",
@@ -354,9 +381,10 @@ export function normalizeSubwayFeed(
         rawTrip.scheduleRelationship,
       ),
       stopTimeUpdates,
-      progress: rawVehicle
-        ? progressFromVehicle(stopTimeUpdates, rawVehicle)
-        : inferProgress(stopTimeUpdates, now),
+      progress:
+        vehicleProgress && vehicleProgress.state !== "unknown"
+          ? vehicleProgress
+          : inferProgress(stopTimeUpdates, now),
       vehicleId:
         entity.tripUpdate.vehicle?.id ?? vehicle?.id ?? nyctTrip?.trainId ?? null,
       updatedAt:

@@ -261,6 +261,24 @@ export function getStationNameById(stopId: string): string | null {
 }
 
 /**
+ * Resolve a rider-facing station name while preserving route-specific context.
+ * Realtime trips can be rerouted onto stops outside their route's canonical
+ * station list, so fall back to the complete subway station index before
+ * exposing the raw feed stop ID.
+ */
+export function getStationNameForDisplay(
+  stopId: string,
+  preferredStations: ReadonlyArray<Pick<LineStation, "id" | "name">> = [],
+): string {
+  const baseStationId = stopId.replace(/[NS]$/, "");
+  return (
+    preferredStations.find((station) => station.id === baseStationId)?.name ??
+    getStationNameById(stopId) ??
+    `Stop ${stopId}`
+  );
+}
+
+/**
  * Get all line groups for UI organization
  */
 export function getLineGroups(): typeof LINE_GROUPS {
@@ -572,4 +590,3 @@ export function getStationGlobalIndex(stationId: string, layout: TrackLayout): n
   }
   return -1;
 }
-

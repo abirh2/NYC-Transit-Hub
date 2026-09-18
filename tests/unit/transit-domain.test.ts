@@ -11,7 +11,12 @@ import {
   normalizeBusDirection,
   normalizeSubwayDirection,
 } from "@/lib/transit/direction";
-import { mergeRealtimeSnapshots } from "@/lib/transit/realtime-service";
+import {
+  getActiveSubwayTrips,
+  getTripById,
+  getTripsForRoute,
+  mergeRealtimeSnapshots,
+} from "@/lib/transit/realtime-service";
 import { createRealtimeSearchParams } from "@/lib/transit/deep-link";
 import type { Departure, SubwayTrip, TransitRoute } from "@/types/transit";
 
@@ -165,6 +170,73 @@ describe("realtime snapshots", () => {
     expect(snapshot.departures).toHaveLength(1);
     expect(snapshot.feedTimestamp).toEqual(new Date("2026-09-16T15:59:58Z"));
     expect(snapshot.sourceState).toBe("stale");
+  });
+
+  it("returns active assigned trips with stable feed identities", () => {
+    const downtown = makeTrip("trip-downtown", "southbound");
+    downtown.progress = {
+      state: "at-stop",
+      source: "feed",
+      stopId: "D15S",
+      timestamp: new Date("2026-09-16T16:00:00Z"),
+    };
+    downtown.stopTimeUpdates = [
+      {
+        stopId: "D15S",
+        stationId: "D15",
+        sequence: 1,
+        arrivalTime: new Date("2026-09-16T16:03:00Z"),
+        departureTime: null,
+        delaySeconds: 0,
+        scheduleRelationship: "scheduled",
+      },
+    ];
+    const canceled = {
+      ...makeTrip("trip-canceled", "southbound"),
+      scheduleRelationship: "canceled" as const,
+    };
+    const unassigned = {
+      ...makeTrip("trip-unassigned", "southbound"),
+      isAssigned: false,
+    };
+    const unlocatable = makeTrip("trip-unlocatable", "southbound");
+    unlocatable.stopTimeUpdates = downtown.stopTimeUpdates;
+    const snapshot = {
+      mode: "subway" as const,
+      generatedAt: new Date("2026-09-16T16:00:00Z"),
+      feedTimestamp: new Date("2026-09-16T15:59:58Z"),
+      sourceState: "ok" as const,
+      trips: [downtown, canceled, unassigned, unlocatable],
+      departures: [
+        makeDeparture(downtown, "D15S", "2026-09-16T16:03:00Z"),
+      ],
+      vehicles: [],
+    };
+
+    const active = getActiveSubwayTrips(snapshot, { routeId: "D" });
+
+    expect(active.map((trip) => trip.id)).toEqual(["trip-downtown"]);
+    expect(active[0]).toBe(downtown);
+    expect(getTripById(snapshot, "trip-downtown")).toBe(downtown);
+  });
+
+  it("filters route trips by normalized direction without cloning them", () => {
+    const downtown = makeTrip("trip-downtown", "southbound");
+    const uptown = makeTrip("trip-uptown", "northbound");
+    const snapshot = {
+      mode: "subway" as const,
+      generatedAt: new Date("2026-09-16T16:00:00Z"),
+      feedTimestamp: null,
+      sourceState: "ok" as const,
+      trips: [downtown, uptown],
+      departures: [],
+      vehicles: [],
+    };
+
+    const trips = getTripsForRoute(snapshot, "D", "northbound");
+
+    expect(trips).toEqual([uptown]);
+    expect(trips[0]).toBe(uptown);
   });
 });
 

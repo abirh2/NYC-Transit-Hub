@@ -32,7 +32,10 @@ import L, { type Map as LeafletMap } from "leaflet";
 import { useTheme } from "next-themes";
 import "leaflet/dist/leaflet.css";
 
-import type { BusArrival, RailArrival, TrainArrival, TransitMode } from "@/types/mta";
+import type { BusArrival, RailArrival, TransitMode } from "@/types/mta";
+import type { Departure, SubwayTrip } from "@/types/transit";
+import { getDirectionLabel } from "@/lib/transit/direction";
+import { projectSubwayTripPosition } from "@/lib/transit/subway-trip-position";
 import {
   calculateStationDistances,
   interpolateTrainPosition,
@@ -109,7 +112,8 @@ export interface RealtimeMapCanvasProps {
   routeId: string | null;
   routeColor: string;
   stations: StationWithCoords[];
-  trains: TrainArrival[];
+  subwayTrips: SubwayTrip[];
+  subwayDepartures: Departure[];
   railTrains: RailArrival[];
   buses: BusArrival[];
   busRouteShape: [number, number][];
@@ -189,7 +193,8 @@ export default function RealtimeMapCanvas({
   routeId,
   routeColor,
   stations,
-  trains,
+  subwayTrips,
+  subwayDepartures,
   railTrains,
   buses,
   busRouteShape,
@@ -245,26 +250,28 @@ export default function RealtimeMapCanvas({
   const trainPositions = useMemo(() => {
     if (mode !== "subway") return [];
 
-    const raw = trains
-      .filter((t) => t.routeId === routeId)
-      .map((train) => {
-        const baseStopId = train.stopId.replace(/[NS]$/, "");
-        const position = interpolateTrainPosition(
-          baseStopId,
-          train.minutesAway,
-          train.direction,
-          stations,
-          stationDistances,
-          mode,
-        );
-        return position ? { train, position } : null;
-      })
-      .filter((entry): entry is { train: TrainArrival; position: [number, number] } =>
-        entry !== null,
-      );
+    const departuresByTrip = new Map<string, Departure>();
+    for (const departure of subwayDepartures) {
+      if (!departuresByTrip.has(departure.tripId)) {
+        departuresByTrip.set(departure.tripId, departure);
+      }
+    }
 
-    return staggerTrainPositions(raw, 0.3);
-  }, [mode, trains, routeId, stations, stationDistances]);
+    return subwayTrips
+      .filter((trip) => trip.route.id === routeId)
+      .map((trip) => {
+        const projection = projectSubwayTripPosition(trip, stations);
+        return projection
+          ? {
+              trip,
+              departure: departuresByTrip.get(trip.id) ?? null,
+              projection,
+              position: projection.coordinates,
+            }
+          : null;
+      })
+      .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+  }, [mode, subwayTrips, subwayDepartures, routeId, stations]);
 
   const railPositions = useMemo(() => {
     if (mode !== "lirr" && mode !== "metro-north") return [];
@@ -400,44 +407,58 @@ export default function RealtimeMapCanvas({
           );
         })}
 
-      {trainPositions.map(({ train, position }) => {
-        const isSelected = train.tripId === selectedVehicleId;
+      {trainPositions.map(({ trip, departure, projection, position }) => {
+        const isSelected = trip.id === selectedVehicleId;
         const status = getMarkerStatus({
-          minutesAway: train.minutesAway,
-          delaySeconds: train.delay,
+          minutesAway: departure?.minutesAway ?? null,
+          delaySeconds: departure?.delaySeconds,
           isStale,
         });
-        const baseStopId = train.stopId.replace(/[NS]$/, "");
+        const baseStopId = projection.nextStopId.replace(/[NSEW]$/, "");
         const alongList = bearingForStation.get(baseStopId) ?? null;
-        // Station lists run north→south, so list-forward is southbound.
+        const previousStation = stations.find(
+          (station) =>
+            station.id === projection.previousStopId.replace(/[NSEW]$/, ""),
+        );
+        const nextStation = stations.find(
+          (station) => station.id === baseStopId,
+        );
         const bearing =
-          alongList === null
-            ? null
-            : train.direction === "S"
-              ? alongList
-              : alongList + 180;
+          previousStation &&
+          nextStation &&
+          previousStation.id !== nextStation.id
+            ? getBearingDegrees(
+                previousStation.lat,
+                previousStation.lon,
+                nextStation.lat,
+                nextStation.lon,
+              )
+            : alongList === null
+              ? null
+              : trip.direction === "southbound"
+                ? alongList
+                : alongList + 180;
 
         return (
           <Marker
-            key={`train-${train.tripId}`}
+            key={`train-${trip.id}`}
             pane={isSelected ? PANES.selected.name : PANES.vehicles.name}
             position={position}
             riseOnHover
             zIndexOffset={isSelected ? 1000 : 0}
             icon={toDivIcon(
               buildSubwayMarkerHtml({
-                routeId: train.routeId,
-                directionLabel:
-                  train.direction === "N" ? "Northbound" : "Southbound",
+                routeId: trip.route.id,
+                directionLabel: getDirectionLabel(trip.direction),
                 bearingDegrees: bearing,
                 status,
                 isSelected,
-                accessibleSuffix: train.headsign ? `to ${train.headsign}` : undefined,
+                accessibleSuffix: `${trip.destination ? `to ${trip.destination}; ` : ""}estimated position`,
               }),
             )}
             eventHandlers={{
-              click: () => onSelectVehicle(train.tripId),
-              keypress: () => onSelectVehicle(train.tripId),
+              click: () => onSelectVehicle(trip.id),
+              keypress: () => onSelectVehicle(trip.id),
             }}
           />
         );

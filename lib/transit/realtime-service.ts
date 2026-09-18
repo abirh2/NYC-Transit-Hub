@@ -5,8 +5,13 @@ import type {
   RealtimeSourceState,
   TransitDirection,
   TransitMode,
-  TransitTrip,
 } from "@/types/transit";
+
+export {
+  getActiveSubwayTrips,
+  getTripById,
+  getTripsForRoute,
+} from "@/lib/transit/trips";
 
 const SOURCE_STATE_PRIORITY: Record<RealtimeSourceState, number> = {
   ok: 0,
@@ -110,11 +115,4 @@ export async function getSubwayRealtimeSnapshot(
     mergeRealtimeSnapshots("subway", snapshots),
     query,
   );
-}
-
-export function getTripById(
-  snapshot: Pick<RealtimeSnapshot, "trips">,
-  tripId: string,
-): TransitTrip | null {
-  return snapshot.trips.find((trip) => trip.id === tripId) ?? null;
 }

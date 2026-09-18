@@ -32,6 +32,7 @@ import { useGeolocation, useRealtimeSelection } from "@/lib/hooks";
 import {
   getLineColor,
   getLineName,
+  getStationNameForDisplay,
   getLineStations,
   getLinesAtStation,
   getLineTerminals,
@@ -44,8 +45,8 @@ import {
 } from "@/lib/gtfs/rail-stations";
 import { getBusRouteData, getBusStop } from "@/lib/gtfs/bus-stops";
 import { getBusRouteColor } from "@/lib/gtfs/bus-routes";
-import { getDirectionLabel, toLegacySubwayDirection } from "@/lib/transit/direction";
-import type { BusArrival, RailArrival, TrainArrival } from "@/types/mta";
+import { getDirectionLabel } from "@/lib/transit/direction";
+import type { BusArrival, RailArrival } from "@/types/mta";
 import type { StationWithCoords } from "@/lib/utils/train-positioning";
 import {
   arrivalState,
@@ -54,11 +55,22 @@ import {
   buildRailVehicleDetail,
   buildRouteDetail,
   buildStationDetail,
-  buildSubwayVehicleDetail,
+  buildSubwayTripDetail,
   type DetailArrival,
   type RouteBadgeDescriptor,
   type TransitDetailContent,
 } from "@/components/realtime/detailContent";
+import {
+  getDeparturesForStop,
+  getFollowingDepartures,
+} from "@/lib/transit/departures";
+import { parseSubwayRealtimePayload } from "@/lib/transit/realtime-client-payload";
+import { getActiveSubwayTrips } from "@/lib/transit/trips";
+import type {
+  Departure,
+  RealtimeSourceState,
+  SubwayTrip,
+} from "@/types/transit";
 
 const REFRESH_INTERVAL_SECONDS = 30;
 
@@ -69,7 +81,9 @@ const REFRESH_INTERVAL_SECONDS = 30;
 const STALE_AFTER_MS = REFRESH_INTERVAL_SECONDS * 2 * 1000 + 5_000;
 
 interface TrainData {
-  arrivals: TrainArrival[];
+  trips: SubwayTrip[];
+  departures: Departure[];
+  sourceState: RealtimeSourceState;
   lastUpdated: Date | null;
   isLoading: boolean;
   error: string | null;
@@ -118,7 +132,9 @@ export function RealtimeClient() {
   const view = selection.view ?? "map";
 
   const [trainData, setTrainData] = useState<TrainData>({
-    arrivals: [],
+    trips: [],
+    departures: [],
+    sourceState: "empty",
     lastUpdated: null,
     isLoading: false,
     error: null,
@@ -156,7 +172,13 @@ export function RealtimeClient() {
 
   const fetchTrains = useCallback(async () => {
     if (!routeId) {
-      setTrainData((prev) => ({ ...prev, arrivals: [], error: null }));
+      setTrainData((prev) => ({
+        ...prev,
+        trips: [],
+        departures: [],
+        sourceState: "empty",
+        error: null,
+      }));
       return;
     }
 
@@ -168,33 +190,14 @@ export function RealtimeClient() {
       );
       const data = await response.json();
 
-      if (data.success && data.data?.arrivals) {
-        const rawArrivals: TrainArrival[] = data.data.arrivals.map(
-          (arrival: TrainArrival) => ({
-            ...arrival,
-            arrivalTime: new Date(arrival.arrivalTime),
-            departureTime: arrival.departureTime
-              ? new Date(arrival.departureTime)
-              : null,
-          }),
-        );
-
-        rawArrivals.sort((a, b) => a.arrivalTime.getTime() - b.arrivalTime.getTime());
-
-        // A trip appears once per upcoming stop; keep only its next one so one
-        // train is one marker.
-        const seenTrips = new Set<string>();
-        const arrivals: TrainArrival[] = [];
-        for (const arrival of rawArrivals) {
-          if (!seenTrips.has(arrival.tripId)) {
-            seenTrips.add(arrival.tripId);
-            arrivals.push(arrival);
-          }
-        }
+      if (data.success && data.data) {
+        const payload = parseSubwayRealtimePayload(data.data);
 
         setTrainData({
-          arrivals,
-          lastUpdated: new Date(),
+          trips: payload.trips,
+          departures: payload.departures,
+          sourceState: payload.sourceState,
+          lastUpdated: payload.lastUpdated,
           isLoading: false,
           error: null,
         });
@@ -446,7 +449,8 @@ export function RealtimeClient() {
   }, []);
 
   const isStale =
-    lastUpdated !== null && now - lastUpdated.getTime() > STALE_AFTER_MS;
+    (mode === "subway" && trainData.sourceState === "stale") ||
+    (lastUpdated !== null && now - lastUpdated.getTime() > STALE_AFTER_MS);
 
   const mapStations = useMemo<StationWithCoords[]>(() => {
     if (!routeId) return [];
@@ -521,14 +525,16 @@ export function RealtimeClient() {
     ? getDirectionLabel(selection.direction)
     : undefined;
 
-  const visibleTrains = useMemo(() => {
+  const visibleSubwayTrips = useMemo(() => {
     if (mode !== "subway") return [];
-    if (!selection.direction || selection.direction === "unknown") {
-      return trainData.arrivals;
-    }
-    const legacy = toLegacySubwayDirection(selection.direction);
-    return trainData.arrivals.filter((t) => t.direction === legacy);
-  }, [mode, trainData.arrivals, selection.direction]);
+    return getActiveSubwayTrips(
+      { trips: trainData.trips },
+      {
+        routeId: routeId ?? undefined,
+        direction: selection.direction,
+      },
+    );
+  }, [mode, trainData.trips, routeId, selection.direction]);
 
   const visibleRailTrains = useMemo(() => {
     if (!isRailMode) return [];
@@ -542,7 +548,7 @@ export function RealtimeClient() {
 
   const vehicleCount =
     mode === "subway"
-      ? visibleTrains.filter((t) => t.routeId === routeId).length
+      ? visibleSubwayTrips.length
       : mode === "bus"
         ? visibleBuses.filter((b) => b.latitude && b.longitude).length
         : visibleRailTrains.filter((t) => t.routeId === routeId).length;
@@ -568,18 +574,32 @@ export function RealtimeClient() {
     // 1. A specific vehicle wins over a station: it is the narrower selection.
     if (selectedVehicleId) {
       if (mode === "subway") {
-        const train = trainData.arrivals.find(
-          (t) => t.tripId === selectedVehicleId,
-        );
-        if (!train) {
+        const trip = trainData.trips.find((item) => item.id === selectedVehicleId);
+        if (!trip) {
           return buildMissingSelectionDetail({
             kind: "vehicle",
             label: "Train no longer reporting",
           });
         }
-        return buildSubwayVehicleDetail({
-          train,
-          nextStopName: stationNameFor(train.stopId, mapStations),
+
+        const selectedDeparture =
+          trainData.departures.find(
+            (departure) => departure.tripId === selectedVehicleId,
+          ) ?? null;
+        const followingDepartures = selectedDeparture
+          ? getFollowingDepartures(trainData.departures, {
+              selectedTripId: selectedVehicleId,
+              stopId: selectedDeparture.stopId,
+              limit: 4,
+            })
+          : [];
+
+        return buildSubwayTripDetail({
+          trip,
+          selectedDeparture,
+          followingDepartures,
+          stationName: (stopId) =>
+            getStationNameForDisplay(stopId, mapStations),
           isStale,
         });
       }
@@ -654,24 +674,26 @@ export function RealtimeClient() {
       }
 
       if (mode === "subway") {
-        const arrivals: DetailArrival[] = trainData.arrivals
-          .filter((t) => t.stopId.replace(/[NS]$/, "") === station.id)
+        const arrivals: DetailArrival[] = getDeparturesForStop(
+          trainData.departures,
+          station.id,
+        )
           .filter(
-            (t) =>
+            (departure) =>
               !selection.direction ||
               selection.direction === "unknown" ||
-              t.direction === toLegacySubwayDirection(selection.direction),
+              departure.direction === selection.direction,
           )
           .slice(0, 8)
-          .map((t) => ({
-            id: t.tripId,
-            badge: { kind: "subway", line: t.routeId },
-            primary: t.headsign ?? `${t.routeId} train`,
-            secondary: t.direction === "N" ? "Northbound" : "Southbound",
-            minutesAway: t.minutesAway,
+          .map((departure) => ({
+            id: departure.tripId,
+            badge: { kind: "subway", line: departure.routeId },
+            primary: departure.destination ?? `${departure.routeId} train`,
+            secondary: getDirectionLabel(departure.direction),
+            minutesAway: departure.minutesAway,
             state: arrivalState({
-              minutesAway: t.minutesAway,
-              delaySeconds: t.delay,
+              minutesAway: departure.minutesAway,
+              delaySeconds: departure.delaySeconds,
               isStale,
             }),
           }));
@@ -747,7 +769,8 @@ export function RealtimeClient() {
     mapStations,
     selectedVehicleId,
     selectedStationId,
-    trainData.arrivals,
+    trainData.trips,
+    trainData.departures,
     busData.arrivals,
     railData.arrivals,
     directionLabel,
@@ -772,8 +795,22 @@ export function RealtimeClient() {
     [mode, setStop, setStation],
   );
 
-  /** Vehicle selection is a trip id today, which is what step 6 extends. */
-  const handleSelectVehicle = setTrip;
+  const handleSelectVehicle = useCallback(
+    (vehicleId: string | null) => {
+      if (mode === "subway" && vehicleId) {
+        const trip = trainData.trips.find((item) => item.id === vehicleId);
+        setTrip(
+          vehicleId,
+          trip
+            ? { routeId: trip.route.id, direction: trip.direction }
+            : undefined,
+        );
+        return;
+      }
+      setTrip(vehicleId);
+    },
+    [mode, setTrip, trainData.trips],
+  );
 
   const updatedLabel = lastUpdated
     ? `Updated ${formatDistanceToNow(lastUpdated, { addSuffix: true })}`
@@ -819,7 +856,8 @@ export function RealtimeClient() {
                 routeColor={routeColor}
                 routeLabel={routeLabel}
                 stations={mapStations}
-                trains={visibleTrains}
+                subwayTrips={visibleSubwayTrips}
+                subwayDepartures={trainData.departures}
                 railTrains={visibleRailTrains}
                 buses={visibleBuses}
                 busRouteShape={busRouteShape}
@@ -854,7 +892,7 @@ export function RealtimeClient() {
                       content={detailContent}
                       onClose={clearDetail}
                       onSelectArrival={
-                        detailContent.kind === "station"
+                        detailContent.arrivals?.length
                           ? handleSelectVehicle
                           : undefined
                       }
@@ -885,7 +923,7 @@ export function RealtimeClient() {
                     // is the panel's resting state.
                     onClose={hasExplicitSelection ? clearDetail : undefined}
                     onSelectArrival={
-                      detailContent.kind === "station"
+                      detailContent.arrivals?.length
                         ? handleSelectVehicle
                         : undefined
                     }
@@ -898,12 +936,57 @@ export function RealtimeClient() {
         ) : (
           <div className="h-full min-h-0">
             {mode === "subway" && (
-              <LineDiagram
-                selectedLine={routeId as LineId | null}
-                trains={visibleTrains}
-                isLoading={trainData.isLoading}
-                error={trainData.error}
-              />
+              <div className="grid h-full min-h-0 grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_360px]">
+                <div className="relative min-h-0 overflow-hidden">
+                  <LineDiagram
+                    selectedLine={routeId as LineId | null}
+                    trips={visibleSubwayTrips}
+                    departures={trainData.departures}
+                    selectedTripId={selectedVehicleId}
+                    onSelectTrip={handleSelectVehicle}
+                    isLoading={trainData.isLoading}
+                    error={trainData.error}
+                  />
+
+                  {hasExplicitSelection && detailContent && (
+                    <div
+                      role="dialog"
+                      aria-modal="true"
+                      aria-label={detailContent.title}
+                      className="absolute inset-x-0 bottom-0 z-40 flex max-h-[min(22rem,60%)] min-h-0 flex-col overflow-hidden rounded-t-lg border border-border-strong bg-surface-floating lg:hidden"
+                      style={{ boxShadow: "var(--shadow-lg)" }}
+                    >
+                      <TransitDetailPanel
+                        content={detailContent}
+                        onClose={clearDetail}
+                        onSelectArrival={
+                          detailContent.arrivals?.length
+                            ? handleSelectVehicle
+                            : undefined
+                        }
+                        selectedArrivalId={selectedVehicleId}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {detailContent && (
+                  <aside aria-label="Selection details" className="hidden min-h-0 lg:block">
+                    <Surface elevation="elevated" className="h-full overflow-hidden">
+                      <TransitDetailPanel
+                        content={detailContent}
+                        onClose={hasExplicitSelection ? clearDetail : undefined}
+                        onSelectArrival={
+                          detailContent.arrivals?.length
+                            ? handleSelectVehicle
+                            : undefined
+                        }
+                        selectedArrivalId={selectedVehicleId}
+                      />
+                    </Surface>
+                  </aside>
+                )}
+              </div>
             )}
             {mode === "bus" && (
               <BusList
@@ -930,10 +1013,4 @@ export function RealtimeClient() {
       </div>
     </div>
   );
-}
-
-/** Resolves a feed stop id to a station name, tolerating N/S platform suffixes. */
-function stationNameFor(stopId: string, stations: StationWithCoords[]): string {
-  const baseId = stopId.replace(/[NS]$/, "");
-  return stations.find((s) => s.id === baseId)?.name ?? `Stop ${stopId}`;
 }

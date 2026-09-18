@@ -30,7 +30,10 @@ export interface UseRealtimeSelectionReturn {
   setStation: (stationId: string | null) => void;
   setStop: (stopId: string | null) => void;
   setDirection: (direction: TransitDirection | null) => void;
-  setTrip: (tripId: string | null) => void;
+  setTrip: (
+    tripId: string | null,
+    context?: Pick<RealtimeSelection, "routeId" | "direction">,
+  ) => void;
   setView: (view: RealtimeView) => void;
   /** Clears everything that drives the detail surface. */
   clearDetail: () => void;
@@ -119,9 +122,13 @@ export function useRealtimeSelection(): UseRealtimeSelectionReturn {
   );
 
   const setTrip = useCallback(
-    (tripId: string | null) => {
+    (
+      tripId: string | null,
+      context?: Pick<RealtimeSelection, "routeId" | "direction">,
+    ) => {
       const isDeselect = tripId === null || tripId === selection.tripId;
       patch({
+        ...context,
         tripId: isDeselect ? undefined : tripId,
         stationId: undefined,
         stopId: undefined,

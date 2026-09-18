@@ -8,7 +8,7 @@
  * route reads identically in both places.
  */
 
-import { AlertCircle, X } from "lucide-react";
+import { AlertCircle, Check, Circle, LocateFixed, X } from "lucide-react";
 import { Button } from "@heroui/react";
 import { BusBadge, RailBadge, StatusChip, SubwayBullet } from "@/components/ui";
 import {
@@ -96,6 +96,7 @@ function ArrivalRow({
         type="button"
         onClick={() => onSelect(arrival.id)}
         aria-current={isSelected ? "true" : undefined}
+        aria-label={`${arrival.primary}${arrival.secondary ? `, ${arrival.secondary}` : ""}, ${formatMinutesAway(arrival.minutesAway)}`}
         className={`flex min-h-[44px] w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus ${
           isSelected
             ? "bg-surface-selected"
@@ -127,11 +128,11 @@ export function TransitDetailPanel({
             <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground/50">
               {content.eyebrow}
             </p>
-            <h2 className="truncate text-base font-semibold text-foreground">
+            <h2 className="text-balance text-base font-semibold leading-tight text-foreground">
               {content.title}
             </h2>
             {content.subtitle && (
-              <p className="truncate text-xs text-foreground/60">{content.subtitle}</p>
+              <p className="mt-0.5 text-xs text-foreground/60">{content.subtitle}</p>
             )}
           </div>
         </div>
@@ -198,6 +199,57 @@ export function TransitDetailPanel({
               </div>
             ))}
           </dl>
+        )}
+
+        {content.progressStops && content.progressStops.length > 0 && (
+          <section className="flex flex-col gap-2">
+            <h3 className="text-xs font-semibold text-foreground">
+              {content.progressTitle ?? "Route progress"}
+            </h3>
+            <ol className="flex flex-col">
+              {content.progressStops.map((stop, index) => {
+                const isFocus = stop.state === "current" || stop.state === "next";
+                return (
+                  <li
+                    key={stop.id}
+                    className={`relative grid min-h-11 grid-cols-[1.25rem_minmax(0,1fr)_auto] items-center gap-2 py-1.5 ${
+                      isFocus ? "font-medium text-foreground" : "text-foreground/65"
+                    }`}
+                  >
+                    {index < content.progressStops!.length - 1 && (
+                      <span
+                        aria-hidden="true"
+                        className="absolute bottom-0 left-[0.59375rem] top-7 w-px bg-border-strong"
+                      />
+                    )}
+                    <span className="relative z-10 flex h-5 w-5 items-center justify-center rounded-full bg-surface-floating">
+                      {stop.state === "completed" ? (
+                        <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                      ) : stop.state === "current" ? (
+                        <LocateFixed className="h-4 w-4 text-state-selected" aria-hidden="true" />
+                      ) : (
+                        <Circle
+                          className={`h-3.5 w-3.5 ${
+                            stop.state === "next"
+                              ? "fill-state-selected text-state-selected"
+                              : "text-foreground/35"
+                          }`}
+                          aria-hidden="true"
+                        />
+                      )}
+                      <span className="sr-only">{stop.state}</span>
+                    </span>
+                    <span className="truncate text-sm">{stop.name}</span>
+                    {stop.time && (
+                      <time className="tabular text-xs text-foreground/55">
+                        {stop.time}
+                      </time>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+          </section>
         )}
 
         {content.arrivals && content.arrivals.length > 0 && (

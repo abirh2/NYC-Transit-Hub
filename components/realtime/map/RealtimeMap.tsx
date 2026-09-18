@@ -15,7 +15,8 @@ import type { LatLngBoundsExpression, Map as LeafletMap } from "leaflet";
 import { MapPin, RadioTower, WifiOff } from "lucide-react";
 import { Spinner } from "@heroui/react";
 import { EmptyState, ErrorState } from "@/components/ui";
-import type { BusArrival, RailArrival, TrainArrival, TransitMode } from "@/types/mta";
+import type { BusArrival, RailArrival, TransitMode } from "@/types/mta";
+import type { Departure, SubwayTrip } from "@/types/transit";
 import type { StationWithCoords } from "@/lib/utils/train-positioning";
 import type { GeolocationPosition, GeolocationPermissionState } from "@/lib/hooks/useGeolocation";
 import { MapControls } from "./MapControls";
@@ -54,7 +55,8 @@ export interface RealtimeMapProps {
   routeColor: string;
   routeLabel: string;
   stations: StationWithCoords[];
-  trains?: TrainArrival[];
+  subwayTrips?: SubwayTrip[];
+  subwayDepartures?: Departure[];
   railTrains?: RailArrival[];
   buses?: BusArrival[];
   busRouteShape?: [number, number][];
@@ -81,7 +83,8 @@ export function RealtimeMap({
   routeColor,
   routeLabel,
   stations,
-  trains = [],
+  subwayTrips = [],
+  subwayDepartures = [],
   railTrains = [],
   buses = [],
   busRouteShape = [],
@@ -215,7 +218,8 @@ export function RealtimeMap({
         routeId={routeId}
         routeColor={routeColor}
         stations={stations}
-        trains={trains}
+        subwayTrips={subwayTrips}
+        subwayDepartures={subwayDepartures}
         railTrains={railTrains}
         buses={buses}
         busRouteShape={busRouteShape}

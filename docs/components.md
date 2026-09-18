@@ -388,21 +388,28 @@ import { TransitBottomSheet, TransitDetailPanel } from "@/components/realtime";
 
 Build content with the framework-free builders in
 `components/realtime/detailContent.ts`: `buildStationDetail`,
-`buildSubwayVehicleDetail`, `buildRailVehicleDetail`, `buildBusVehicleDetail`,
-`buildRouteDetail`, and `buildMissingSelectionDetail`.
+`buildSubwayTripDetail`, `buildSubwayVehicleDetail`,
+`buildRailVehicleDetail`, `buildBusVehicleDetail`, `buildRouteDetail`, and
+`buildMissingSelectionDetail`. New subway realtime views should use
+`buildSubwayTripDetail`; the legacy vehicle builder remains for compatibility.
 
 ---
 
 ### LineDiagram
 
-Displays a vertical line diagram with stations and live train positions for a single line.
+Displays a vertical line diagram with stations, direction-specific lanes, and
+individual normalized trips for a single line. Positions are estimated from
+trip progress and the ordered station geometry.
 
 ```tsx
 import { LineDiagram } from "@/components/realtime";
 
 <LineDiagram
   selectedLine="A"
-  trains={trainArrivals}
+  trips={subwayTrips}
+  departures={subwayDepartures}
+  selectedTripId={tripId}
+  onSelectTrip={setTripId}
   isLoading={false}
   error={null}
 />
@@ -413,7 +420,10 @@ import { LineDiagram } from "@/components/realtime";
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
 | `selectedLine` | LineId \| null | required | The line to display |
-| `trains` | TrainArrival[] | required | Array of train arrivals from API |
+| `trips` | SubwayTrip[] | required | Active normalized trips for the route |
+| `departures` | Departure[] | required | Predictions used for marker ETAs |
+| `selectedTripId` | string | undefined | Exact selected feed trip identity |
+| `onSelectTrip` | function | undefined | Selects or clears a trip by ID |
 | `isLoading` | boolean | false | Whether data is loading |
 | `error` | string \| null | null | Error message to display |
 
@@ -1875,4 +1885,3 @@ export function MyComponent({
 3. **Write tests** - Include unit tests for logic
 4. **Add stories** - Create Storybook stories for visual testing
 5. **Export properly** - Add to index.ts barrel file
-
