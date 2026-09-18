@@ -14,6 +14,7 @@
 import type { SemanticState } from "@/components/ui/StatusChip";
 import { getDirectionLabel } from "@/lib/transit/direction";
 import { getSubwayTripProgressContext } from "@/lib/transit/subway-trip-position";
+import { getSubwayTripRiderContext } from "@/lib/transit/subway-trip-detail";
 import type { BusArrival, RailArrival, TrainArrival, TransitMode } from "@/types/mta";
 import type { Departure, SubwayTrip } from "@/types/transit";
 
@@ -58,6 +59,8 @@ export interface TransitDetailContent {
   rows: DetailRow[];
   arrivalsTitle?: string;
   arrivals?: DetailArrival[];
+  secondaryArrivalsTitle?: string;
+  secondaryArrivals?: DetailArrival[];
   progressTitle?: string;
   progressStops?: DetailProgressStop[];
   /** Shown when the selection is no longer present in the feed. */
@@ -214,11 +217,17 @@ export function buildSubwayTripDetail(input: {
   trip: SubwayTrip;
   selectedDeparture: Departure | null;
   followingDepartures: Departure[];
+  platformDepartures?: Departure[];
+  boardingStopId?: string | null;
   stationName: (stopId: string) => string;
   isStale: boolean;
 }): TransitDetailContent {
   const { trip } = input;
   const context = getSubwayTripProgressContext(trip);
+  const riderContext = getSubwayTripRiderContext({
+    trip,
+    boardingStopId: input.boardingStopId,
+  });
   const previousName = context.previousStop
     ? input.stationName(context.previousStop.stopId)
     : null;
@@ -278,6 +287,23 @@ export function buildSubwayTripDetail(input: {
   const rows: DetailRow[] = [
     { label: "Direction", value: getDirectionLabel(trip.direction) },
   ];
+  if (riderContext.boardingStop) {
+    rows.push({
+      label: "Boarding at",
+      value: input.stationName(riderContext.boardingStop.id),
+    });
+  }
+  if (riderContext.stopsAway !== null) {
+    rows.push({
+      label: "Stops away",
+      value:
+        riderContext.stopsAway === 0
+          ? riderContext.lifecycle === "at-boarding-stop"
+            ? "At boarding station"
+            : "Due at boarding station"
+          : `${riderContext.stopsAway} ${riderContext.stopsAway === 1 ? "stop" : "stops"}`,
+    });
+  }
   if (nextName) rows.push({ label: "Next stop", value: nextName });
   if (input.selectedDeparture) {
     rows.push({
@@ -309,7 +335,13 @@ export function buildSubwayTripDetail(input: {
         : trip.progress.state === "unknown"
           ? "unavailable"
           : "normal",
-      label: input.isStale ? "Position may be stale" : progressLabel,
+      label: input.isStale
+        ? "Position may be stale"
+        : riderContext.lifecycle === "at-boarding-stop"
+          ? "At boarding station"
+          : riderContext.lifecycle === "passed-boarding-stop"
+            ? "Passed boarding station"
+            : progressLabel,
     },
     rows,
     progressTitle: "Route progress",
@@ -327,8 +359,23 @@ export function buildSubwayTripDetail(input: {
         isStale: input.isStale,
       }),
     })),
+    secondaryArrivalsTitle: "Other trains from this platform",
+    secondaryArrivals: (input.platformDepartures ?? []).map((departure) => ({
+      id: departure.tripId,
+      badge: { kind: "subway", line: departure.routeId },
+      primary: departure.destination ?? `${departure.routeId} train`,
+      secondary: getDirectionLabel(departure.direction),
+      minutesAway: departure.minutesAway,
+      state: arrivalState({
+        minutesAway: departure.minutesAway,
+        delaySeconds: departure.delaySeconds,
+        isStale: input.isStale,
+      }),
+    })),
     footnote:
-      "Subway position is estimated from realtime stop progress and predictions; it is not a GPS location.",
+      riderContext.lifecycle === "passed-boarding-stop"
+        ? "This train has passed the selected boarding station. Choose a following departure below."
+        : "Subway position is estimated from realtime stop progress and predictions; it is not a GPS location.",
   };
 }
 
@@ -492,15 +539,20 @@ export function buildRouteDetail(input: RouteDetailInput): TransitDetailContent 
 export function buildMissingSelectionDetail(input: {
   kind: "vehicle" | "station";
   label: string;
+  badge?: RouteBadgeDescriptor;
+  arrivals?: DetailArrival[];
 }): TransitDetailContent {
   return {
     kind: input.kind,
     eyebrow: input.kind === "vehicle" ? "Vehicle" : "Station",
     title: input.label,
+    badge: input.badge,
     rows: [],
+    arrivalsTitle: input.arrivals?.length ? "Current departures" : undefined,
+    arrivals: input.arrivals,
     notice:
       input.kind === "vehicle"
-        ? "This vehicle is no longer reporting. It may have finished its run."
+        ? "This train is no longer active. Choose a current departure or view the full route."
         : "This station is not on the selected route.",
   };
 }

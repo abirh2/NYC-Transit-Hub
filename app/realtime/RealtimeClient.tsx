@@ -576,9 +576,33 @@ export function RealtimeClient() {
       if (mode === "subway") {
         const trip = trainData.trips.find((item) => item.id === selectedVehicleId);
         if (!trip) {
+          const currentDepartures = getDeparturesForStop(
+            trainData.departures,
+            selectedStationId ?? "",
+          )
+            .filter(
+              (departure) =>
+                departure.routeId === routeId &&
+                (!selection.direction || departure.direction === selection.direction),
+            )
+            .slice(0, 5)
+            .map((departure) => ({
+              id: departure.tripId,
+              badge: { kind: "subway" as const, line: departure.routeId },
+              primary: departure.destination ?? `${departure.routeId} train`,
+              secondary: getDirectionLabel(departure.direction),
+              minutesAway: departure.minutesAway,
+              state: arrivalState({
+                minutesAway: departure.minutesAway,
+                delaySeconds: departure.delaySeconds,
+                isStale,
+              }),
+            }));
           return buildMissingSelectionDetail({
             kind: "vehicle",
             label: "Train no longer reporting",
+            badge: routeBadge,
+            arrivals: currentDepartures,
           });
         }
 
@@ -593,11 +617,24 @@ export function RealtimeClient() {
               limit: 4,
             })
           : [];
+        const platformDepartures = selectedDeparture
+          ? trainData.departures
+              .filter(
+                (departure) =>
+                  departure.tripId !== selectedVehicleId &&
+                  departure.routeId !== selectedDeparture.routeId &&
+                  departure.direction === selectedDeparture.direction &&
+                  departure.stopId === selectedDeparture.stopId,
+              )
+              .slice(0, 3)
+          : [];
 
         return buildSubwayTripDetail({
           trip,
           selectedDeparture,
           followingDepartures,
+          platformDepartures,
+          boardingStopId: selectedStationId,
           stationName: (stopId) =>
             getStationNameForDisplay(stopId, mapStations),
           isStale,
@@ -812,6 +849,11 @@ export function RealtimeClient() {
     [mode, setTrip, trainData.trips],
   );
 
+  const handleViewFullRoute = useCallback(() => {
+    setTrip(null);
+    setStation(null);
+  }, [setStation, setTrip]);
+
   const updatedLabel = lastUpdated
     ? `Updated ${formatDistanceToNow(lastUpdated, { addSuffix: true })}`
     : null;
@@ -867,6 +909,7 @@ export function RealtimeClient() {
                 vehicleCount={vehicleCount}
                 selectedStationId={selectedStationId}
                 selectedVehicleId={selectedVehicleId}
+                focusSelectedTrip={mode === "subway" && Boolean(selectedVehicleId && selectedStationId)}
                 onSelectStation={handleSelectStation}
                 onSelectVehicle={handleSelectVehicle}
                 onRetry={refresh}
@@ -891,6 +934,7 @@ export function RealtimeClient() {
                     <TransitDetailPanel
                       content={detailContent}
                       onClose={clearDetail}
+                      onViewFullRoute={mode === "subway" && Boolean(selectedVehicleId) ? handleViewFullRoute : undefined}
                       onSelectArrival={
                         detailContent.arrivals?.length
                           ? handleSelectVehicle
@@ -922,6 +966,7 @@ export function RealtimeClient() {
                     // Only an explicit pick is dismissable; the route summary
                     // is the panel's resting state.
                     onClose={hasExplicitSelection ? clearDetail : undefined}
+                    onViewFullRoute={mode === "subway" && Boolean(selectedVehicleId) ? handleViewFullRoute : undefined}
                     onSelectArrival={
                       detailContent.arrivals?.length
                         ? handleSelectVehicle
@@ -959,6 +1004,7 @@ export function RealtimeClient() {
                       <TransitDetailPanel
                         content={detailContent}
                         onClose={clearDetail}
+                        onViewFullRoute={mode === "subway" && Boolean(selectedVehicleId) ? handleViewFullRoute : undefined}
                         onSelectArrival={
                           detailContent.arrivals?.length
                             ? handleSelectVehicle
@@ -976,6 +1022,7 @@ export function RealtimeClient() {
                       <TransitDetailPanel
                         content={detailContent}
                         onClose={hasExplicitSelection ? clearDetail : undefined}
+                        onViewFullRoute={mode === "subway" && Boolean(selectedVehicleId) ? handleViewFullRoute : undefined}
                         onSelectArrival={
                           detailContent.arrivals?.length
                             ? handleSelectVehicle

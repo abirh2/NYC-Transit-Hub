@@ -1,0 +1,22 @@
+# Tasks: Specific Train Detail Experience
+
+- [x] Task 1: Preserve selected-trip boarding context and add pure rider-context helpers.
+  - Acceptance: URL retains station/stop/direction; stops-away is sequence-derived and nullable.
+  - Verify: focused unit tests.
+  - Files: `lib/hooks/useRealtimeSelection.ts`, `lib/transit/deep-link.ts`, `lib/transit/subway-trip-detail.ts`, `tests/unit/*`.
+- [x] Task 2: Build the rider-focused subway detail view model and presentation.
+  - Acceptance: hero, ETA, destination, progress, boarding stop, freshness, and following trains are clear and accessible.
+  - Verify: component tests.
+  - Files: `components/realtime/detailContent.ts`, `components/realtime/TransitDetailPanel.tsx`, focused components/tests.
+- [x] Task 3: Focus the map on selected trip + boarding station and expose full route.
+  - Acceptance: selected trip is visually dominant; full-route action is explicit; polling does not reset focus.
+  - Verify: map/unit/component tests.
+  - Files: `components/realtime/map/*`, `app/realtime/RealtimeClient.tsx`, tests.
+- [x] Task 4: Add same-direction/platform departures and relevant alerts/status.
+  - Acceptance: each departure remains tied to a selectable trip and freshness/status remains visible; alert matching remains a follow-up where feed data permits.
+  - Verify: deterministic domain/component tests.
+  - Files: `lib/transit/departures.ts`, alert integration, detail components/tests.
+- [ ] Task 5: Handle passed/expired lifecycle and end-to-end navigation.
+  - Acceptance: no negative ETA; expired links recover; full tracker and browser back preserve context.
+  - Verify: targeted Playwright flow plus lint/typecheck/test/build.
+  - Files: realtime orchestration, E2E fixtures/spec, docs.

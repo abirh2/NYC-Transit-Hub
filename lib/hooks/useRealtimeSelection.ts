@@ -130,8 +130,6 @@ export function useRealtimeSelection(): UseRealtimeSelectionReturn {
       patch({
         ...context,
         tripId: isDeselect ? undefined : tripId,
-        stationId: undefined,
-        stopId: undefined,
       });
     },
     [patch, selection.tripId],

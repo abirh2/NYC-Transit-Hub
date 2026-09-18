@@ -20,7 +20,10 @@ import type { Departure, SubwayTrip } from "@/types/transit";
 import type { StationWithCoords } from "@/lib/utils/train-positioning";
 import {
   getRenderableSubwayGeometries,
+  projectTripOnSubwayGeometry,
+  resolveGeometryForTrip,
 } from "@/lib/gtfs/subway-route-geometry";
+import { projectSubwayTripPosition } from "@/lib/transit/subway-trip-position";
 import type { GeolocationPosition, GeolocationPermissionState } from "@/lib/hooks/useGeolocation";
 import { useSubwayRouteGeometry } from "@/lib/hooks/useSubwayRouteGeometry";
 import { MapControls } from "./MapControls";
@@ -72,6 +75,7 @@ export interface RealtimeMapProps {
   vehicleCount?: number;
   selectedStationId?: string;
   selectedVehicleId?: string;
+  focusSelectedTrip?: boolean;
   onSelectStation: (stationId: string | null) => void;
   onSelectVehicle: (vehicleId: string | null) => void;
   onRetry?: () => void;
@@ -98,6 +102,7 @@ export function RealtimeMap({
   vehicleCount = 0,
   selectedStationId,
   selectedVehicleId,
+  focusSelectedTrip = false,
   onSelectStation,
   onSelectVehicle,
   onRetry,
@@ -116,6 +121,20 @@ export function RealtimeMap({
   /** Every coordinate worth framing for the active route. */
   const routeBounds = useMemo<LatLngBoundsExpression | null>(() => {
     const points: [number, number][] = [];
+
+    if (focusSelectedTrip && mode === "subway" && selectedVehicleId) {
+      const selectedTrip = subwayTrips.find((trip) => trip.id === selectedVehicleId);
+      const boardingStation = stations.find((station) => station.id === selectedStationId);
+      if (boardingStation) points.push([boardingStation.lat, boardingStation.lon]);
+      if (selectedTrip) {
+        const geometry = subwayGeometry ? resolveGeometryForTrip(selectedTrip, subwayGeometry) : null;
+        const projection = geometry
+          ? projectTripOnSubwayGeometry(selectedTrip, geometry) ?? projectSubwayTripPosition(selectedTrip, stations)
+          : projectSubwayTripPosition(selectedTrip, stations);
+        if (projection) points.push(projection.coordinates);
+      }
+      if (points.length > 0) return points;
+    }
 
     if (mode === "bus" && busRouteShape.length > 0) {
       points.push(...busRouteShape);
@@ -147,6 +166,8 @@ export function RealtimeMap({
     selectedVehicleId,
     busRouteShape,
     buses,
+    focusSelectedTrip,
+    selectedStationId,
   ]);
 
   const fitRoute = useCallback(() => {
@@ -163,11 +184,11 @@ export function RealtimeMap({
   const geometryVersion = subwayGeometry?.source.feedVersion ?? "fallback";
   useEffect(() => {
     if (!map || !routeBounds || !routeId) return;
-    const key = `${mode}:${routeId}:${geometryVersion}`;
+    const key = `${mode}:${routeId}:${geometryVersion}:${focusSelectedTrip ? selectedVehicleId ?? "" : "route"}:${focusSelectedTrip ? selectedStationId ?? "" : "route"}`;
     if (framedKey.current === key) return;
     framedKey.current = key;
     map.fitBounds(routeBounds, { padding: [48, 48], animate: false });
-  }, [map, routeBounds, routeId, mode, geometryVersion]);
+  }, [map, routeBounds, routeId, mode, geometryVersion, focusSelectedTrip, selectedVehicleId, selectedStationId]);
 
   /** Leaflet needs a nudge when its container is resized by the layout. */
   useEffect(() => {

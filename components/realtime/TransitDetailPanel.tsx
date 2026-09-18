@@ -25,6 +25,7 @@ export interface TransitDetailPanelProps {
   /** Lets a station's departures select the underlying trip. */
   onSelectArrival?: (arrivalId: string) => void;
   selectedArrivalId?: string;
+  onViewFullRoute?: () => void;
 }
 
 function RouteBadge({
@@ -114,6 +115,7 @@ export function TransitDetailPanel({
   onClose,
   onSelectArrival,
   selectedArrivalId,
+  onViewFullRoute,
 }: TransitDetailPanelProps) {
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -270,10 +272,39 @@ export function TransitDetailPanel({
           </section>
         )}
 
+        {content.secondaryArrivals && content.secondaryArrivals.length > 0 && (
+          <section className="flex flex-col gap-2">
+            <h3 className="text-[11px] font-semibold uppercase tracking-wide text-foreground/50">
+              {content.secondaryArrivalsTitle ?? "Other service"}
+            </h3>
+            <ul className="-mx-3 flex flex-col">
+              {content.secondaryArrivals.map((arrival) => (
+                <ArrivalRow
+                  key={arrival.id}
+                  arrival={arrival}
+                  onSelect={onSelectArrival}
+                  isSelected={arrival.id === selectedArrivalId}
+                />
+              ))}
+            </ul>
+          </section>
+        )}
+
         {content.footnote && (
           <p className="text-[11px] leading-relaxed text-foreground/50">
             {content.footnote}
           </p>
+        )}
+
+        {onViewFullRoute && (
+          <Button
+            variant="flat"
+            size="sm"
+            className="w-full"
+            onPress={onViewFullRoute}
+          >
+            View full route
+          </Button>
         )}
       </div>
     </div>
