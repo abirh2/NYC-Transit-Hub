@@ -6,6 +6,7 @@ import { LocateFixed, RefreshCw } from "lucide-react";
 
 import { NearbyDepartureRow } from "@/components/nearby/NearbyDepartureRow";
 import { NearbyMap } from "@/components/nearby/NearbyMap";
+import { NearbySubwayServicePanel } from "@/components/nearby/NearbySubwayServicePanel";
 import { EmptyState, StatusChip } from "@/components/ui";
 import { useGeolocation } from "@/lib/hooks";
 import {
@@ -148,6 +149,7 @@ export function NearbyClient() {
   const [busResults, setBusResults] = useState<NearbyBusRealtimeResult[]>([]);
   const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
+  const [expandedTrainTripId, setExpandedTrainTripId] = useState<string | null>(null);
   const [pendingLocationId, setPendingLocationId] = useState<string | null>(null);
   const [subwayRealtime, setSubwayRealtime] = useState<NearbyRealtimeState | null>(null);
   const [isLoadingSubway, setIsLoadingSubway] = useState(false);
@@ -344,12 +346,15 @@ export function NearbyClient() {
   const selectedService = useMemo(() =>
     allServices.find((service) => service.id === selectedServiceId) ?? null,
   [allServices, selectedServiceId]);
+  const visibleBusServices = useMemo(() => visibleServices.filter(
+    (service) => service.mode === "bus",
+  ), [visibleServices]);
 
   useEffect(() => {
     const currentVisible = visibleServices.find((service) => service.id === selectedServiceId);
     const next = pendingLocationId
       ? visibleServices.find((service) => service.locationId === pendingLocationId)
-      : currentVisible ?? visibleServices[0];
+      : currentVisible;
     if (!next) return;
     if (next.id !== selectedServiceId) setSelectedServiceId(next.id);
     if (pendingLocationId) {
@@ -363,10 +368,25 @@ export function NearbyClient() {
 
   const selectLocation = useCallback((locationId: string) => {
     setPendingLocationId(locationId);
+    setExpandedTrainTripId(null);
     if (locationId.startsWith("subway:")) {
       setSelectedStationId(locationId.slice("subway:".length));
     }
   }, []);
+
+  useEffect(() => {
+    setExpandedTrainTripId(null);
+  }, [selectedStationId]);
+
+  const selectSubwayDeparture = useCallback((departure: Departure) => {
+    const service = allServices.find((candidate) =>
+      candidate.mode === "subway" &&
+      candidate.relatedDepartures.some((related) => related.tripId === departure.tripId));
+    if (!service) return;
+
+    setSelectedServiceId(service.id);
+    setExpandedTrainTripId(departure.tripId);
+  }, [allServices]);
 
   if (!position) {
     return (
@@ -429,11 +449,13 @@ export function NearbyClient() {
         selectedService={selectedService}
         subwayTrips={subwayRealtime?.trips ?? []}
         busResults={busResults}
+        expanded={expandedTrainTripId !== null}
+        onCollapse={() => setExpandedTrainTripId(null)}
         onSelectLocation={selectLocation}
       />
 
       <section aria-labelledby="nearby-departures-heading" className="min-w-0 bg-surface-panel lg:rounded-lg lg:border lg:border-border-subtle">
-        <div className="flex min-h-14 items-center gap-3 border-b border-border-subtle px-4 py-2">
+        <div className={`${expandedTrainTripId ? "hidden lg:flex" : "flex"} min-h-14 items-center gap-3 border-b border-border-subtle px-4 py-2`}>
           <div className="min-w-0 flex-1">
             <h2 id="nearby-departures-heading" className="text-base font-semibold">Departures near you</h2>
             <p className="truncate text-xs text-foreground/55">
@@ -461,7 +483,7 @@ export function NearbyClient() {
           </Button>
         </div>
 
-        <div className="flex items-center justify-between gap-3 border-b border-border-subtle px-4 py-2">
+        <div className={`${expandedTrainTripId ? "hidden lg:flex" : "flex"} items-center justify-between gap-3 border-b border-border-subtle px-4 py-2`}>
           <p className="text-xs text-foreground/55">Closest useful services first</p>
           <div className="flex gap-1" role="group" aria-label="Transit mode filter">
             {(["all", "subway", "bus"] as const).map((mode) => (
@@ -491,28 +513,42 @@ export function NearbyClient() {
           </p>
         )}
 
+        {filter !== "bus" && selectedStation && subwayRealtime && (
+          <NearbySubwayServicePanel
+            key={selectedStation.id}
+            stationName={selectedStation.name}
+            departures={subwayRealtime.departures}
+            now={now}
+            selectedTripId={expandedTrainTripId}
+            onSelectDeparture={selectSubwayDeparture}
+          />
+        )}
+
         {(isLoadingSubway || isLoadingBuses) && visibleServices.length === 0 ? (
           <ResultsSkeleton />
-        ) : visibleServices.length > 0 ? (
+        ) : visibleBusServices.length > 0 ? (
           <div>
-            {visibleServices.map((service) => (
+            {visibleBusServices.map((service) => (
               <NearbyDepartureRow
                 key={service.id}
                 service={service}
                 now={now}
                 selected={service.id === selectedService?.id}
-                onSelect={(nextService: NearbyService) => setSelectedServiceId(nextService.id)}
+                onSelect={(nextService: NearbyService) => {
+                  setExpandedTrainTripId(null);
+                  setSelectedServiceId(nextService.id);
+                }}
               />
             ))}
           </div>
-        ) : (
+        ) : filter === "bus" || !subwayRealtime?.departures.length ? (
           <div className="px-4 py-8">
             <EmptyState
               title={`No ${filter === "all" ? "departures" : `${filter} departures`} nearby`}
               description={subwayError ?? busError ?? "No current predictions are reporting. Try refreshing shortly."}
             />
           </div>
-        )}
+        ) : null}
       </section>
     </div>
   );

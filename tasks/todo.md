@@ -395,3 +395,92 @@ fewer. Mark acceptance and verification items as they are completed.
 - [x] Selection synchronizes row and map while explicit detail actions retain
   exact Trip/Vehicle routing.
 - [x] All automated and bounded browser checks pass.
+
+---
+
+## Task 17: Build the directional subway service panel
+
+**Description:** Replace selected-station subway rows with one station-local,
+swipeable directional surface whose hero is an exact departure and whose other
+times expand compactly.
+
+**Acceptance criteria:**
+- [x] Direction tabs and native snap pages switch the complete rider context.
+- [x] One hero ETA dominates and normal copy exposes no internal identifier.
+- [x] More times remain hidden until requested, retain state per direction, and
+  every displayed time preserves its exact trip link.
+
+**Verification:**
+- [x] `nvm use 24 && npx vitest run tests/components/NearbySubwayServicePanel.test.tsx`
+
+**Dependencies:** Completed map-first Phase 5.
+
+**Files likely touched:**
+- `components/nearby/NearbySubwayServicePanel.tsx`
+- `tests/components/NearbySubwayServicePanel.test.tsx`
+
+**Estimated scope:** Small
+
+## Checkpoint: Directional service panel
+
+- [x] Focused component test passes.
+- [x] Keyboard names, focus, and exact links are verified.
+
+## Task 18: Integrate exact train selection with the map
+
+**Description:** Place the directional panel in the Nearby result surface and
+turn a hero press into an exact selected-train expanded map state while retaining
+the existing detail route.
+
+**Acceptance criteria:**
+- [x] Selected station and realtime service are adjacent in All/Subway modes.
+- [x] Hero selection expands and can collapse the map without losing times.
+- [x] Exact train, boarding station, route, user location, and subtle same-route
+  trains use existing geometry and Trip identity.
+
+**Verification:**
+- [x] `nvm use 24 && npx vitest run tests/components/NearbySubwayServicePanel.test.tsx tests/components/NearbyDepartureRow.test.tsx`
+- [x] `nvm use 24 && npx tsc --noEmit`
+
+**Dependencies:** Task 17.
+
+**Files likely touched:**
+- `components/nearby/NearbyClient.tsx`
+- `components/nearby/NearbyMap.tsx`
+- `components/nearby/NearbyMapCanvas.tsx`
+- `tests/components/NearbySubwayServicePanel.test.tsx`
+
+**Estimated scope:** Medium
+
+## Task 19: Verify and polish the primary subway interaction
+
+**Description:** Extend the critical browser flow and perform one bounded
+mobile/desktop visual, interaction, and accessibility pass against the supplied
+reference hierarchy.
+
+**Acceptance criteria:**
+- [x] Direction switching, more times, exact hero selection, expanded map, and
+  full detail link work in the browser.
+- [x] Mobile has no horizontal page overflow and preserves vertical scrolling.
+- [x] No material Impeccable finding remains in the implemented scope.
+
+**Verification:**
+- [x] `nvm use 24 && npx playwright test tests/e2e/nearby-bus.spec.ts`
+- [x] `nvm use 24 && npm run lint`
+- [x] `nvm use 24 && npx tsc --noEmit`
+- [x] `nvm use 24 && npm run build`
+
+**Dependencies:** Task 18.
+
+**Files likely touched:**
+- `tests/e2e/nearby-bus.spec.ts`
+- `components/nearby/NearbySubwayServicePanel.tsx`
+- `components/nearby/NearbyClient.tsx`
+
+**Estimated scope:** Medium
+
+## Checkpoint: Primary subway interaction complete
+
+- [x] Focused component and browser tests pass.
+- [x] Lint, typecheck, and production build pass.
+- [x] Mobile and desktop captures pass the bounded finish review.

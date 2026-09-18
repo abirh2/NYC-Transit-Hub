@@ -27,7 +27,7 @@ function getIconFilename(line: string): string {
 
 interface SubwayBulletProps {
   line: string;
-  size?: "xs" | "sm" | "md" | "lg";
+  size?: "xs" | "sm" | "md" | "lg" | "xl";
   className?: string;
   /**
    * When true, render a selected treatment: a contrast-aware ring derived from
@@ -42,6 +42,7 @@ const sizeMap = {
   sm: { px: 20, text: "text-xs" },
   md: { px: 24, text: "text-sm" },
   lg: { px: 32, text: "text-base" },
+  xl: { px: 48, text: "text-xl" },
 };
 
 export function SubwayBullet({ line, size = "md", className = "", selected = false }: SubwayBulletProps) {
@@ -101,4 +102,3 @@ export function SubwayBullet({ line, size = "md", className = "", selected = fal
     </div>
   );
 }
-

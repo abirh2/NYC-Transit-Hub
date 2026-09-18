@@ -26,6 +26,14 @@ import { getRiderDirectionLabel, type NearbyService } from "@/lib/transit/nearby
 import type { GeolocationPosition } from "@/lib/hooks/useGeolocation";
 import type { NearbyBusStopGroup, TransitStation, TransitVehicle } from "@/types/transit";
 
+interface NearbySubwayTrainPosition {
+  tripId: string;
+  routeId: string;
+  direction: NearbyService["departure"]["direction"];
+  destination: string | null;
+  coordinates: [number, number];
+}
+
 const TILE_URLS = {
   dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
   light: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
@@ -57,10 +65,12 @@ function readToken(name: string, fallback: string): string {
 function MapBridge({
   points,
   selectedPoint,
+  focusedPoints,
   onMapReady,
 }: {
   points: [number, number][];
   selectedPoint: [number, number] | null;
+  focusedPoints: [number, number][];
   onMapReady: (map: LeafletMap | null) => void;
 }) {
   const map = useMap();
@@ -71,16 +81,22 @@ function MapBridge({
   }, [map, onMapReady]);
 
   useEffect(() => {
+    if (focusedPoints.length > 1) {
+      map.fitBounds(focusedPoints, {
+        padding: [44, 44],
+        animate: true,
+        maxZoom: 15,
+      });
+      return;
+    }
     if (selectedPoint) {
       map.setView(selectedPoint, Math.max(map.getZoom(), 15), { animate: true });
       return;
     }
-    if (points.length > 1) {
-      map.fitBounds(points, { padding: [36, 36], animate: false, maxZoom: 15 });
-    } else if (points.length === 1) {
+    if (points.length > 0) {
       map.setView(points[0], 15, { animate: false });
     }
-  }, [map, points, selectedPoint]);
+  }, [focusedPoints, map, points, selectedPoint]);
 
   return null;
 }
@@ -141,6 +157,8 @@ function NearbyMapCanvas({
   busGroups,
   selectedService,
   selectedTrainPosition,
+  otherSubwayTrainPositions,
+  focusSelectedTrain,
   selectedBusVehicle,
   routeGeometry,
   routeColor,
@@ -152,6 +170,8 @@ function NearbyMapCanvas({
   busGroups: NearbyBusStopGroup[];
   selectedService: NearbyService | null;
   selectedTrainPosition: [number, number] | null;
+  otherSubwayTrainPositions: NearbySubwayTrainPosition[];
+  focusSelectedTrain: boolean;
   selectedBusVehicle: TransitVehicle | null;
   routeGeometry: [number, number][];
   routeColor: string;
@@ -196,6 +216,40 @@ function NearbyMapCanvas({
     return group ? [group.location.latitude, group.location.longitude] : null;
   }, [busGroups, selectedBusVehicle, selectedService, selectedTrainPosition, stations]);
 
+  const focusedPoints = useMemo<[number, number][]>(() => {
+    if (
+      !focusSelectedTrain ||
+      selectedService?.mode !== "subway" ||
+      !selectedTrainPosition
+    ) return [];
+
+    const boardingStation = stations.find(
+      (candidate) => `subway:${candidate.id}` === selectedService.locationId,
+    );
+    const nearbyRoutePoints = routeGeometry.filter(([latitude, longitude]) =>
+      Math.abs(latitude - selectedTrainPosition[0]) <= 0.018 &&
+      Math.abs(longitude - selectedTrainPosition[1]) <= 0.018);
+
+    return [
+      [position.latitude, position.longitude],
+      ...(boardingStation?.location
+        ? [[boardingStation.location.latitude, boardingStation.location.longitude] as [number, number]]
+        : []),
+      selectedTrainPosition,
+      ...otherSubwayTrainPositions.map((train) => train.coordinates),
+      ...nearbyRoutePoints,
+    ];
+  }, [
+    focusSelectedTrain,
+    otherSubwayTrainPositions,
+    position.latitude,
+    position.longitude,
+    routeGeometry,
+    selectedService,
+    selectedTrainPosition,
+    stations,
+  ]);
+
   return (
     <MapContainer
       center={[position.latitude, position.longitude]}
@@ -208,7 +262,12 @@ function NearbyMapCanvas({
       keyboard={false}
       style={{ height: "100%", width: "100%" }}
     >
-      <MapBridge points={allPoints} selectedPoint={selectedPoint} onMapReady={onMapReady} />
+      <MapBridge
+        points={allPoints}
+        selectedPoint={selectedPoint}
+        focusedPoints={focusedPoints}
+        onMapReady={onMapReady}
+      />
       <TileLayer key={tileUrl} attribution={TILE_ATTRIBUTION} url={tileUrl} />
       <Pane name={PANES.route.name} style={{ zIndex: PANES.route.zIndex }} />
       <Pane name={PANES.locations.name} style={{ zIndex: PANES.locations.zIndex }} />
@@ -227,7 +286,14 @@ function NearbyMapCanvas({
             pane={PANES.route.name}
             positions={routeGeometry}
             interactive={false}
-            pathOptions={{ color: routeColor, weight: 5, opacity: 0.9, lineCap: "round", lineJoin: "round" }}
+            pathOptions={{
+              className: "nearby-selected-route",
+              color: routeColor,
+              weight: 5,
+              opacity: 0.9,
+              lineCap: "round",
+              lineJoin: "round",
+            }}
           />
         </Fragment>
       )}
@@ -309,6 +375,24 @@ function NearbyMapCanvas({
           }))}
         />
       )}
+
+      {selectedService?.mode === "subway" && otherSubwayTrainPositions.map((train) => (
+        <Marker
+          key={train.tripId}
+          pane={PANES.vehicles.name}
+          position={train.coordinates}
+          zIndexOffset={500}
+          opacity={0.56}
+          icon={toDivIcon(buildSubwayMarkerHtml({
+            routeId: train.routeId,
+            directionLabel: getRiderDirectionLabel(train.direction),
+            bearingDegrees: null,
+            status: "normal",
+            isSelected: false,
+            accessibleSuffix: train.destination ?? undefined,
+          }))}
+        />
+      ))}
 
       {selectedService?.mode === "bus" && selectedBusVehicle?.position.source === "actual" && (
         <Marker

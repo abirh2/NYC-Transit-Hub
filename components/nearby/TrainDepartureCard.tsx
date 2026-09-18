@@ -3,7 +3,11 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { SubwayBullet } from "@/components/ui";
-import { createTrainDeepLink, formatDepartureEta } from "@/lib/transit/nearby";
+import {
+  createTrainDeepLink,
+  formatDepartureEta,
+  getRiderDirectionLabel,
+} from "@/lib/transit/nearby";
 import type { Departure } from "@/types/transit";
 
 interface TrainDepartureCardProps {
@@ -32,13 +36,10 @@ export function TrainDepartureCard({ departure, now, hero = false }: TrainDepart
           >
             {eta}
           </span>
-          <span className="text-sm text-foreground/60">
-            {departure.status === "realtime" ? "predicted" : "scheduled"}
-          </span>
         </span>
         <span className="mt-1 block truncate text-sm font-medium">{destination}</span>
         <span className="mt-1 block text-xs text-foreground/55">
-          {departure.direction} · {departure.tripId}
+          {getRiderDirectionLabel(departure.direction)}
         </span>
       </span>
       <ArrowUpRight

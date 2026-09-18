@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import type { Map as LeafletMap } from "leaflet";
-import { LocateFixed, Search } from "lucide-react";
+import { LocateFixed, Minimize2, Search } from "lucide-react";
 
 import { useSubwayRouteGeometry } from "@/lib/hooks/useSubwayRouteGeometry";
 import { getBusRouteColor } from "@/lib/gtfs/bus-routes";
@@ -37,6 +37,8 @@ interface NearbyMapProps {
   selectedService: NearbyService | null;
   subwayTrips: SubwayTrip[];
   busResults: NearbyBusRealtimeResult[];
+  expanded: boolean;
+  onCollapse: () => void;
   onSelectLocation: (locationId: string) => void;
 }
 
@@ -47,6 +49,8 @@ export function NearbyMap({
   selectedService,
   subwayTrips,
   busResults,
+  expanded,
+  onCollapse,
   onSelectLocation,
 }: NearbyMapProps) {
   const [map, setMap] = useState<LeafletMap | null>(null);
@@ -73,6 +77,35 @@ export function NearbyMap({
       ? projectTripOnSubwayGeometry(selectedSubwayTrip, selectedSubwayGeometry)?.coordinates ?? null
       : null
   ), [selectedSubwayGeometry, selectedSubwayTrip]);
+
+  const otherSubwayTrainPositions = useMemo(() => {
+    const artifact = subwayGeometryState.artifact;
+    if (
+      selectedService?.mode !== "subway" ||
+      !artifact ||
+      !expanded
+    ) return [];
+
+    return subwayTrips.flatMap((trip) => {
+      if (trip.id === selectedSubwayTrip?.id || trip.route.id !== selectedRouteId) return [];
+      const geometry = resolveGeometryForTrip(trip, artifact);
+      const projected = geometry ? projectTripOnSubwayGeometry(trip, geometry) : null;
+      return projected ? [{
+        tripId: trip.id,
+        routeId: trip.route.id,
+        direction: trip.direction,
+        destination: trip.destination,
+        coordinates: projected.coordinates,
+      }] : [];
+    }).slice(0, 6);
+  }, [
+    expanded,
+    selectedRouteId,
+    selectedService?.mode,
+    selectedSubwayTrip?.id,
+    subwayGeometryState.artifact,
+    subwayTrips,
+  ]);
 
   const selectedBusVehicle = useMemo<TransitVehicle | null>(() => {
     if (selectedService?.mode !== "bus") return null;
@@ -112,9 +145,15 @@ export function NearbyMap({
 
   return (
     <section
+      id="nearby-map"
       role="region"
       aria-label="Nearby map"
-      className="rt-map relative h-[40dvh] min-h-72 max-h-[26rem] overflow-hidden bg-surface-elevated lg:sticky lg:top-24 lg:h-[calc(100dvh-8rem)] lg:max-h-none lg:rounded-lg"
+      data-expanded={expanded}
+      className={`rt-map relative overflow-hidden bg-surface-elevated motion-safe:transition-[height] motion-safe:duration-300 lg:sticky lg:top-24 lg:h-[calc(100dvh-8rem)] lg:max-h-none lg:rounded-lg ${
+        expanded
+          ? "h-[46dvh] min-h-80 max-h-[32rem]"
+          : "h-[40dvh] min-h-72 max-h-[26rem]"
+      }`}
     >
       <NearbyMapCanvas
         position={position}
@@ -122,6 +161,8 @@ export function NearbyMap({
         busGroups={busGroups}
         selectedService={selectedService}
         selectedTrainPosition={selectedTrainPosition}
+        otherSubwayTrainPositions={otherSubwayTrainPositions}
+        focusSelectedTrain={expanded}
         selectedBusVehicle={selectedBusVehicle}
         routeGeometry={routeGeometry}
         routeColor={routeColor}
@@ -137,6 +178,18 @@ export function NearbyMap({
       >
         <LocateFixed className="h-5 w-5" aria-hidden="true" />
       </button>
+
+      {expanded && (
+        <button
+          type="button"
+          onClick={onCollapse}
+          aria-label="Collapse train map"
+          className="absolute left-3 top-3 z-[500] flex h-11 items-center gap-2 rounded-pill border border-border-strong bg-surface-floating px-3 text-sm font-semibold text-foreground shadow-[var(--shadow-md)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+        >
+          <Minimize2 className="h-4 w-4" aria-hidden="true" />
+          <span>Times</span>
+        </button>
+      )}
 
       <div className="absolute inset-x-3 bottom-6 z-[500]">
         <Link

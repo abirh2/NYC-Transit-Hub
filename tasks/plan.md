@@ -195,6 +195,9 @@ polling, normalized identities, and `/realtime` detail routing remain unchanged.
 
 ### Task List
 
+**Correction:** The subway panel is route-first. Render one card per route, and
+scope each card's directional swipe/tab state to that route only.
+
 - [x] Task 13: Specify and test service-first grouping and ordering.
 - [x] Task 14: Build the contextual Nearby map and map/list selection contract.
 - [x] Task 15: Replace ranked/nested cards with flat selectable departure rows
@@ -227,3 +230,72 @@ polling, normalized identities, and `/realtime` detail routing remain unchanged.
 
 - None blocking; the user supplied a complete hierarchy and interaction brief
   and requested uninterrupted execution.
+
+---
+
+## Phase 6 Addendum: Primary Subway Interaction
+
+### Overview
+
+Implement the Primary Subway Interaction addendum in
+`SPEC-nearby-map-first-experience.md` as a focused extension of the completed
+map-first pass. Direction paging is presentation state over existing departures;
+exact train selection continues to use normalized Trip identity and the current
+map/detail infrastructure.
+
+### Architecture Decisions
+
+- Add one presentational `NearbySubwayServicePanel` that owns direction paging
+  and per-direction progressive disclosure. It receives normalized departures
+  and emits the exact selected departure.
+- Keep realtime fetching, station selection, mode failure isolation, and map
+  synchronization in `NearbyClient`.
+- Render the subway panel before bus service rows for All/Subway modes; do not
+  rebuild the general bus presentation.
+- Separate passive default map context from explicit train expansion so Nearby
+  does not open in an expanded state automatically.
+- Extend `NearbyMap` with a bounded expanded state and subtle same-route train
+  markers derived only through existing GTFS geometry/projectors.
+
+### Task List
+
+- [x] Task 17: Specify the directional service panel through failing component
+  tests, then implement swipe/tab paging, one hero, compact exact-trip times,
+  and retained disclosure state.
+- [x] Task 18: Integrate the panel with selected-station state and exact train
+  selection; expand/collapse map prominence and add subtle same-route trains.
+- [x] Task 19: Extend the Nearby browser flow and complete one bounded
+  mobile/desktop Impeccable review and correction pass.
+
+### Checkpoint: Directional service panel
+
+- [x] Component tests prove whole-context direction switching, dominant hero
+  content, hidden/expanded secondary times, exact links, and no raw IDs.
+- [x] Existing bus rows and mode filtering remain functional.
+
+### Checkpoint: Selected train map state
+
+- [x] Hero selection resolves the exact normalized Trip, expands the map, and
+  preserves upcoming times below it.
+- [x] The selected train, boarding station, route, user location, and subtle
+  same-route trains are represented without fabricated coordinates.
+
+### Checkpoint: Complete
+
+- [x] Focused tests, lint, typecheck, production build, and relevant Playwright
+  tests pass on Node 24.
+- [x] The bounded mobile/desktop review has no unresolved material finding in
+  the implemented scope.
+
+### Risks and Mitigations
+
+| Risk | Impact | Mitigation |
+|---|---|---|
+| Horizontal paging steals vertical scroll | High | Use native snap scrolling, non-blocking scroll observation, and browser-test mixed-axis gestures. |
+| Refresh reorders pages or loses expansion | Medium | Use stable direction keys and store expansion by direction rather than page index. |
+| Default service selection falsely implies an expanded train | Medium | Track explicit expanded `tripId` separately from passive map context. |
+| Other train markers imply GPS precision | High | Project only positionable normalized trips through existing estimated geometry and render them with lower emphasis. |
+
+### Open Questions
+
+- None blocking.

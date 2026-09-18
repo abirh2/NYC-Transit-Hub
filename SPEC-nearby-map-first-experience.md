@@ -149,3 +149,94 @@ type NearbyService =
 ## Open Questions
 
 None blocking. Full destination planning remains delegated to `/routes`.
+
+---
+
+## Primary Subway Interaction Addendum
+
+### Interaction correction: route-first service cards
+
+The primary subway surface is route-first, not station-direction-first. A selected
+station may expose several nearby routes (for example B, D, F, and M), and each
+route is rendered as its own independently scannable card. The Uptown/Down­town
+swipe or tab control belongs inside that route card and changes only that route's
+hero departure and supporting departures. Station identity and freshness are
+shared context above the cards; one station-level rail must not combine routes.
+
+### Objective
+
+For the selected nearby subway station, replace the flat set of disconnected
+subway rows with one station-local service panel. The panel pages horizontally
+between complete directional contexts, makes one exact upcoming train dominant,
+and expands the existing map when that train is selected. Bus presentation and
+all existing data contracts remain unchanged.
+
+The supplied Transit screenshots are interaction references. This implementation
+adopts their map-to-service continuity, route-led hierarchy, dominant ETA, and
+progressive disclosure while retaining NYC Transit Hub's own visual system and
+omitting Transit-specific branding, rankings, gamification, and unsupported
+service claims.
+
+### Functional Requirements
+
+1. The selected station name, direction controls, hero departure, and secondary
+   departures render together in the existing Nearby results panel.
+2. Each available direction is one full-width snap page. Touch scrolling changes
+   the whole service context, while semantic tabs/buttons provide keyboard and
+   pointer fallback and visibly identify the active direction.
+3. Vertical page scrolling remains natural when a gesture starts on the pager.
+4. Each direction page leads with exactly one hero departure: large route
+   identity, rider-facing direction, destination, and a dominant ETA. It does
+   not show raw trip, stop, feed, or internal direction identifiers.
+5. Secondary context is limited to useful, supported data such as freshness or
+   stops-away. No unsupported service-quality claim is invented.
+6. Additional departures stay hidden by default and expand compactly within the
+   same direction page. The expansion state is retained when the user changes
+   direction and returns.
+7. Every displayed departure preserves an exact `/realtime` trip link. Tapping
+   the hero first selects that exact train in Nearby and reveals an explicit
+   full-detail action rather than navigating immediately.
+8. Selecting the hero expands map prominence on mobile, highlights the exact
+   train, boarding station, route, and user location, and renders other
+   positionable same-route trains with lower emphasis. Upcoming times remain in
+   the results panel below the map.
+9. Changing the selected station resets train expansion to the new station's
+   current service context without losing the surrounding Nearby surface.
+
+### Testing Strategy
+
+- Component-test direction tabs, snap pages, hero hierarchy, absence of raw IDs,
+  retained per-direction expansion, exact links, and hero selection.
+- Extend Nearby Playwright coverage for direction switching, hero expansion,
+  compact times, exact train detail routing, mobile overflow, and map prominence.
+- Browser-inspect the supplied mobile reference hierarchy at 390×844 and the
+  desktop split at 1280px. Verify focus, vertical scroll behavior, console, and
+  route/train map emphasis.
+
+### Success Criteria
+
+- A selected station and its next directional train are adjacent and visible
+  without scrolling to a second details section.
+- Swiping or activating a direction tab changes route, destination, ETA, and
+  secondary times as one context.
+- The hero ETA is the strongest typographic element in the service panel.
+- No normal Nearby state exposes a raw `tripId`, stop ID, feed ID, or machine
+  direction label.
+- Selecting a hero expands the map around that exact train and exposes one clear
+  link to the existing full train detail experience.
+- Focused component tests, lint, typecheck, production build, and relevant
+  Playwright coverage pass.
+
+### Boundaries
+
+- Always: preserve existing normalized transit models, polling, failure
+  isolation, geometry, and exact deep-link behavior.
+- Ask first: add a dependency, change a transport contract, infer new service
+  claims, or replace the existing full train detail route.
+- Never: copy Transit assets/branding, expose internal identifiers, or fabricate
+  train coordinates.
+
+### Open Questions
+
+None blocking. The user supplied the missing reference screenshots and asked for
+uninterrupted implementation.
