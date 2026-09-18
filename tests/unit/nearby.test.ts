@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildNearbyServices,
   createBusDeepLink,
   createTrainDeepLink,
   formatDepartureEta,
@@ -9,7 +10,12 @@ import {
   sortNearbyLocations,
   sortUniqueDepartures,
 } from "@/lib/transit/nearby";
-import type { Departure } from "@/types/transit";
+import type {
+  Departure,
+  NearbyBusRealtimeResult,
+  NearbyBusStopGroup,
+  TransitStation,
+} from "@/types/transit";
 
 const now = new Date("2026-09-17T12:00:00.000Z");
 function departure(overrides: Partial<Departure> = {}): Departure {
@@ -111,5 +117,86 @@ describe("nearby train helpers", () => {
       },
     ]);
     expect(locations.map((location) => location.id)).toEqual(["subway:near", "bus:far"]);
+  });
+
+  it("builds flat service rows by route and direction while preserving exact trips", () => {
+    const station: TransitStation & { distance: number } = {
+      id: "D15",
+      sourceIds: ["D15"],
+      name: "47-50 Sts-Rockefeller Ctr",
+      mode: "subway",
+      location: { latitude: 40.7587, longitude: -73.9813 },
+      stops: [],
+      routeIds: ["B", "D", "F", "M"],
+      distance: 0.12,
+    };
+    const busGroup: NearbyBusStopGroup = {
+      id: "bus-stop-group:400001",
+      name: "6 Av / W 45 St",
+      mode: "bus",
+      location: { latitude: 40.756, longitude: -73.982 },
+      distanceMiles: 0.08,
+      routeIds: ["M7"],
+      stops: [{
+        id: "400001",
+        stationId: null,
+        name: "6 Av / W 45 St",
+        mode: "bus",
+        direction: "unknown",
+        location: { latitude: 40.756, longitude: -73.982 },
+        platformCode: null,
+        routeIds: ["M7"],
+        distanceMiles: 0.08,
+      }],
+    };
+    const busDeparture = departure({
+      id: "bus-1:400001",
+      mode: "bus",
+      tripId: "bus-1",
+      routeId: "M7",
+      stopId: "400001",
+      stationId: null,
+      direction: "northbound",
+      destination: "Harlem 147 St",
+      predictedArrival: new Date("2026-09-17T12:05:00Z"),
+      progressText: "3 stops away",
+      stopsAway: 3,
+    });
+    const busResults: NearbyBusRealtimeResult[] = [{
+      stopId: "400001",
+      sourceState: "ok",
+      departures: [busDeparture],
+      trips: [],
+      vehicles: [],
+      feedTimestamp: now,
+      error: null,
+    }];
+
+    const services = buildNearbyServices({
+      station,
+      subwayDepartures: [
+        departure({ tripId: "d-south", direction: "southbound", destination: "Coney Island-Stillwell Av" }),
+        departure({ id: "f-south", tripId: "f-south", routeId: "F", direction: "southbound", destination: "Coney Island-Stillwell Av", predictedArrival: new Date("2026-09-17T12:03:00Z") }),
+        departure({ id: "d-later", tripId: "d-later", direction: "southbound", destination: "Coney Island-Stillwell Av", predictedArrival: new Date("2026-09-17T12:16:00Z") }),
+        departure({ id: "past", tripId: "past", predictedArrival: new Date("2026-09-17T11:59:00Z") }),
+      ],
+      busGroups: [busGroup],
+      busResults,
+      now,
+    });
+
+    expect(services.map((service) => [service.mode, service.departure.routeId, service.departure.tripId])).toEqual([
+      ["bus", "M7", "bus-1"],
+      ["subway", "F", "f-south"],
+      ["subway", "D", "d-south"],
+    ]);
+    expect(services[0]).toMatchObject({
+      id: "bus:bus-stop-group:400001:M7:northbound:Harlem 147 St",
+      locationId: "bus-stop-group:400001",
+      locationName: "6 Av / W 45 St",
+      distanceMiles: 0.08,
+      relatedDepartures: [expect.objectContaining({ tripId: "bus-1" })],
+    });
+    expect(services[2].relatedDepartures.map((item) => item.tripId)).toEqual(["d-south", "d-later"]);
   });
 });

@@ -4,6 +4,9 @@ Implementation begins only after this plan receives human approval. Each task
 is a thin TDD slice and should keep its production/test change to five files or
 fewer. Mark acceptance and verification items as they are completed.
 
+> Phase 5 map-first UX work is approved by the user's 2026-09-18 brief and is
+> tracked below after the completed Phase 1–4 tasks.
+
 ## Task 1: Deterministic bus-stop groups
 
 **Files:** `types/transit.ts`, `lib/gtfs/bus-stops.ts`,
@@ -302,3 +305,93 @@ fewer. Mark acceptance and verification items as they are completed.
 - [x] Static GTFS and realtime SIRI cache lifecycles remain independent.
 - [x] Existing subway Nearby and Live Tracker flows remain intact.
 - [x] No generated PWA file, secret, or unrelated user change was modified.
+
+---
+
+# Map-first Nearby UX
+
+## Task 13: Service-first presentation model
+
+**Files:** `lib/transit/nearby.ts`, `tests/unit/nearby.test.ts`
+
+**Acceptance criteria:**
+- [x] Write failing tests for subway route/direction grouping, bus route and
+  destination grouping, past-departure removal, deduplication, stable
+  proximity ordering, and exact primary Trip identity.
+- [x] Return flat subway and bus services with location metadata and ordered
+  related departures without changing normalized domain types.
+- [x] Keep route, direction, stop/station, distance, and exact Trip identity.
+
+**Verification:**
+- [x] `nvm use 24 && npx vitest run tests/unit/nearby.test.ts`
+
+**Dependencies:** Task 12
+
+## Task 14: Contextual map and synchronization
+
+**Files:** `components/nearby/NearbyMap.tsx`,
+`components/nearby/NearbyMapCanvas.tsx`,
+`components/nearby/NearbyClient.tsx`
+
+**Acceptance criteria:**
+- [x] Render user location plus bounded nearby stations and bus groups on the
+  existing Leaflet/CARTO stack.
+- [x] Add only selected subway route geometry/train position or selected bus
+  route/actual vehicle context.
+- [x] Map object selection focuses and scrolls to a related service row; row
+  selection updates map framing without navigating.
+
+**Verification:**
+- [x] Typecheck passes and the 390×844 browser view preserves vertical page
+  scrolling, bottom-nav clearance, and usable map controls.
+
+**Dependencies:** Task 13
+
+## Task 15: Flat departure hierarchy
+
+**Files:** `components/nearby/NearbyDepartureRow.tsx`,
+`components/nearby/NearbyClient.tsx`, `app/nearby/page.tsx`,
+`tests/components/NearbyDepartureRow.test.tsx`
+
+**Acceptance criteria:**
+- [x] Write a failing component test for dominant ETA, supporting stop copy,
+  in-place first selection, and exact explicit detail links.
+- [x] Remove the page description, large location surface, numbered location
+  list, nested cards, raw Trip copy, and dominant filters from the primary flow.
+- [x] Add a floating `/routes` destination affordance and consistent subway/bus
+  row grammar with ≥44px controls and visible focus.
+
+**Verification:**
+- [x] Focused component and unit tests pass.
+
+**Dependencies:** Tasks 13–14
+
+## Task 16: States and end-to-end finish
+
+**Files:** `components/nearby/NearbyClient.tsx`,
+`tests/e2e/nearby-bus.spec.ts`, `docs/components.md`
+
+**Acceptance criteria:**
+- [x] Preserve denied, loading, empty, partial, stale, and total-error behavior
+  in the map/results composition.
+- [x] E2E proves map-first ordering, mixed services, in-place selection, compact
+  filtering, destination routing, exact bus detail link, and no mobile overflow.
+- [x] Complete one batched desktop/mobile Impeccable inspection, one fix batch,
+  and at most one confirmation round.
+
+**Verification:**
+- [x] `nvm use 24 && npm run lint`
+- [x] `nvm use 24 && npx tsc --noEmit`
+- [x] `nvm use 24 && npm run test`
+- [x] `nvm use 24 && npm run build`
+- [x] `nvm use 24 && npx playwright test tests/e2e/nearby-bus.spec.ts`
+
+**Dependencies:** Tasks 13–15
+
+## Phase 5 final checkpoint
+
+- [x] First mobile viewport shows map context and useful service without a
+  ranked station list.
+- [x] Selection synchronizes row and map while explicit detail actions retain
+  exact Trip/Vehicle routing.
+- [x] All automated and bounded browser checks pass.

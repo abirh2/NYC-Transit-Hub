@@ -1,7 +1,10 @@
 import { createRealtimeSearchParams } from "@/lib/transit/deep-link";
 import type {
   Departure,
+  NearbyBusRealtimeResult,
+  NearbyBusStopGroup,
   NearbyLocation,
+  RealtimeSourceState,
   TransitDirection,
   TransitStation,
 } from "@/types/transit";
@@ -9,6 +12,113 @@ import type {
 export interface NearbyDirectionGroup {
   direction: TransitDirection;
   departures: Departure[];
+}
+
+export interface NearbyService {
+  id: string;
+  mode: "subway" | "bus";
+  locationId: string;
+  locationName: string;
+  distanceMiles: number;
+  departure: Departure;
+  relatedDepartures: Departure[];
+  sourceState: RealtimeSourceState;
+}
+
+interface BuildNearbyServicesInput {
+  station: (TransitStation & { distance: number }) | null;
+  subwayDepartures: readonly Departure[];
+  subwaySourceState?: RealtimeSourceState;
+  busGroups: readonly NearbyBusStopGroup[];
+  busResults: readonly NearbyBusRealtimeResult[];
+  now?: Date;
+}
+
+function groupServiceDepartures(
+  departures: readonly Departure[],
+  now: Date,
+): Array<{ key: string; departures: Departure[] }> {
+  const groups = new Map<string, Departure[]>();
+
+  for (const departure of sortUniqueDepartures(departures)) {
+    if (departure.predictedArrival.getTime() < now.getTime()) continue;
+    const key = [
+      departure.routeId,
+      departure.direction,
+      departure.destination ?? "",
+    ].join(":");
+    const group = groups.get(key) ?? [];
+    group.push(departure);
+    groups.set(key, group);
+  }
+
+  return [...groups.entries()].map(([key, group]) => ({
+    key,
+    departures: sortUniqueDepartures(group),
+  }));
+}
+
+/**
+ * Builds the small, rider-facing service list for Nearby without changing the
+ * normalized transit contracts. Boarding places remain metadata; each row is
+ * anchored by the exact next Trip that selection and deep links must preserve.
+ */
+export function buildNearbyServices({
+  station,
+  subwayDepartures,
+  subwaySourceState = "empty",
+  busGroups,
+  busResults,
+  now = new Date(),
+}: BuildNearbyServicesInput): NearbyService[] {
+  const services: NearbyService[] = [];
+
+  if (station) {
+    for (const group of groupServiceDepartures(subwayDepartures, now)) {
+      const departure = group.departures[0];
+      services.push({
+        id: `subway:${station.id}:${group.key}`,
+        mode: "subway",
+        locationId: `subway:${station.id}`,
+        locationName: station.name,
+        distanceMiles: station.distance,
+        departure,
+        relatedDepartures: group.departures,
+        sourceState: subwaySourceState,
+      });
+    }
+  }
+
+  for (const stopGroup of busGroups) {
+    const stopIds = new Set(stopGroup.stops.map((stop) => stop.id));
+    const matchingResults = busResults.filter((result) => stopIds.has(result.stopId));
+    const sourceState = matchingResults.some((result) => result.sourceState === "ok")
+      ? matchingResults.some((result) => result.sourceState === "stale")
+        ? "stale"
+        : "ok"
+      : matchingResults[0]?.sourceState ?? "empty";
+    const departures = matchingResults.flatMap((result) => result.departures);
+
+    for (const group of groupServiceDepartures(departures, now)) {
+      const departure = group.departures[0];
+      services.push({
+        id: `bus:${stopGroup.id}:${group.key}`,
+        mode: "bus",
+        locationId: stopGroup.id,
+        locationName: stopGroup.name,
+        distanceMiles: stopGroup.distanceMiles,
+        departure,
+        relatedDepartures: group.departures,
+        sourceState,
+      });
+    }
+  }
+
+  return services.sort((a, b) =>
+    a.distanceMiles - b.distanceMiles ||
+    a.departure.predictedArrival.getTime() - b.departure.predictedArrival.getTime() ||
+    a.mode.localeCompare(b.mode) ||
+    a.id.localeCompare(b.id));
 }
 
 export function groupDeparturesByDirection(

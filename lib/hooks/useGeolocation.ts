@@ -64,6 +64,7 @@ export function useGeolocation(options?: UseGeolocationOptions): UseGeolocationR
   const [permissionState, setPermissionState] = useState<GeolocationPermissionState>("prompt");
   
   const watchIdRef = useRef<number | null>(null);
+  const hasRequestedRef = useRef(false);
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
@@ -97,7 +98,7 @@ export function useGeolocation(options?: UseGeolocationOptions): UseGeolocationR
 
   // Auto-request location on mount if option is set and permission is granted
   useEffect(() => {
-    if (optionsRef.current?.autoRequest && permissionState === "granted") {
+    if (optionsRef.current?.autoRequest && permissionState === "granted" && !hasRequestedRef.current) {
       requestLocation();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -112,6 +113,7 @@ export function useGeolocation(options?: UseGeolocationOptions): UseGeolocationR
       return;
     }
 
+    hasRequestedRef.current = true;
     setIsLoading(true);
     setError(null);
 
@@ -192,4 +194,3 @@ function getErrorMessage(code: number): string {
       return "An unknown error occurred while getting your location.";
   }
 }
-

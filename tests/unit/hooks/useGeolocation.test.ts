@@ -261,5 +261,20 @@ describe("useGeolocation", () => {
 
     expect(mockPermissions.query).toHaveBeenCalledWith({ name: "geolocation" });
   });
-});
 
+  it("does not repeat a manual request when permission becomes granted", async () => {
+    mockGeolocation.getCurrentPosition.mockImplementation((success) => {
+      success({
+        coords: { latitude: 40.7128, longitude: -74.006, accuracy: 5 },
+        timestamp: Date.now(),
+      });
+    });
+
+    const { result } = renderHook(() => useGeolocation({ autoRequest: true }));
+
+    act(() => result.current.requestLocation());
+
+    await waitFor(() => expect(result.current.permissionState).toBe("granted"));
+    expect(mockGeolocation.getCurrentPosition).toHaveBeenCalledTimes(1);
+  });
+});

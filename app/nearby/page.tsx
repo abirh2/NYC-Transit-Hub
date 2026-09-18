@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { PageContainer, PageHeader } from "@/components/layout";
 import { NearbyClient } from "@/components/nearby/NearbyClient";
 
 export const metadata: Metadata = {
@@ -9,12 +8,8 @@ export const metadata: Metadata = {
 
 export default function NearbyPage() {
   return (
-    <PageContainer width="wide">
-      <PageHeader
-        title="Nearby"
-        description="The next subway trains and buses from boarding locations around you."
-      />
+    <div className="-mx-4 -mt-4 md:-mx-6 md:-mt-6 lg:mx-auto lg:mt-0 lg:max-w-7xl">
       <NearbyClient />
-    </PageContainer>
+    </div>
   );
 }

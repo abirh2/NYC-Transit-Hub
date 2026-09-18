@@ -695,10 +695,23 @@ This prevents issues like a train "16 min away" from appearing at its next stop.
 ### NearbyClient
 
 `NearbyClient` requests location once, independently loads subway stations and
-grouped static bus stops, then presents an All/Subway/Bus proximity feed. Bus
-cards lead with the next chronological prediction and progressively disclose
-additional exact-trip links through `BusDepartureCard`. No route choice is
-required before the first bus ETA appears.
+grouped static bus stops, then opens on a contextual map followed immediately
+by flat subway and bus service rows. `NearbyMap` reuses the Realtime Leaflet
+stack, route colors, subway geometry/projector, marker builders, and actual bus
+positions; only bounded nearby boarding points appear until a service is
+selected.
+
+`buildNearbyServices` groups normalized departures by route, direction, and
+destination without losing the exact primary Trip or ordered related arrivals.
+`NearbyDepartureRow` gives subway and bus the same hierarchy: route identity,
+rider-facing direction/destination, boarding place, walking/progress context,
+and a dominant ETA. Pressing the row selects it in place and updates map
+context. A separate detail link preserves the exact `/realtime` Trip/Vehicle
+deep link, avoiding nested interactive controls.
+
+The map includes a floating “Where to?” link to `/routes`. Compact
+All/Subway/Bus controls remain secondary to results; no mode choice or ranked
+station list is required before the first ETA appears.
 
 The initial view is capped at six bus-stop groups and twelve directional stop
 IDs per realtime refresh. Subway and bus loading/error states remain isolated;

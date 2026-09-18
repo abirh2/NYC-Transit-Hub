@@ -1,42 +1,23 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@heroui/react";
-import { BusFront, ChevronDown, LocateFixed, MapPin, RefreshCw, TrainFront } from "lucide-react";
+import { LocateFixed, RefreshCw } from "lucide-react";
 
-import { BusDepartureCard } from "@/components/nearby/BusDepartureCard";
-import { NearbyLocationCard } from "@/components/nearby/NearbyLocationCard";
-import { TrainDepartureCard } from "@/components/nearby/TrainDepartureCard";
-import {
-  BusBadge,
-  EmptyState,
-  ErrorState,
-  LoadingSkeleton,
-  StatusChip,
-  SubwayBullet,
-  Surface,
-} from "@/components/ui";
+import { NearbyDepartureRow } from "@/components/nearby/NearbyDepartureRow";
+import { NearbyMap } from "@/components/nearby/NearbyMap";
+import { EmptyState, StatusChip } from "@/components/ui";
 import { useGeolocation } from "@/lib/hooks";
-import { getDirectionLabel } from "@/lib/transit/direction";
 import {
-  getFreshnessLabel,
-  getRiderDirectionLabel,
-  groupDeparturesByDirection,
-  selectNextDeparture,
-  sortNearbyLocations,
+  buildNearbyServices,
   sortUniqueDepartures,
+  type NearbyService,
 } from "@/lib/transit/nearby";
-import {
-  estimateWalkingTime,
-  formatDistance,
-  formatWalkingTime,
-} from "@/lib/utils/distance";
 import type {
   BusTrip,
   Departure,
   NearbyBusRealtimeResult,
   NearbyBusStopGroup,
-  NearbyLocation,
   RealtimeSourceState,
   SubwayTrip,
   TransitStation,
@@ -59,7 +40,10 @@ type ModeFilter = "all" | "subway" | "bus";
 const REFRESH_INTERVAL_MS = 30_000;
 const MAX_BUS_STOP_IDS = 12;
 
-function hydrateDeparture(departure: Departure & { predictedArrival: Date | string; predictedDeparture: Date | string | null }): Departure {
+function hydrateDeparture(departure: Departure & {
+  predictedArrival: Date | string;
+  predictedDeparture: Date | string | null;
+}): Departure {
   return {
     ...departure,
     predictedArrival: new Date(departure.predictedArrival),
@@ -69,13 +53,20 @@ function hydrateDeparture(departure: Departure & { predictedArrival: Date | stri
   };
 }
 
-function mergeRealtimePayloads(payloads: Array<{ departures: Departure[]; trips: SubwayTrip[]; sourceState: RealtimeSourceState; lastUpdated: string }>): NearbyRealtimeState {
+function mergeRealtimePayloads(payloads: Array<{
+  departures: Departure[];
+  trips: SubwayTrip[];
+  sourceState: RealtimeSourceState;
+  lastUpdated: string;
+}>): NearbyRealtimeState {
   const departures = sortUniqueDepartures(payloads.flatMap((payload) =>
     payload.departures.map((departure) => hydrateDeparture(departure))));
-  const trips = [...new Map(payloads.flatMap((payload) => payload.trips).map((trip) => [trip.id, trip])).values()];
+  const trips = [...new Map(payloads.flatMap((payload) => payload.trips)
+    .map((trip) => [trip.id, trip])).values()];
   const sourceState = payloads.some((payload) => payload.sourceState === "ok")
     ? payloads.some((payload) => payload.sourceState === "stale") ? "stale" : "ok"
     : payloads[0]?.sourceState ?? "unavailable";
+
   return {
     departures,
     trips,
@@ -86,49 +77,111 @@ function mergeRealtimePayloads(payloads: Array<{ departures: Departure[]; trips:
   };
 }
 
-function LocationState({ permissionState, isLoading, onRequest, error }: { permissionState: string; isLoading: boolean; onRequest: () => void; error: string | null }) {
-  const title = permissionState === "denied" ? "Location access is off" : permissionState === "unsupported" ? "Location is not supported" : "Find transit near you";
-  const description = permissionState === "denied" ? "Enable location in your browser settings, then try again." : error ?? "Use your current location to rank nearby subway stations and bus stops.";
-  return <EmptyState icon={<LocateFixed className="h-6 w-6" aria-hidden="true" />} title={title} description={description} action={permissionState !== "unsupported" && <Button color="primary" variant="flat" onPress={onRequest} isLoading={isLoading} startContent={<LocateFixed className="h-4 w-4" />}>{permissionState === "denied" ? "Try location again" : "Use my location"}</Button>} />;
+function LocationState({
+  permissionState,
+  isLoading,
+  onRequest,
+  error,
+}: {
+  permissionState: string;
+  isLoading: boolean;
+  onRequest: () => void;
+  error: string | null;
+}) {
+  const title = permissionState === "denied"
+    ? "Location access is off"
+    : permissionState === "unsupported"
+      ? "Location is not supported"
+      : "Find transit near you";
+  const description = permissionState === "denied"
+    ? "Enable location in your browser settings, then try again."
+    : error ?? "Use your current location to show the next trains and buses around you.";
+
+  return (
+    <EmptyState
+      icon={<LocateFixed className="h-6 w-6" aria-hidden="true" />}
+      title={title}
+      description={description}
+      action={permissionState !== "unsupported" && (
+        <Button
+          color="primary"
+          variant="flat"
+          onPress={onRequest}
+          isLoading={isLoading}
+          startContent={<LocateFixed className="h-4 w-4" />}
+        >
+          {permissionState === "denied" ? "Try location again" : "Use my location"}
+        </Button>
+      )}
+    />
+  );
 }
 
-function combineBusResults(results: readonly NearbyBusRealtimeResult[], stopGroup: NearbyBusStopGroup): Departure[] {
-  const stopIds = new Set(stopGroup.stops.map((stop) => stop.id));
-  return sortUniqueDepartures(results
-    .filter((result) => stopIds.has(result.stopId))
-    .flatMap((result) => result.departures));
+function ResultsSkeleton() {
+  return (
+    <div aria-label="Loading nearby departures" aria-busy="true" className="divide-y divide-border-subtle">
+      {[0, 1, 2].map((index) => (
+        <div key={index} className="grid min-h-28 grid-cols-[3rem_1fr_4rem] items-center gap-3 px-4 py-3">
+          <span className="h-10 w-10 animate-pulse rounded-pill bg-surface-elevated" />
+          <span className="space-y-2">
+            <span className="block h-3 w-2/5 animate-pulse rounded-sm bg-surface-elevated" />
+            <span className="block h-4 w-4/5 animate-pulse rounded-sm bg-surface-elevated" />
+            <span className="block h-3 w-3/5 animate-pulse rounded-sm bg-surface-elevated" />
+          </span>
+          <span className="h-10 animate-pulse rounded-sm bg-surface-elevated" />
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export function NearbyClient() {
-  const { position, error: geoError, isLoading: isLoadingGeo, permissionState, requestLocation } = useGeolocation({ autoRequest: true });
+  const {
+    position,
+    error: geoError,
+    isLoading: isLoadingGeo,
+    permissionState,
+    requestLocation,
+  } = useGeolocation({ autoRequest: true });
   const [stations, setStations] = useState<NearbyStationResponse[]>([]);
   const [busGroups, setBusGroups] = useState<NearbyBusStopGroup[]>([]);
   const [busResults, setBusResults] = useState<NearbyBusRealtimeResult[]>([]);
   const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
+  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
+  const [pendingLocationId, setPendingLocationId] = useState<string | null>(null);
   const [subwayRealtime, setSubwayRealtime] = useState<NearbyRealtimeState | null>(null);
   const [isLoadingSubway, setIsLoadingSubway] = useState(false);
   const [isLoadingBuses, setIsLoadingBuses] = useState(false);
   const [subwayError, setSubwayError] = useState<string | null>(null);
   const [busError, setBusError] = useState<string | null>(null);
+  const [subwayIsPartial, setSubwayIsPartial] = useState(false);
+  const [busIsPartial, setBusIsPartial] = useState(false);
   const [filter, setFilter] = useState<ModeFilter>("all");
-  const [expandedBusGroups, setExpandedBusGroups] = useState<Set<string>>(new Set());
-  const [directionIndex, setDirectionIndex] = useState(0);
-  const [showMore, setShowMore] = useState(false);
   const [now, setNow] = useState(() => new Date());
-  const directionRailRef = useRef<HTMLDivElement>(null);
 
   const loadStations = useCallback(async () => {
     if (!position) return;
     setIsLoadingSubway(true);
     setSubwayError(null);
+    setSubwayIsPartial(false);
     try {
       const response = await fetch(`/api/stations?near=${position.latitude},${position.longitude}&radius=1.5&limit=5`);
-      const json = await response.json() as { success: boolean; data?: { stations: NearbyStationResponse[] }; error?: string };
-      if (!response.ok || !json.success) throw new Error(json.error ?? "Nearby subway stations could not be loaded.");
+      const json = await response.json() as {
+        success: boolean;
+        data?: { stations: NearbyStationResponse[] };
+        error?: string;
+      };
+      if (!response.ok || !json.success) {
+        throw new Error(json.error ?? "Nearby subway stations could not be loaded.");
+      }
       const nextStations = json.data?.stations ?? [];
       setStations(nextStations);
-      setSelectedStationId((current) => current && nextStations.some((station) => station.id === current) ? current : nextStations[0]?.id ?? null);
+      setSelectedStationId((current) =>
+        current && nextStations.some((station) => station.id === current)
+          ? current
+          : nextStations[0]?.id ?? null);
     } catch (cause) {
+      setSubwayIsPartial(false);
       setSubwayError(cause instanceof Error ? cause.message : "Nearby subway stations could not be loaded.");
     } finally {
       setIsLoadingSubway(false);
@@ -139,35 +192,77 @@ export function NearbyClient() {
     if (!position) return;
     setIsLoadingBuses(true);
     setBusError(null);
+    setBusIsPartial(false);
     try {
       const response = await fetch(`/api/buses/stops?near=${position.latitude},${position.longitude}&radius=0.75&limit=6`);
-      const json = await response.json() as { success: boolean; data?: { groups: NearbyBusStopGroup[] }; error?: string };
-      if (!response.ok || !json.success) throw new Error(json.error ?? "Nearby bus stops could not be loaded.");
+      const json = await response.json() as {
+        success: boolean;
+        data?: { groups: NearbyBusStopGroup[] };
+        error?: string;
+      };
+      if (!response.ok || !json.success) {
+        throw new Error(json.error ?? "Nearby bus stops could not be loaded.");
+      }
       setBusGroups(json.data?.groups ?? []);
     } catch (cause) {
+      setBusIsPartial(false);
       setBusError(cause instanceof Error ? cause.message : "Nearby bus stops could not be loaded.");
     } finally {
       setIsLoadingBuses(false);
     }
   }, [position]);
 
-  useEffect(() => { void loadStations(); void loadBusGroups(); }, [loadBusGroups, loadStations]);
+  useEffect(() => {
+    void loadStations();
+    void loadBusGroups();
+  }, [loadBusGroups, loadStations]);
 
-  const selectedStation = useMemo(() => stations.find((station) => station.id === selectedStationId) ?? null, [selectedStationId, stations]);
-  const busStopIds = useMemo(() => [...new Set(busGroups.flatMap((group) => group.stops.map((stop) => stop.id)))].slice(0, MAX_BUS_STOP_IDS), [busGroups]);
+  const selectedStation = useMemo(() =>
+    stations.find((station) => station.id === selectedStationId) ?? null,
+  [selectedStationId, stations]);
+  const busStopIds = useMemo(() => [
+    ...new Set(busGroups.flatMap((group) => group.stops.map((stop) => stop.id))),
+  ].slice(0, MAX_BUS_STOP_IDS), [busGroups]);
 
   const loadSubwayRealtime = useCallback(async () => {
     if (!selectedStation) return;
     try {
-      const sourceIds = selectedStation.sourceIds?.length ? selectedStation.sourceIds : [selectedStation.id];
-      const payloads = await Promise.all(sourceIds.map((sourceId) => fetch(`/api/trains/realtime?stationId=${encodeURIComponent(sourceId)}&limit=100`).then(async (response) => {
-        const json = await response.json() as { success: boolean; data?: { departures: Departure[]; trips: SubwayTrip[]; sourceState: RealtimeSourceState; lastUpdated: string }; error?: string };
-        if (!response.ok || !json.success || !json.data) throw new Error(json.error ?? "Realtime subway departures are unavailable.");
-        return json.data;
-      })));
-      setSubwayRealtime(mergeRealtimePayloads(payloads));
+      const sourceIds = selectedStation.sourceIds?.length
+        ? selectedStation.sourceIds
+        : [selectedStation.id];
+      const payloads = await Promise.all(sourceIds.map((sourceId) =>
+        fetch(`/api/trains/realtime?stationId=${encodeURIComponent(sourceId)}&limit=100`)
+          .then(async (response) => {
+            const json = await response.json() as {
+              success: boolean;
+              data?: {
+                departures: Departure[];
+                trips: SubwayTrip[];
+                sourceState: RealtimeSourceState;
+                lastUpdated: string;
+              };
+              error?: string;
+            };
+            if (!response.ok || !json.success || !json.data) {
+              throw new Error(json.error ?? "Realtime subway departures are unavailable.");
+            }
+            return json.data;
+          })));
+      const nextRealtime = mergeRealtimePayloads(payloads);
+      const unavailablePayloads = payloads.filter((payload) =>
+        payload.sourceState === "unavailable" || payload.sourceState === "malformed");
+      const hasHealthyPayload = payloads.some((payload) =>
+        payload.sourceState === "ok" || payload.sourceState === "stale" || payload.sourceState === "empty");
+      setSubwayRealtime(nextRealtime);
+      setSubwayIsPartial(unavailablePayloads.length > 0 && hasHealthyPayload);
+      setSubwayError(unavailablePayloads.length > 0
+        ? unavailablePayloads.length === payloads.length
+          ? "Realtime subway departures are unavailable."
+          : "Some subway realtime sources are unavailable."
+        : null);
     } catch (cause) {
       setSubwayRealtime({ departures: [], trips: [], sourceState: "unavailable", lastUpdated: null });
+      setSubwayIsPartial(false);
       setSubwayError(cause instanceof Error ? cause.message : "Realtime subway departures are unavailable.");
     }
   }, [selectedStation]);
@@ -178,21 +273,45 @@ export function NearbyClient() {
       const query = new URLSearchParams();
       busStopIds.forEach((stopId) => query.append("stopId", stopId));
       const response = await fetch(`/api/buses/nearby?${query}`);
-      const json = await response.json() as { success: boolean; data?: { results: Array<Omit<NearbyBusRealtimeResult, "departures" | "trips" | "vehicles" | "feedTimestamp"> & { departures: Departure[]; trips: BusTrip[]; vehicles: TransitVehicle[]; feedTimestamp: string | null }> }; error?: string };
-      if (!response.ok || !json.success || !json.data) throw new Error(json.error ?? "Realtime bus arrivals are unavailable.");
-      setBusResults(json.data.results.map((result) => ({
+      const json = await response.json() as {
+        success: boolean;
+        data?: {
+          results: Array<Omit<NearbyBusRealtimeResult,
+            "departures" | "trips" | "vehicles" | "feedTimestamp"> & {
+              departures: Departure[];
+              trips: BusTrip[];
+              vehicles: TransitVehicle[];
+              feedTimestamp: string | null;
+            }>;
+        };
+        error?: string;
+      };
+      if (!response.ok || !json.success || !json.data) {
+        throw new Error(json.error ?? "Realtime bus arrivals are unavailable.");
+      }
+      const nextResults = json.data.results.map((result) => ({
         ...result,
         departures: result.departures.map((departure) => hydrateDeparture(departure)),
         feedTimestamp: result.feedTimestamp ? new Date(result.feedTimestamp) : null,
-      })));
+      }));
+      const unavailableResults = nextResults.filter((result) =>
+        result.error || result.sourceState === "unavailable" || result.sourceState === "malformed");
+      const hasHealthyResult = nextResults.some((result) =>
+        result.sourceState === "ok" || result.sourceState === "stale" || result.sourceState === "empty");
+      setBusResults(nextResults);
+      setBusIsPartial(unavailableResults.length > 0 && hasHealthyResult);
+      setBusError(unavailableResults.length > 0
+        ? unavailableResults.length === nextResults.length
+          ? "Realtime bus arrivals are unavailable."
+          : "Some bus realtime sources are unavailable."
+        : null);
     } catch (cause) {
+      setBusIsPartial(false);
       setBusError(cause instanceof Error ? cause.message : "Realtime bus arrivals are unavailable.");
     }
   }, [busStopIds]);
 
   useEffect(() => {
-    setDirectionIndex(0);
-    setShowMore(false);
     setSubwayRealtime(null);
     void loadSubwayRealtime();
     if (!selectedStation) return;
@@ -212,65 +331,189 @@ export function NearbyClient() {
     return () => window.clearInterval(interval);
   }, []);
 
-  const locations = useMemo(() => sortNearbyLocations([
-    ...stations.map((station): NearbyLocation => ({ id: `subway:${station.id}`, mode: "subway", station, distanceMiles: station.distance })),
-    ...busGroups.map((stopGroup): NearbyLocation => ({ id: stopGroup.id, mode: "bus", stopGroup, distanceMiles: stopGroup.distanceMiles })),
-  ]).filter((location) => filter === "all" || location.mode === filter), [busGroups, filter, stations]);
+  const allServices = useMemo(() => buildNearbyServices({
+    station: selectedStation,
+    subwayDepartures: subwayRealtime?.departures ?? [],
+    subwaySourceState: subwayRealtime?.sourceState ?? "empty",
+    busGroups,
+    busResults,
+    now,
+  }), [busGroups, busResults, now, selectedStation, subwayRealtime]);
+  const visibleServices = useMemo(() => allServices.filter((service) =>
+    filter === "all" || service.mode === filter), [allServices, filter]);
+  const selectedService = useMemo(() =>
+    allServices.find((service) => service.id === selectedServiceId) ?? null,
+  [allServices, selectedServiceId]);
 
-  const directionGroups = useMemo(() => groupDeparturesByDirection(subwayRealtime?.departures ?? []), [subwayRealtime?.departures]);
-  const directions = useMemo(() => {
-    const fromStation = selectedStation?.stops.map((stop) => stop.direction).filter((direction) => direction !== "unknown") ?? [];
-    return [...new Set([...directionGroups.map((group) => group.direction), ...fromStation])];
-  }, [directionGroups, selectedStation]);
+  useEffect(() => {
+    const currentVisible = visibleServices.find((service) => service.id === selectedServiceId);
+    const next = pendingLocationId
+      ? visibleServices.find((service) => service.locationId === pendingLocationId)
+      : currentVisible ?? visibleServices[0];
+    if (!next) return;
+    if (next.id !== selectedServiceId) setSelectedServiceId(next.id);
+    if (pendingLocationId) {
+      setPendingLocationId(null);
+      window.requestAnimationFrame(() => {
+        document.getElementById(`nearby-service-${encodeURIComponent(next.id)}`)
+          ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      });
+    }
+  }, [pendingLocationId, selectedServiceId, visibleServices]);
 
-  if (!position) return <LocationState permissionState={permissionState} isLoading={isLoadingGeo} onRequest={requestLocation} error={geoError?.message ?? null} />;
-  if (isLoadingSubway && isLoadingBuses && locations.length === 0) return <LoadingSkeleton variant="card" count={4} />;
-  if (locations.length === 0 && subwayError && busError) return <ErrorState title="Nearby transit could not load" description="Subway and bus results are temporarily unavailable." onRetry={() => { void loadStations(); void loadBusGroups(); }} />;
+  const selectLocation = useCallback((locationId: string) => {
+    setPendingLocationId(locationId);
+    if (locationId.startsWith("subway:")) {
+      setSelectedStationId(locationId.slice("subway:".length));
+    }
+  }, []);
 
-  return <div className="space-y-6 pb-24 lg:pb-8">
-    <Surface className="flex items-center justify-between gap-4 px-4 py-3" elevation="panel">
-      <div className="flex min-w-0 items-center gap-3"><LocateFixed className="h-5 w-5 shrink-0 text-state-selected" aria-hidden="true" /><div className="min-w-0"><p className="text-sm font-semibold">Near you</p><p className="truncate text-xs text-foreground/60">Subway and bus · ranked by walking proximity</p></div></div>
-      <Button isIconOnly size="sm" variant="light" aria-label="Refresh current location" onPress={requestLocation} isLoading={isLoadingGeo}><RefreshCw className="h-4 w-4" /></Button>
-    </Surface>
-
-    <div className="flex gap-2" role="group" aria-label="Transit mode filter">
-      {(["all", "subway", "bus"] as const).map((mode) => <button key={mode} type="button" aria-pressed={filter === mode} onClick={() => setFilter(mode)} className={`min-h-11 rounded-pill border px-4 text-sm font-medium capitalize focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus ${filter === mode ? "border-state-selected bg-surface-selected" : "border-border-subtle bg-surface-panel"}`}>{mode}</button>)}
-    </div>
-
-    <div className="grid gap-6 lg:grid-cols-[minmax(17rem,0.8fr)_minmax(0,1.2fr)]">
-      <section aria-labelledby="nearby-locations-heading">
-        <div className="mb-3"><h2 id="nearby-locations-heading" className="text-lg font-semibold">Nearby transit</h2><p className="text-sm text-foreground/60">Closest practical boarding locations first</p></div>
-        <div className="space-y-3">
-          {subwayError && stations.length === 0 && <p role="status" className="rounded-md border border-state-advisory/40 bg-state-advisory/10 p-3 text-sm">Subway locations unavailable. Bus results are still available.</p>}
-          {busError && busGroups.length === 0 && <p role="status" className="rounded-md border border-state-advisory/40 bg-state-advisory/10 p-3 text-sm">Bus locations unavailable. Subway results are still available.</p>}
-          {locations.map((location, index) => location.mode === "subway" ? <NearbyLocationCard key={location.id} selected={location.station.id === selectedStationId} onSelect={() => setSelectedStationId(location.station.id)} label={`Select ${location.station.name} subway station`}>
-            <div className="flex items-start justify-between gap-3"><div className="flex min-w-0 gap-3"><span className="mt-0.5 text-xs font-semibold text-foreground/45">{String(index + 1).padStart(2, "0")}</span><span className="min-w-0"><span className="flex items-center gap-2 font-semibold"><TrainFront className="h-4 w-4" aria-hidden="true" />{location.station.name}</span><span className="mt-1 block text-sm text-foreground/60">{formatDistance(location.distanceMiles)} · {formatWalkingTime(estimateWalkingTime(location.distanceMiles))}</span></span></div><MapPin className="h-4 w-4 shrink-0 text-foreground/45" aria-hidden="true" /></div>
-            <span className="mt-3 flex flex-wrap gap-1.5">{location.station.routeIds.slice(0, 8).map((route) => <SubwayBullet key={route} line={route} size="xs" />)}</span>
-          </NearbyLocationCard> : (() => {
-            const departures = combineBusResults(busResults, location.stopGroup);
-            const next = selectNextDeparture(departures, now);
-            const expanded = expandedBusGroups.has(location.id);
-            const states = busResults.filter((result) => location.stopGroup.stops.some((stop) => stop.id === result.stopId)).map((result) => result.sourceState);
-            return <NearbyLocationCard key={location.id}>
-              <div className="flex items-start justify-between gap-3"><div className="min-w-0"><span className="flex items-center gap-2 font-semibold"><BusFront className="h-4 w-4" aria-hidden="true" />{location.stopGroup.name}</span><span className="mt-1 block text-sm text-foreground/60">{formatDistance(location.distanceMiles)} · {formatWalkingTime(estimateWalkingTime(location.distanceMiles))}</span></div><span className="text-xs font-semibold text-foreground/45">{String(index + 1).padStart(2, "0")}</span></div>
-              <div className="mt-3 flex flex-wrap gap-1.5">{location.stopGroup.routeIds.slice(0, 10).map((route) => <BusBadge key={route} route={route} size="xs" />)}</div>
-              <div className="mt-3 space-y-2">{next ? <BusDepartureCard departure={next} now={now} hero /> : <p className="rounded-md bg-surface-app px-3 py-2 text-sm text-foreground/60">{states.some((state) => state === "unavailable") ? "Live bus arrivals are temporarily unavailable." : "No upcoming buses are reporting here."}</p>}
-                {expanded && departures.filter((departure) => departure.tripId !== next?.tripId).slice(0, 5).map((departure) => <BusDepartureCard key={departure.tripId} departure={departure} now={now} />)}
-                {departures.length > 1 && <button type="button" aria-expanded={expanded} onClick={() => setExpandedBusGroups((current) => { const nextSet = new Set(current); if (nextSet.has(location.id)) nextSet.delete(location.id); else nextSet.add(location.id); return nextSet; })} className="flex min-h-11 w-full items-center justify-center gap-1 rounded-md text-sm font-medium text-state-selected hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus">{expanded ? "Show fewer buses" : `Show ${Math.min(5, departures.length - 1)} more buses`}<ChevronDown className={`h-4 w-4 transition-transform ${expanded ? "rotate-180" : ""}`} aria-hidden="true" /></button>}
-              </div>
-            </NearbyLocationCard>;
-          })())}
-          {locations.length === 0 && <EmptyState title={`No ${filter === "all" ? "transit" : filter} nearby`} description="Try refreshing your location or choosing another mode." />}
+  if (!position) {
+    return (
+      <div className="lg:grid lg:grid-cols-[minmax(24rem,1.15fr)_minmax(22rem,0.85fr)] lg:gap-6">
+        <h1 className="sr-only">Nearby transit</h1>
+        <div
+          role="region"
+          aria-label="Nearby map"
+          className="relative flex min-h-[40dvh] items-center justify-center overflow-hidden bg-surface-app px-4 lg:min-h-[calc(100dvh-8rem)] lg:rounded-lg lg:border lg:border-border-subtle"
+        >
+          <div aria-hidden="true" className="absolute inset-0 opacity-30 [background-image:radial-gradient(circle_at_center,var(--state-selected)_0,transparent_55%)]" />
+          <div className="relative max-w-sm rounded-lg border border-border-subtle bg-surface-panel/95 p-5 shadow-lg">
+            <LocationState
+              permissionState={permissionState}
+              isLoading={isLoadingGeo}
+              onRequest={requestLocation}
+              error={geoError?.message ?? null}
+            />
+          </div>
         </div>
+
+        <section aria-labelledby="nearby-departures-heading" className="min-w-0 bg-surface-panel lg:rounded-lg lg:border lg:border-border-subtle">
+          <div className="border-b border-border-subtle px-4 py-3">
+            <h2 id="nearby-departures-heading" className="text-base font-semibold">Departures near you</h2>
+            <p className="text-xs text-foreground/55">Location is needed to rank nearby service</p>
+          </div>
+          <div className="px-4 py-8">
+            <EmptyState
+              title="Waiting for your location"
+              description="The nearest subway and bus departures will appear here."
+            />
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  const selectedState = selectedService?.sourceState ?? subwayRealtime?.sourceState ?? "empty";
+  const activeError = filter === "subway"
+    ? subwayError
+    : filter === "bus"
+      ? busError
+      : subwayError ?? busError;
+  const isPartialFailure = Boolean(activeError) && (
+    filter === "subway"
+      ? subwayIsPartial
+      : filter === "bus"
+        ? busIsPartial
+        : subwayIsPartial || busIsPartial || !subwayError || !busError
+  );
+
+  return (
+    <div className="lg:grid lg:grid-cols-[minmax(24rem,1.15fr)_minmax(22rem,0.85fr)] lg:gap-6">
+      <h1 className="sr-only">Nearby transit</h1>
+
+      <NearbyMap
+        position={position}
+        stations={stations}
+        busGroups={busGroups}
+        selectedService={selectedService}
+        subwayTrips={subwayRealtime?.trips ?? []}
+        busResults={busResults}
+        onSelectLocation={selectLocation}
+      />
+
+      <section aria-labelledby="nearby-departures-heading" className="min-w-0 bg-surface-panel lg:rounded-lg lg:border lg:border-border-subtle">
+        <div className="flex min-h-14 items-center gap-3 border-b border-border-subtle px-4 py-2">
+          <div className="min-w-0 flex-1">
+            <h2 id="nearby-departures-heading" className="text-base font-semibold">Departures near you</h2>
+            <p className="truncate text-xs text-foreground/55">
+              {filter === "bus"
+                ? "Bus stops around your location"
+                : selectedStation?.name ?? "Subway and bus around your location"}
+            </p>
+          </div>
+
+          <StatusChip
+            state={activeError ? "unavailable" : selectedState === "ok" ? "normal" : selectedState === "stale" ? "stale" : "unavailable"}
+            label={activeError ? isPartialFailure ? "Partial" : "Offline" : selectedState === "ok" ? "Live" : selectedState === "stale" ? "Delayed" : "Checking"}
+            size="sm"
+          />
+
+          <Button
+            isIconOnly
+            size="sm"
+            variant="light"
+            aria-label="Refresh current location"
+            onPress={requestLocation}
+            isLoading={isLoadingGeo}
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-b border-border-subtle px-4 py-2">
+          <p className="text-xs text-foreground/55">Closest useful services first</p>
+          <div className="flex gap-1" role="group" aria-label="Transit mode filter">
+            {(["all", "subway", "bus"] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                aria-pressed={filter === mode}
+                onClick={() => setFilter(mode)}
+                className={`min-h-9 rounded-pill px-3 text-xs font-medium capitalize focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus ${
+                  filter === mode ? "bg-surface-selected text-foreground" : "text-foreground/55 hover:bg-surface-hover"
+                }`}
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {subwayError && (
+          <p role="status" className="border-b border-border-subtle px-4 py-3 text-sm text-foreground/70">
+            Subway updates are unavailable. Bus results remain available when reported.
+          </p>
+        )}
+        {busError && (
+          <p role="status" className="border-b border-border-subtle px-4 py-3 text-sm text-foreground/70">
+            Bus updates are unavailable. Subway results remain available when reported.
+          </p>
+        )}
+
+        {(isLoadingSubway || isLoadingBuses) && visibleServices.length === 0 ? (
+          <ResultsSkeleton />
+        ) : visibleServices.length > 0 ? (
+          <div>
+            {visibleServices.map((service) => (
+              <NearbyDepartureRow
+                key={service.id}
+                service={service}
+                now={now}
+                selected={service.id === selectedService?.id}
+                onSelect={(nextService: NearbyService) => setSelectedServiceId(nextService.id)}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="px-4 py-8">
+            <EmptyState
+              title={`No ${filter === "all" ? "departures" : `${filter} departures`} nearby`}
+              description={subwayError ?? busError ?? "No current predictions are reporting. Try refreshing shortly."}
+            />
+          </div>
+        )}
       </section>
-
-      {filter !== "bus" && selectedStation && <section aria-labelledby="station-heading" className="min-w-0">
-        <div className="mb-4 flex items-start justify-between gap-4"><div className="min-w-0"><h2 id="station-heading" className="truncate text-xl font-semibold">{selectedStation.name}</h2><p className="mt-1 text-sm text-foreground/60">Choose a direction to see the next train.</p></div>{subwayRealtime && <StatusChip state={subwayRealtime.sourceState === "ok" ? "normal" : subwayRealtime.sourceState === "stale" ? "stale" : "unavailable"} label={getFreshnessLabel(subwayRealtime.sourceState)} size="sm" />}</div>
-        {directions.length > 0 && <div className="mb-4 flex gap-2 overflow-x-auto" role="tablist" aria-label="Train directions">{directions.map((direction, index) => <button key={direction} type="button" role="tab" aria-selected={index === directionIndex} onClick={() => { setDirectionIndex(index); directionRailRef.current?.children[index]?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" }); }} className={`min-h-11 shrink-0 rounded-pill border px-3 text-sm font-medium ${index === directionIndex ? "border-state-selected bg-surface-selected" : "border-border-subtle text-foreground/65"}`}>{getRiderDirectionLabel(direction)}</button>)}</div>}
-        <div ref={directionRailRef} className="flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain touch-pan-x scrollbar-none" onScroll={(event) => { const element = event.currentTarget; const index = Math.round(element.scrollLeft / Math.max(element.clientWidth, 1)); setDirectionIndex(Math.min(index, Math.max(0, directions.length - 1))); }}>
-          {directions.map((direction) => { const departures = sortUniqueDepartures(subwayRealtime?.departures.filter((departure) => departure.direction === direction) ?? []); const next = selectNextDeparture(departures, now); return <div key={direction} role="tabpanel" className="w-full shrink-0 snap-start pr-1"><div className="mb-3"><p className="text-sm font-medium">{getRiderDirectionLabel(direction, next?.destination)}</p><p className="text-xs text-foreground/55">{getDirectionLabel(direction)} · {departures.length} upcoming</p></div>{next ? <div className="space-y-3"><TrainDepartureCard departure={next} now={now} hero />{showMore && departures.filter((departure) => departure.tripId !== next.tripId).slice(0, 5).map((departure) => <TrainDepartureCard key={departure.tripId} departure={departure} now={now} />)}{departures.length > 1 && <button type="button" className="min-h-11 w-full rounded-lg py-2 text-sm font-medium text-state-selected hover:bg-surface-hover" onClick={() => setShowMore((value) => !value)}>{showMore ? "Show less" : `Show ${Math.min(5, departures.length - 1)} more departures`}</button>}</div> : <EmptyState title="No upcoming trains" description={subwayError ?? "There are no current predictions for this direction."} action={<Button variant="flat" onPress={loadSubwayRealtime}>Refresh departures</Button>} />}</div>; })}
-        </div>
-      </section>}
     </div>
-  </div>;
+  );
 }

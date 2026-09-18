@@ -172,3 +172,58 @@ This plan implements the approved capability map in dependency order:
 - None blocking. The compact presentation of multiple directional stops inside
   a grouped card will be chosen during browser verification from inline labels
   versus a secondary selector, without changing the approved data contract.
+
+---
+
+## Phase 5 Addendum: Map-first Nearby UX
+
+### Overview
+
+Replace the completed Phase 4 dashboard-shaped presentation with the service-
+first contract in `SPEC-nearby-map-first-experience.md`. Data boundaries,
+polling, normalized identities, and `/realtime` detail routing remain unchanged.
+
+### Architecture Decisions
+
+- Derive a small `NearbyService` presentation model from existing normalized
+  departures; do not add an API or duplicate transit domain contracts.
+- Introduce a lightweight Nearby map on the existing Leaflet stack. Reuse
+  basemaps, markers, route colors, subway geometry, and actual bus positions.
+- Keep first-press selection in `/nearby`; keep exact detail navigation as a
+  separate sibling link to avoid nested interactive elements.
+- Use a mobile map-over-results stack and a desktop sticky-map/results split.
+
+### Task List
+
+- [x] Task 13: Specify and test service-first grouping and ordering.
+- [x] Task 14: Build the contextual Nearby map and map/list selection contract.
+- [x] Task 15: Replace ranked/nested cards with flat selectable departure rows
+  and remove redundant route-page chrome.
+- [x] Task 16: Cover states, mobile/desktop behavior, exact deep links, and
+  perform bounded Impeccable/browser finish verification.
+
+### Checkpoint: Map and service contract
+
+- [x] Unit/component tests pass and normalized trip/vehicle identities remain
+  intact.
+- [x] A selection changes both the row state and map context.
+
+### Checkpoint: Complete
+
+- [x] The first mobile viewport answers location, nearby transit, and next
+  arrival without a numbered stop list.
+- [x] Lint, typecheck, full tests, production build, and relevant E2E pass.
+
+### Risks and Mitigations
+
+| Risk | Impact | Mitigation |
+|---|---|---|
+| Leaflet captures mobile scrolling | High | Keep map height bounded, disable scroll-wheel zoom, and preserve vertical page gestures. |
+| Map selection loses exact identity | High | Key selection by mode + `tripId`; resolve bus vehicles only through normalized trip relationships. |
+| Route geometry increases initial work | Medium | Load only the selected route's existing compact geometry artifact. |
+| Flat rows hide resilience states | Medium | Keep localized mode status copy and a compact shared freshness treatment. |
+
+### Open Questions
+
+- None blocking; the user supplied a complete hierarchy and interaction brief
+  and requested uninterrupted execution.
