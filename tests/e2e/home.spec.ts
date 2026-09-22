@@ -1,5 +1,34 @@
 import { test, expect } from 'playwright/test';
 
+async function usesMobileNavigation(page: import('playwright/test').Page) {
+  return page.getByRole('navigation', { name: 'Primary mobile navigation' }).isVisible();
+}
+
+async function openDestination(
+  page: import('playwright/test').Page,
+  label: string,
+  path: string,
+) {
+  if (await usesMobileNavigation(page)) {
+    if (label === 'Realtime') {
+      await page.getByRole('link', { name: 'Map', exact: true }).click();
+    } else {
+      await page.getByRole('button', { name: 'More', exact: true }).click();
+      await page.getByRole('navigation', { name: 'More destinations' })
+        .getByRole('link', { name: label, exact: true })
+        .click();
+    }
+  } else {
+    const primaryLabels = new Set(['Realtime', 'Station Board', 'Accessibility']);
+    const navigation = page.getByRole('navigation', {
+      name: primaryLabels.has(label) ? 'Primary' : 'Exploration & intelligence',
+    });
+    await navigation.getByRole('link', { name: label, exact: true }).click();
+  }
+
+  await expect(page).toHaveURL(path);
+}
+
 test.describe('Home Page', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
@@ -10,30 +39,45 @@ test.describe('Home Page', () => {
   });
 
   test('displays main heading', async ({ page }) => {
-    await expect(page.getByRole('heading', { name: 'NYC Transit Hub' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Your next ride' })).toBeVisible();
   });
 
-  test('displays dashboard cards', async ({ page }) => {
-    await expect(page.getByText('Your Station')).toBeVisible();
-    await expect(page.getByText('Service Alerts')).toBeVisible();
-    await expect(page.getByText('Live Tracker')).toBeVisible();
-    await expect(page.getByText('Commute Assistant')).toBeVisible();
+  test('prioritizes rider information before system intelligence', async ({ page }) => {
+    const nearYou = page.getByRole('heading', { name: 'Near you' });
+    const service = page.getByRole('heading', { name: 'Service on your routes' });
+    const saved = page.getByRole('heading', { name: 'Saved transit' });
+    const intelligence = page.getByRole('heading', { name: 'Transit intelligence' });
+
+    await expect(nearYou).toBeVisible();
+    await expect(page.getByRole('link', { name: /Where to/i })).toHaveAttribute('href', '/routes');
+    await expect(service).toBeVisible();
+    await expect(saved).toBeVisible();
+    await expect(intelligence).toBeVisible();
+
+    const nearBox = await nearYou.boundingBox();
+    const intelligenceBox = await intelligence.boundingBox();
+    expect(nearBox?.y).toBeLessThan(intelligenceBox?.y ?? Infinity);
   });
 
-  test('displays sidebar navigation', async ({ page }) => {
-    await expect(page.getByRole('link', { name: /dashboard/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: /realtime/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: /station board/i })).toBeVisible();
+  test('displays responsive primary navigation', async ({ page }) => {
+    if (await usesMobileNavigation(page)) {
+      await expect(page.getByRole('link', { name: 'Home', exact: true })).toBeVisible();
+      await expect(page.getByRole('link', { name: 'Map', exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'More', exact: true })).toBeVisible();
+      return;
+    }
+
+    await expect(page.getByRole('link', { name: 'Dashboard', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Realtime', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Station Board', exact: true })).toBeVisible();
   });
 
   test('navigates to station board page', async ({ page }) => {
-    await page.getByRole('link', { name: /station board/i }).click();
-    await expect(page).toHaveURL('/board');
+    await openDestination(page, 'Station Board', '/board');
   });
 
   test('navigates to realtime page', async ({ page }) => {
-    await page.getByRole('link', { name: /realtime/i }).click();
-    await expect(page).toHaveURL('/realtime');
+    await openDestination(page, 'Realtime', '/realtime');
   });
 });
 
@@ -41,19 +85,17 @@ test.describe('Navigation', () => {
   test('sidebar links work correctly', async ({ page }) => {
     await page.goto('/');
 
-    // Test each navigation link
     const navLinks = [
-      { name: /reliability/i, url: '/reliability' },
-      { name: /accessibility/i, url: '/accessibility' },
-      { name: /commute/i, url: '/commute' },
-      { name: /crowding/i, url: '/crowding' },
-      { name: /incidents/i, url: '/incidents' },
+      { name: 'Reliability', url: '/reliability' },
+      { name: 'Accessibility', url: '/accessibility' },
+      { name: 'Commute', url: '/commute' },
+      { name: 'Crowding', url: '/crowding' },
+      { name: 'Incidents', url: '/incidents' },
     ];
 
     for (const link of navLinks) {
-      await page.getByRole('link', { name: link.name }).click();
-      await expect(page).toHaveURL(link.url);
-      await page.goto('/'); // Go back to home
+      await openDestination(page, link.name, link.url);
+      await page.goto('/');
     }
   });
 });
@@ -84,21 +126,27 @@ test.describe('Theme Toggle', () => {
 });
 
 test.describe('Responsive Design', () => {
-  test('mobile menu works', async ({ page }) => {
-    // Set mobile viewport
+  test('keeps the rider decision in the first mobile viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+
+    await expect(page.getByRole('heading', { name: 'Your next ride' })).toBeVisible();
+    await expect(page.getByRole('link', { name: /Where to/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Near you' })).toBeVisible();
+
+    const intelligence = await page.getByRole('heading', { name: 'Transit intelligence' }).boundingBox();
+    expect(intelligence?.y).toBeGreaterThan(844);
+  });
+
+  test('mobile more drawer works', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 667 });
     await page.goto('/');
 
-    // Sidebar should be hidden on mobile
-    const sidebar = page.locator('aside');
+    const moreButton = page.getByRole('button', { name: 'More', exact: true });
+    await expect(moreButton).toBeVisible();
+    await moreButton.click();
 
-    // Find and click hamburger menu
-    const menuButton = page.getByRole('button', { name: /open menu/i });
-    await expect(menuButton).toBeVisible();
-
-    await menuButton.click();
-
-    // Sidebar should now be visible
-    await expect(sidebar).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'More destinations' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Station Board', exact: true })).toBeVisible();
   });
 });

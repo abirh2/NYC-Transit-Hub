@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-22T17:30:00Z",
+  "title": "Design System: NYC Transit Hub",
+  "extensions": {
+    "colorMeta": {
+      "transit-blue": { "role": "primary", "displayName": "Transit Blue", "canonical": "#0039A6", "tonalRamp": ["#00102e", "#001d55", "#002a7c", "#0039a6", "#3565ba", "#7091ce", "#aec2e3", "#eef4ff"] },
+      "panel-dark": { "role": "neutral", "displayName": "Night Panel", "canonical": "#161616", "tonalRamp": ["#111111", "#161616", "#252525", "#3f3f3f", "#666666", "#969696", "#c8c8c8", "#f2f2f2"] },
+      "panel-light": { "role": "neutral", "displayName": "Day Panel", "canonical": "#ffffff", "tonalRamp": ["#171717", "#2e2e2e", "#515151", "#777777", "#a0a0a0", "#c8c8c8", "#e8e8e8", "#ffffff"] },
+      "transit-green": { "role": "secondary", "displayName": "Service Green", "canonical": "#00933C", "tonalRamp": ["#082819", "#064828", "#006a31", "#00933c", "#3dab66", "#78c792", "#b5e3c0", "#effaf1"] },
+      "transit-orange": { "role": "secondary", "displayName": "Delay Orange", "canonical": "#FF6319", "tonalRamp": ["#321208", "#65230b", "#9c360c", "#d84b10", "#ff6319", "#ff9661", "#ffc4a7", "#fff1e8"] },
+      "transit-red": { "role": "secondary", "displayName": "Severe Red", "canonical": "#EE352E", "tonalRamp": ["#330b0b", "#651414", "#991d1c", "#c92825", "#ee352e", "#f47470", "#f8aaa7", "#fde8e7"] }
+    },
+    "typographyMeta": {
+      "page-title": { "displayName": "Page Title", "purpose": "The single operational thesis for a page." },
+      "section-title": { "displayName": "Section Title", "purpose": "Scanning landmarks within rider flows." },
+      "body": { "displayName": "Body", "purpose": "Plain rider language and supporting context." },
+      "numeric": { "displayName": "Realtime Numeric", "purpose": "Stable tabular arrivals, durations, and counts." }
+    },
+    "shadows": [
+      { "name": "elevated-dark", "value": "0 4px 12px rgba(0, 0, 0, 0.45)", "purpose": "Raised dark-theme surfaces." },
+      { "name": "floating-dark", "value": "0 12px 32px rgba(0, 0, 0, 0.55)", "purpose": "Highest dark-theme overlays and controls." },
+      { "name": "elevated-light", "value": "0 4px 12px rgba(0, 0, 0, 0.10)", "purpose": "Raised light-theme surfaces." }
+    ],
+    "motion": [
+      { "name": "sidebar-standard", "value": "300ms ease-in-out", "purpose": "Sidebar transform and opacity changes; respect reduced motion." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" }
+    ],
+    "components": [
+      {
+        "name": "Primary Button",
+        "kind": "button",
+        "refersTo": "button-primary",
+        "description": "The singular high-confidence rider action.",
+        "html": "<button class=\"ds-button-primary\">WHERE TO?</button>",
+        "css": ".ds-button-primary { min-height: 44px; border: 0; border-radius: var(--shape-lg, 12px); padding: 10px 16px; background: var(--mta-blue, #0039A6); color: #fff; font: 600 16px/24px system-ui, sans-serif; } .ds-button-primary:hover { opacity: .9; } .ds-button-primary:focus-visible { outline: 2px solid var(--focus-ring, #4f83ff); outline-offset: 2px; }"
+      },
+      {
+        "name": "Panel Surface",
+        "kind": "card",
+        "refersTo": "surface-panel-dark",
+        "description": "Flat operational grouping with quiet structural separation.",
+        "html": "<section class=\"ds-surface\"><h3>Near you</h3><p>Live departures and service context.</p></section>",
+        "css": ".ds-surface { border: 1px solid var(--border-subtle, rgba(255,255,255,.08)); border-radius: var(--shape-lg, 12px); padding: var(--space-card-pad, 16px); background: var(--surface-panel, #161616); color: inherit; } .ds-surface h3 { margin: 0 0 8px; font: 600 20px/28px system-ui, sans-serif; } .ds-surface p { margin: 0; opacity: .68; font: 400 14px/22px system-ui, sans-serif; }"
+      },
+      {
+        "name": "Status Chip",
+        "kind": "chip",
+        "description": "Compact text-plus-color transit condition.",
+        "html": "<span class=\"ds-status-delay\">Delay</span>",
+        "css": ".ds-status-delay { display: inline-flex; align-items: center; min-height: 24px; border-radius: 9999px; padding: 2px 8px; background: var(--state-delay, #FF6319); color: #fff; font: 500 12px/16px system-ui, sans-serif; }"
+      },
+      {
+        "name": "Compact Departure Row",
+        "kind": "custom",
+        "description": "Exact-trip row with stable route, destination, direction, and ETA hierarchy.",
+        "html": "<a class=\"ds-departure\" href=\"#\"><span class=\"ds-route\">D</span><span><strong>Coney Island</strong><small>Southbound · 47–50 Sts</small></span><b>4 min</b></a>",
+        "css": ".ds-departure { display: grid; grid-template-columns: 24px 1fr auto; align-items: center; gap: 12px; min-height: 64px; padding: 10px 16px; color: inherit; text-decoration: none; border-top: 1px solid var(--border-subtle, rgba(255,255,255,.08)); } .ds-departure:hover { background: var(--surface-hover, rgba(255,255,255,.06)); } .ds-departure:focus-visible { outline: 2px solid var(--focus-ring, #4f83ff); outline-offset: -2px; } .ds-route { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 9999px; background: #FF6319; color: #fff; font: 700 12px/1 system-ui, sans-serif; } .ds-departure strong, .ds-departure small { display: block; } .ds-departure small { margin-top: 2px; opacity: .65; font-size: 12px; } .ds-departure b { font: 600 16px/24px ui-monospace, monospace; font-variant-numeric: tabular-nums; }"
+      },
+      {
+        "name": "Mobile Navigation",
+        "kind": "nav",
+        "description": "Five fixed one-handed destinations with an explicit selected state.",
+        "html": "<nav class=\"ds-mobile-nav\"><a aria-current=\"page\" href=\"#\">Home</a><a href=\"#\">Nearby</a><a href=\"#\">Map</a><a href=\"#\">Plan</a><button>More</button></nav>",
+        "css": ".ds-mobile-nav { display: flex; border-top: 1px solid var(--border-subtle, rgba(255,255,255,.08)); background: var(--surface-panel, #161616); } .ds-mobile-nav a, .ds-mobile-nav button { min-width: 44px; min-height: 44px; flex: 1; border: 0; background: transparent; color: inherit; text-align: center; text-decoration: none; font: 500 11px/16px system-ui, sans-serif; } .ds-mobile-nav [aria-current=\"page\"] { color: var(--state-selected, #0039A6); box-shadow: inset 0 2px currentColor; } .ds-mobile-nav a:focus-visible, .ds-mobile-nav button:focus-visible { outline: 2px solid var(--focus-ring, #4f83ff); outline-offset: -2px; }"
+      }
+    ],
+    "narrative": {
+      "northStar": "The Rider Control Panel",
+      "overview": "NYC Transit Hub is a calm, utilitarian interface for decisions made while walking, waiting, or changing plans. Operational clarity carries the visual weight, with strong hierarchy and saturated color reserved for route identity, action, status, and focus.",
+      "keyCharacteristics": [
+        "Rider decisions appear before analytics or implementation metadata.",
+        "Plain language and honest unavailable states replace optimistic inference.",
+        "Route and status meaning always includes text, never color alone.",
+        "Mobile targets support one-handed use; desktop preserves the same reading order."
+      ],
+      "rules": [
+        { "name": "The Functional Color Rule", "body": "Saturated color communicates route identity, action, selection, focus, or service state; it is not ambient decoration.", "section": "colors" },
+        { "name": "The ETA Rule", "body": "A rider-critical time is visually stronger than its supporting destination or location, and digits do not shift as time updates.", "section": "typography" },
+        { "name": "The Flat-by-Default Rule", "body": "Ordinary information panels remain flat; elevation signals interaction context or overlay priority.", "section": "elevation" }
+      ],
+      "dos": [
+        "Do lead each surface with the next rider decision.",
+        "Do keep exact trip identity and station-complex context through navigation.",
+        "Do show loading, stale, partial, empty, and unavailable states honestly.",
+        "Do preserve identical semantic and focus order across breakpoints."
+      ],
+      "donts": [
+        "Don't label feed health as rider-facing service status.",
+        "Don't fabricate reliability, crowding, commute, or recommendation claims.",
+        "Don't use color as the only carrier of route or disruption meaning.",
+        "Don't let decorative maps, empty setup cards, or analytics displace immediate transit choices."
+      ]
+    }
+  }
+}

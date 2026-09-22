@@ -6,4 +6,4 @@ export { IncidentsCard } from "./IncidentsCard";
 export { ReliabilityCard } from "./ReliabilityCard";
 export { CrowdingCard } from "./CrowdingCard";
 export { SystemStatusCard } from "./SystemStatusCard";
-
+export { HomeDashboard } from "./HomeDashboard";

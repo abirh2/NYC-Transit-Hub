@@ -17,7 +17,7 @@ const TRAIN_LINES = new Set([
 /**
  * Parse text and replace [X] train references with SubwayBullet icons
  */
-function parseTrainReferences(text: string): ReactNode[] {
+export function parseTrainReferences(text: string): ReactNode[] {
   const regex = /\[([A-Z0-9]+)\]/gi;
   const parts: ReactNode[] = [];
   let lastIndex = 0;

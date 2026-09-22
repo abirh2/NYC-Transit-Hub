@@ -40,13 +40,15 @@ function Eta({ service, now }: { service: NearbyService; now: Date }) {
 export function NearbyDepartureRow({
   service,
   now,
-  selected,
+  selected = false,
   onSelect,
+  variant = "interactive",
 }: {
   service: NearbyService;
   now: Date;
-  selected: boolean;
-  onSelect: (service: NearbyService) => void;
+  selected?: boolean;
+  onSelect?: (service: NearbyService) => void;
+  variant?: "interactive" | "compact";
 }) {
   const departure = service.departure;
   const modeLabel = service.mode === "subway" ? "train" : "bus";
@@ -68,6 +70,44 @@ export function NearbyDepartureRow({
     ? getSubwayRouteColor(departure.routeId)
     : getBusRouteColor(departure.routeId);
 
+  if (variant === "compact") {
+    const eta = formatDepartureEta(departure.predictedArrival, now);
+    const etaMinutes = eta.replace(" min", "");
+    const etaLabel = eta === "Due"
+      ? "due now"
+      : `in ${etaMinutes} ${etaMinutes === "1" ? "minute" : "minutes"}`;
+
+    return (
+      <article className="border-b border-border-subtle last:border-b-0">
+        <Link
+          href={detailHref}
+          aria-label={`${departure.routeId} ${modeLabel} to ${destination} ${etaLabel}`}
+          className="grid min-h-20 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset"
+        >
+          <span>
+            {service.mode === "subway" ? (
+              <SubwayBullet line={departure.routeId} size="md" />
+            ) : (
+              <BusBadge route={departure.routeId} size="md" />
+            )}
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-semibold text-foreground">
+              {destination}
+            </span>
+            <span className="mt-0.5 block truncate text-xs text-foreground/60">
+              <span>{context}</span>
+              <span aria-hidden="true"> · </span>
+              <span>{service.locationName}</span>
+              {freshness}
+            </span>
+          </span>
+          <Eta service={service} now={now} />
+        </Link>
+      </article>
+    );
+  }
+
   return (
     <article
       id={`nearby-service-${encodeURIComponent(service.id)}`}
@@ -81,7 +121,7 @@ export function NearbyDepartureRow({
         type="button"
         aria-pressed={selected}
         aria-label={`Select ${departure.routeId} ${modeLabel} to ${destination}`}
-        onClick={() => onSelect(service)}
+        onClick={() => onSelect?.(service)}
         className="grid min-h-24 min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-2.5 text-left focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset"
       >
         <span className="self-start pt-1">

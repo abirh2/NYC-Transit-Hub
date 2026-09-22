@@ -62,4 +62,26 @@ describe("NearbyDepartureRow", () => {
       expect.stringMatching(/mode=subway.*route=D.*trip=exact-trip-1/),
     );
   });
+
+  it("renders a compact, keyboard-accessible exact-trip link for Home", () => {
+    render(
+      <NearbyDepartureRow
+        service={service}
+        now={now}
+        variant="compact"
+      />,
+    );
+
+    const link = screen.getByRole("link", {
+      name: /D train to Coney Island-Stillwell Av in 6 minutes/i,
+    });
+    expect(link).toHaveAttribute(
+      "href",
+      expect.stringMatching(/mode=subway.*route=D.*trip=exact-trip-1/),
+    );
+    expect(screen.getByText("Downtown / Brooklyn")).toBeVisible();
+    expect(screen.getByText("47-50 Sts-Rockefeller Ctr")).toBeVisible();
+    expect(screen.getByLabelText("6 minutes")).toBeVisible();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
 });
