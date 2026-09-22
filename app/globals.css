@@ -273,6 +273,24 @@ body {
   filter: saturate(0.62) brightness(1.02);
 }
 
+/* Nearby is a fast decision surface, so its street layer recedes further than
+   the advanced realtime tracker while route geometry and markers stay vivid. */
+.dark .nearby-map .leaflet-tile-pane {
+  filter: saturate(0.42) brightness(0.78) contrast(0.96);
+}
+
+.light .nearby-map .leaflet-tile-pane {
+  filter: saturate(0.35) brightness(1.04) contrast(0.94);
+}
+
+.nearby-map .nearby-marker-hit:focus {
+  stroke: var(--state-selected) !important;
+  stroke-width: 2px !important;
+  stroke-opacity: 1 !important;
+  fill: var(--state-selected) !important;
+  fill-opacity: 0.08 !important;
+}
+
 .rt-map .leaflet-container {
   background: var(--surface-app);
   font-family: var(--font-sans);

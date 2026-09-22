@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@heroui/react";
-import { LocateFixed, RefreshCw } from "lucide-react";
+import { LocateFixed } from "lucide-react";
 
 import { NearbyDepartureRow } from "@/components/nearby/NearbyDepartureRow";
 import { NearbyMap } from "@/components/nearby/NearbyMap";
@@ -24,6 +24,7 @@ import type {
   TransitStation,
   TransitVehicle,
 } from "@/types/transit";
+import type { NearbySearchOrigin } from "@/types/location";
 
 interface NearbyStationResponse extends TransitStation {
   distance: number;
@@ -40,6 +41,12 @@ type ModeFilter = "all" | "subway" | "bus";
 
 const REFRESH_INTERVAL_MS = 30_000;
 const MAX_BUS_STOP_IDS = 12;
+const DEFAULT_MAP_ORIGIN: NearbySearchOrigin = {
+  latitude: 40.758,
+  longitude: -73.9855,
+  label: "New York City",
+  source: "map",
+};
 
 function hydrateDeparture(departure: Departure & {
   predictedArrival: Date | string;
@@ -95,25 +102,27 @@ function LocationState({
       ? "Location is not supported"
       : "Find transit near you";
   const description = permissionState === "denied"
-    ? "Enable location in your browser settings, then try again."
-    : error ?? "Use your current location to show the next trains and buses around you.";
+    ? "Allow location in your browser settings, or search and move the map above."
+    : error ?? "Use your current location, or search and move the map above.";
+  const retryAction = permissionState !== "unsupported" && (
+    <Button
+      color="primary"
+      variant="solid"
+      onPress={onRequest}
+      isLoading={isLoading}
+      startContent={<LocateFixed className="h-4 w-4" />}
+    >
+      {permissionState === "denied" ? "Try location again" : "Use my location"}
+    </Button>
+  );
 
   return (
     <EmptyState
       icon={<LocateFixed className="h-6 w-6" aria-hidden="true" />}
       title={title}
       description={description}
-      action={permissionState !== "unsupported" && (
-        <Button
-          color="primary"
-          variant="flat"
-          onPress={onRequest}
-          isLoading={isLoading}
-          startContent={<LocateFixed className="h-4 w-4" />}
-        >
-          {permissionState === "denied" ? "Try location again" : "Use my location"}
-        </Button>
-      )}
+      headingLevel="h2"
+      action={retryAction}
     />
   );
 }
@@ -122,14 +131,14 @@ function ResultsSkeleton() {
   return (
     <div aria-label="Loading nearby departures" aria-busy="true" className="divide-y divide-border-subtle">
       {[0, 1, 2].map((index) => (
-        <div key={index} className="grid min-h-28 grid-cols-[3rem_1fr_4rem] items-center gap-3 px-4 py-3">
-          <span className="h-10 w-10 animate-pulse rounded-pill bg-surface-elevated" />
+        <div key={index} className="grid min-h-24 grid-cols-[2.5rem_1fr_3.5rem] items-center gap-3 px-4 py-2.5">
+          <span className="h-8 w-8 animate-pulse rounded-pill bg-surface-elevated motion-reduce:animate-none" />
           <span className="space-y-2">
-            <span className="block h-3 w-2/5 animate-pulse rounded-sm bg-surface-elevated" />
-            <span className="block h-4 w-4/5 animate-pulse rounded-sm bg-surface-elevated" />
-            <span className="block h-3 w-3/5 animate-pulse rounded-sm bg-surface-elevated" />
+            <span className="block h-3 w-2/5 animate-pulse rounded-sm bg-surface-elevated motion-reduce:animate-none" />
+            <span className="block h-4 w-4/5 animate-pulse rounded-sm bg-surface-elevated motion-reduce:animate-none" />
+            <span className="block h-3 w-3/5 animate-pulse rounded-sm bg-surface-elevated motion-reduce:animate-none" />
           </span>
-          <span className="h-10 animate-pulse rounded-sm bg-surface-elevated" />
+          <span className="h-10 animate-pulse rounded-sm bg-surface-elevated motion-reduce:animate-none" />
         </div>
       ))}
     </div>
@@ -144,6 +153,7 @@ export function NearbyClient() {
     permissionState,
     requestLocation,
   } = useGeolocation({ autoRequest: true });
+  const [searchOriginOverride, setSearchOriginOverride] = useState<NearbySearchOrigin | null>(null);
   const [stations, setStations] = useState<NearbyStationResponse[]>([]);
   const [busGroups, setBusGroups] = useState<NearbyBusStopGroup[]>([]);
   const [busResults, setBusResults] = useState<NearbyBusRealtimeResult[]>([]);
@@ -161,13 +171,40 @@ export function NearbyClient() {
   const [filter, setFilter] = useState<ModeFilter>("all");
   const [now, setNow] = useState(() => new Date());
 
+  const searchOrigin = useMemo<NearbySearchOrigin | null>(() => (
+    searchOriginOverride ?? (position ? {
+      latitude: position.latitude,
+      longitude: position.longitude,
+      label: "My location",
+      source: "device",
+    } : null)
+  ), [position, searchOriginOverride]);
+
+  const changeSearchOrigin = useCallback((origin: NearbySearchOrigin) => {
+    setSearchOriginOverride(origin.source === "device" ? null : origin);
+    setSelectedStationId(null);
+    setSelectedServiceId(null);
+    setExpandedTrainTripId(null);
+    setPendingLocationId(null);
+    setSubwayRealtime(null);
+    setBusResults([]);
+  }, []);
+
+  const useCurrentLocation = useCallback(() => {
+    setSearchOriginOverride(null);
+    setSelectedServiceId(null);
+    setExpandedTrainTripId(null);
+    setPendingLocationId(null);
+    requestLocation();
+  }, [requestLocation]);
+
   const loadStations = useCallback(async () => {
-    if (!position) return;
+    if (!searchOrigin) return;
     setIsLoadingSubway(true);
     setSubwayError(null);
     setSubwayIsPartial(false);
     try {
-      const response = await fetch(`/api/stations?near=${position.latitude},${position.longitude}&radius=1.5&limit=5`);
+      const response = await fetch(`/api/stations?near=${searchOrigin.latitude},${searchOrigin.longitude}&radius=1.5&limit=5`);
       const json = await response.json() as {
         success: boolean;
         data?: { stations: NearbyStationResponse[] };
@@ -188,15 +225,15 @@ export function NearbyClient() {
     } finally {
       setIsLoadingSubway(false);
     }
-  }, [position]);
+  }, [searchOrigin]);
 
   const loadBusGroups = useCallback(async () => {
-    if (!position) return;
+    if (!searchOrigin) return;
     setIsLoadingBuses(true);
     setBusError(null);
     setBusIsPartial(false);
     try {
-      const response = await fetch(`/api/buses/stops?near=${position.latitude},${position.longitude}&radius=0.75&limit=6`);
+      const response = await fetch(`/api/buses/stops?near=${searchOrigin.latitude},${searchOrigin.longitude}&radius=0.75&limit=6`);
       const json = await response.json() as {
         success: boolean;
         data?: { groups: NearbyBusStopGroup[] };
@@ -212,7 +249,7 @@ export function NearbyClient() {
     } finally {
       setIsLoadingBuses(false);
     }
-  }, [position]);
+  }, [searchOrigin]);
 
   useEffect(() => {
     void loadStations();
@@ -388,42 +425,6 @@ export function NearbyClient() {
     setExpandedTrainTripId(departure.tripId);
   }, [allServices]);
 
-  if (!position) {
-    return (
-      <div className="lg:grid lg:grid-cols-[minmax(24rem,1.15fr)_minmax(22rem,0.85fr)] lg:gap-6">
-        <h1 className="sr-only">Nearby transit</h1>
-        <div
-          role="region"
-          aria-label="Nearby map"
-          className="relative flex min-h-[40dvh] items-center justify-center overflow-hidden bg-surface-app px-4 lg:min-h-[calc(100dvh-8rem)] lg:rounded-lg lg:border lg:border-border-subtle"
-        >
-          <div aria-hidden="true" className="absolute inset-0 opacity-30 [background-image:radial-gradient(circle_at_center,var(--state-selected)_0,transparent_55%)]" />
-          <div className="relative max-w-sm rounded-lg border border-border-subtle bg-surface-panel/95 p-5 shadow-lg">
-            <LocationState
-              permissionState={permissionState}
-              isLoading={isLoadingGeo}
-              onRequest={requestLocation}
-              error={geoError?.message ?? null}
-            />
-          </div>
-        </div>
-
-        <section aria-labelledby="nearby-departures-heading" className="min-w-0 bg-surface-panel lg:rounded-lg lg:border lg:border-border-subtle">
-          <div className="border-b border-border-subtle px-4 py-3">
-            <h2 id="nearby-departures-heading" className="text-base font-semibold">Departures near you</h2>
-            <p className="text-xs text-foreground/55">Location is needed to rank nearby service</p>
-          </div>
-          <div className="px-4 py-8">
-            <EmptyState
-              title="Waiting for your location"
-              description="The nearest subway and bus departures will appear here."
-            />
-          </div>
-        </section>
-      </div>
-    );
-  }
-
   const selectedState = selectedService?.sourceState ?? subwayRealtime?.sourceState ?? "empty";
   const activeError = filter === "subway"
     ? subwayError
@@ -443,7 +444,8 @@ export function NearbyClient() {
       <h1 className="sr-only">Nearby transit</h1>
 
       <NearbyMap
-        position={position}
+        userPosition={position}
+        searchOrigin={searchOrigin ?? DEFAULT_MAP_ORIGIN}
         stations={stations}
         busGroups={busGroups}
         selectedService={selectedService}
@@ -452,63 +454,70 @@ export function NearbyClient() {
         expanded={expandedTrainTripId !== null}
         onCollapse={() => setExpandedTrainTripId(null)}
         onSelectLocation={selectLocation}
+        onSearchOriginChange={changeSearchOrigin}
+        onUseCurrentLocation={useCurrentLocation}
       />
 
       <section aria-labelledby="nearby-departures-heading" className="min-w-0 bg-surface-panel lg:rounded-lg lg:border lg:border-border-subtle">
         <div className={`${expandedTrainTripId ? "hidden lg:flex" : "flex"} min-h-14 items-center gap-3 border-b border-border-subtle px-4 py-2`}>
           <div className="min-w-0 flex-1">
-            <h2 id="nearby-departures-heading" className="text-base font-semibold">Departures near you</h2>
+            <h2 id="nearby-departures-heading" className="truncate text-base font-semibold">
+              {!searchOrigin
+                ? "Choose an area"
+                : filter === "bus" ? "Nearby buses" : selectedStation?.name ?? "Nearby departures"}
+            </h2>
             <p className="truncate text-xs text-foreground/55">
-              {filter === "bus"
-                ? "Bus stops around your location"
-                : selectedStation?.name ?? "Subway and bus around your location"}
+              {searchOrigin?.label ?? "Search or move the map"}
             </p>
           </div>
 
-          <StatusChip
-            state={activeError ? "unavailable" : selectedState === "ok" ? "normal" : selectedState === "stale" ? "stale" : "unavailable"}
-            label={activeError ? isPartialFailure ? "Partial" : "Offline" : selectedState === "ok" ? "Live" : selectedState === "stale" ? "Delayed" : "Checking"}
-            size="sm"
-          />
+          {searchOrigin && (
+            <StatusChip
+              state={activeError ? "unavailable" : selectedState === "ok" ? "normal" : selectedState === "stale" ? "stale" : "unavailable"}
+              label={activeError ? isPartialFailure ? "Partial" : "Offline" : selectedState === "ok" ? "Live" : selectedState === "stale" ? "Delayed" : "Checking"}
+              size="sm"
+            />
+          )}
 
           <Button
             isIconOnly
             size="sm"
             variant="light"
-            aria-label="Refresh current location"
-            onPress={requestLocation}
+            aria-label="Update current location"
+            onPress={useCurrentLocation}
             isLoading={isLoadingGeo}
           >
-            <RefreshCw className="h-4 w-4" />
+            <LocateFixed className="h-4 w-4" />
           </Button>
         </div>
 
-        <div className={`${expandedTrainTripId ? "hidden lg:flex" : "flex"} items-center justify-between gap-3 border-b border-border-subtle px-4 py-2`}>
-          <p className="text-xs text-foreground/55">Closest useful services first</p>
-          <div className="flex gap-1" role="group" aria-label="Transit mode filter">
+        {searchOrigin && <div className={`${expandedTrainTripId ? "hidden lg:flex" : "flex"} border-b border-border-subtle px-4`}>
+          <div className="grid w-full grid-cols-3" role="group" aria-label="Transit mode filter">
             {(["all", "subway", "bus"] as const).map((mode) => (
               <button
                 key={mode}
                 type="button"
                 aria-pressed={filter === mode}
                 onClick={() => setFilter(mode)}
-                className={`min-h-9 rounded-pill px-3 text-xs font-medium capitalize focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus ${
-                  filter === mode ? "bg-surface-selected text-foreground" : "text-foreground/55 hover:bg-surface-hover"
+                className={`min-h-11 border-b-2 px-3 text-xs font-semibold capitalize focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset ${
+                  filter === mode
+                    ? "border-foreground text-foreground"
+                    : "border-transparent text-foreground/50 hover:text-foreground"
                 }`}
               >
                 {mode}
               </button>
             ))}
           </div>
-        </div>
+        </div>}
 
         {subwayError && (
-          <p role="status" className="border-b border-border-subtle px-4 py-3 text-sm text-foreground/70">
+          <p role="status" className="border-b border-border-subtle px-4 py-2 text-xs text-foreground/70">
             Subway updates are unavailable. Bus results remain available when reported.
           </p>
         )}
         {busError && (
-          <p role="status" className="border-b border-border-subtle px-4 py-3 text-sm text-foreground/70">
+          <p role="status" className="border-b border-border-subtle px-4 py-2 text-xs text-foreground/70">
             Bus updates are unavailable. Subway results remain available when reported.
           </p>
         )}
@@ -524,7 +533,16 @@ export function NearbyClient() {
           />
         )}
 
-        {(isLoadingSubway || isLoadingBuses) && visibleServices.length === 0 ? (
+        {!searchOrigin ? (
+          <div className="px-4 py-8">
+            <LocationState
+              permissionState={permissionState}
+              isLoading={isLoadingGeo}
+              onRequest={useCurrentLocation}
+              error={geoError?.message ?? null}
+            />
+          </div>
+        ) : (isLoadingSubway || isLoadingBuses) && visibleServices.length === 0 ? (
           <ResultsSkeleton />
         ) : visibleBusServices.length > 0 ? (
           <div>

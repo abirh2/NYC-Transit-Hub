@@ -240,3 +240,209 @@ service claims.
 
 None blocking. The user supplied the missing reference screenshots and asked for
 uninterrupted implementation.
+
+---
+
+## Transit-faithful Route Interaction Correction (Authoritative)
+
+This correction supersedes the Primary Subway Interaction Addendum wherever it
+requires visible direction tabs, a disclosure button, or hidden secondary
+departures. It also supersedes Phase 7 planning language that says direction
+controls must be visibly rendered above a route. The user-provided screenshots
+and the Transit behavior documented below are the visual and interaction source
+of truth for this refinement.
+
+### Reference evidence
+
+- Collapsed reference:
+  `/Users/ahossain/Downloads/Screenshot 2026-09-16 at 1.48.18 PM.png`
+- Selected-route reference:
+  `/Users/ahossain/Downloads/Screenshot 2026-09-16 at 1.48.56 PM.png`
+- Transit documents that its home screen shows nearby lines and their next
+  departure, that each line changes direction by a horizontal swipe, and that
+  tapping a line opens later departures:
+  <https://help.transitapp.com/article/93-how-to-use-transit>
+- Transit documents that upcoming departures in the selected route view are
+  horizontal ETA cards and that selecting a card changes the exact departure:
+  <https://help.transitapp.com/article/549-how-to-use-go>
+
+These are behavior and hierarchy references only. NYC Transit Hub must not copy
+Transit branding, colors, proprietary icons, rankings, GO, payment/crowding
+claims, or other unsupported data.
+
+### Objective
+
+Make the shortest path from nearby discovery to an exact train feel as direct
+as the Transit references: scan one row per route, swipe the row to inspect the
+opposite direction, tap the row, then choose an exact upcoming ETA from a
+horizontal strip while the map expands around that service.
+
+### Collapsed route contract
+
+1. Render exactly one full-width row for each route at the selected station.
+2. The row contains the route bullet, active rider-facing direction,
+   destination, station name, and one dominant next ETA.
+3. Do not render visible direction tabs, segmented controls, direction chips,
+   pagination dots, or a direction header above the row.
+4. When a route has two reported directions, horizontal swipe changes the
+   entire row to the other direction. The same rail supports Left/Right and
+   Home/End keys and exposes its current direction in its accessible name.
+5. Swiping one route never changes another route.
+6. Vertical page scrolling remains natural when the gesture is primarily
+   vertical.
+
+### Selected route contract
+
+1. Tapping the row selects its exact next `tripId` and expands the map using the
+   existing selected train, route geometry, station, and user-location logic.
+2. The selected row becomes a compact route/direction header. It must not repeat
+   the selected ETA both in the header and in the ETA strip.
+3. Immediately beneath that header, render up to six available departures for
+   the active direction as horizontally scrollable ETA cards. No accordion,
+   “show other departures,” “show more,” or “hide departures” control appears.
+4. ETA cards show only decision-critical time content. Exact destination and
+   trip identity remain available to assistive technology.
+5. The active ETA card uses a neutral selected surface plus the route color as
+   a restrained border/accent. Route color is never the only selected signal.
+6. Tapping another ETA card selects that exact departure, updates map context
+   when positionable, and updates the existing exact Train details link.
+7. Train details is the sole schedule/detail escape. No separate full-schedule
+   disclosure is added to the Nearby row.
+8. Collapsing the map returns to the compact next-departure list; the active
+   route direction remains local to its row while that row stays mounted.
+
+### Visual acceptance criteria
+
+- At 390×844, the collapsed state matches the reference hierarchy: map/search,
+  then uninterrupted route rows with no direction-control band between the
+  shared header and the first route.
+- Each collapsed route row is approximately one 96px service unit; no extra
+  44px direction tab row or disclosure row is present.
+- Selected state reads as map → route/direction header → horizontal ETA cards,
+  with the cards visible without pressing another control.
+- The first ETA is dominant in the collapsed state. In the selected state,
+  each available ETA is peer-selectable and the active card is unmistakable.
+- The UI uses NYC Transit Hub tokens, MTA bullets, and existing typography. It
+  emulates Transit’s layout and gesture model, not its orange visual identity.
+- Dark and light themes, 375/390/430/768/1280 widths, bottom-nav clearance,
+  reduced motion, touch, keyboard, and screen-reader operation remain valid.
+
+### Testing strategy
+
+- Component tests assert the absence of tablists and disclosure buttons.
+- Component tests verify independent route rails, keyboard direction changes,
+  immediate selected ETA cards, exact alternate-departure selection, and exact
+  Train details links.
+- Playwright verifies row-level direction switching, no horizontal page
+  overflow, map expansion, ETA-card selection, exact deep-link updates, and
+  screenshots of collapsed, opposite-direction, and selected states.
+- Final screenshot comparison treats any reintroduced direction band or
+  disclosure row as a release-blocking regression.
+
+### Boundaries
+
+- Always: preserve current models, APIs, polling, trip identity, route geometry,
+  map behavior, theme tokens, 44px touch targets, and accessible alternatives
+  for swipe.
+- Ask first: add a new data source, new dependency, full schedule surface, or
+  GO-style navigation workflow.
+- Never: fabricate unsupported service metadata, duplicate an ETA in the
+  selected header and ETA strip, or reintroduce visible route direction tabs or
+  a departure disclosure button.
+
+### Open questions
+
+None. The screenshots and direct correction settle the intended interaction.
+
+---
+
+## Map-Centered Nearby Exploration (Authoritative)
+
+### Objective
+
+Let riders inspect service around any NYC point without pretending that the
+device physically moved there. The map center becomes the Nearby search origin
+after a drag, and the existing map-bottom bar becomes a combined station/place
+search instead of a link to the trip planner.
+
+Transit documents the same core outcome: riders can search for a destination
+and show nearby lines there, and its location workflows support placing a pin
+with the map. These references define the interaction model, while NYC Transit
+Hub keeps its own map, tokens, and realtime data model:
+
+- <https://help.transitapp.com/article/93-how-to-use-transit>
+- <https://help.transitapp.com/article/95-save-your-favorite-locations>
+
+### Interaction contract
+
+1. The map is pannable by touch, mouse, and keyboard-supported Leaflet controls.
+2. A fixed visual pin marks the map center. After a user drag ends, that center
+   becomes the active search origin and nearby subway stations and bus stops
+   reload once for the new coordinates.
+3. Programmatic map movement caused by fitting markers, selecting a service, or
+   expanding a train never changes the search origin.
+4. The locate control restores the active search origin to the latest device
+   position, recenters the map, and reloads nearby results.
+5. The map-bottom control is a search field labelled “Search location or
+   station.” It no longer navigates to `/routes`.
+6. Search suggestions combine normalized MTA subway station complexes with NYC
+   addresses/places. Each result exposes its kind and a concise secondary label.
+7. Selecting a suggestion recenters the map, makes its coordinates the active
+   search origin, closes the suggestion list, and refreshes nearby results.
+8. Device location and search origin remain distinct: the blue location marker
+   continues to represent the actual device, while the center pin represents
+   the area being explored.
+9. If device location is unavailable, manual search and map exploration remain
+   usable from a neutral NYC starting view; no fake user marker is shown.
+10. Changing origin clears stale service/trip selection before new results are
+    presented. Existing polling resumes against the newly discovered stops.
+
+### Location search API contract
+
+- `GET /api/locations?query=<text>&limit=<1..10>`
+- `query` is trimmed, 2–100 characters, and validated at the route boundary.
+- Results are a discriminated union:
+  - `station`: stable station id, normalized complex name, coordinates, and
+    station id.
+  - `place`: stable provider-derived id, concise place name/description, and
+    validated NYC-bounded coordinates.
+- The external geocoder host is fixed server-side; callers cannot supply a URL.
+  Third-party responses are schema-validated, cached, bounded, and treated as
+  unavailable without discarding valid station matches.
+- No search query or precise coordinate is persisted by this feature.
+
+### Visual and accessibility acceptance
+
+- The center pin is visually clear without obscuring map labels and lifts only
+  while the map is actively dragged.
+- Suggestions open above the bottom search field so they remain inside the map
+  and above mobile navigation.
+- Search supports keyboard focus, loading, empty, error, Escape, and selection
+  states; results announce station versus place without relying on icons alone.
+- The search origin label is reflected in the departures header/status copy.
+- Existing route rows, ETA cards, themes, selected train map, and bottom-nav
+  clearance remain unchanged.
+
+### Testing strategy
+
+- Unit tests validate query bounds, geocoder response parsing, NYC coordinate
+  bounds, result discrimination, and station-only fallback.
+- Component tests cover search debounce, result rendering, keyboard-accessible
+  selection, empty/error recovery, and callback coordinates.
+- Playwright drags the real Leaflet map and selects a mocked station/place,
+  asserting that subsequent station and bus discovery requests use the new
+  origin while the actual user marker remains distinct.
+
+### Boundaries
+
+- Always: retain exact trip/station identity, current polling limits, fixed
+  external host allowlisting, React escaping, and location-data minimization.
+- Ask first: persist searched locations, add favorites, change geocoder
+  providers, or turn this field back into a full trip-planning workflow.
+- Never: move the user-location marker to a searched point, refetch continuously
+  during drag, or let programmatic map animation mutate the active origin.
+
+### Open questions
+
+None. “Location” means an NYC address/place or subway station, and selection is
+for Nearby exploration rather than trip planning.

@@ -98,6 +98,33 @@ curl "http://localhost:3000/api/stations?near=40.758,-73.985&radius=0.5&limit=5"
 
 ---
 
+### Location Search
+
+#### GET /api/locations
+
+Search NYC subway stations and bounded NYC places for the Nearby map.
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `query` | string | Required search text, trimmed to 2–100 characters |
+| `limit` | number | Maximum combined results (default: 8, range: 1–10) |
+
+Station results include `kind: "station"` and a stable `stationId`. Place
+results include `kind: "place"`. Both variants include `id`, `name`,
+`description`, `latitude`, and `longitude`. Place coordinates are restricted to
+the NYC-area search bounds; if external place search is unavailable, valid
+station matches are still returned.
+
+**Example Request:**
+
+```bash
+curl "http://localhost:3000/api/locations?query=Bryant%20Park&limit=5"
+```
+
+---
+
 ### Routes
 
 #### GET /api/routes

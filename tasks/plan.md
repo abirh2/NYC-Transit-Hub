@@ -299,3 +299,162 @@ map/detail infrastructure.
 ### Open Questions
 
 - None blocking.
+
+---
+
+## Phase 7 Addendum: Final Mobile-First Nearby Refinement
+
+### Overview
+
+Polish the completed map-first and route-first Nearby experience without
+changing its data flow, normalized identity, polling, or component boundaries.
+The pass prioritizes the first mobile viewport, route-led hierarchy, restrained
+selection, compact states, and parity across dark and light themes.
+
+### Architecture Decisions
+
+- Keep one independently swipeable card per subway route, as required by the
+  Primary Subway Interaction correction; make its direction control visible.
+- Consolidate shared station/status/filter chrome so useful services move
+  upward without removing rider context or touch targets.
+- Express selection through route identity, a narrow semantic accent, and copy
+  rather than a full-row application-blue fill.
+- Preserve the existing bounded map, exact Trip/Vehicle links, partial failure
+  isolation, and AppShell bottom-navigation clearance.
+
+### Task List
+
+- [x] Task 20: Tighten the mobile map and shared result toolbar so the first
+  viewport exposes more immediately useful service while preserving desktop.
+- [x] Task 21: Refine route cards, direction controls, disclosure, bus rows, and
+  selected states around route-specific identity and explicit hierarchy.
+- [x] Task 22: Harmonize loading/location/failure states, update stale browser
+  assertions, and complete bounded theme/viewport/interaction verification.
+
+### Checkpoint: Complete
+
+- [x] 375, 390/393, 430, 768, and 1280px layouts preserve usable map context,
+  clear controls, bottom-nav clearance, and no horizontal overflow.
+- [x] Initial, route direction, expanded times, selected train, bus, selected
+  bus, loading, denied, partial failure, and light-mode states are coherent.
+- [x] Focused tests, lint, typecheck, full tests, production build, and relevant
+  Playwright coverage pass on the bundled Node runtime.
+
+### Risks and Mitigations
+
+| Risk | Impact | Mitigation |
+|---|---|---|
+| Compaction obscures direction switching | High | Keep semantic tabs visible and retain native horizontal snap pages. |
+| Reduced chrome weakens realtime context | Medium | Retain compact status/failure copy adjacent to the station and filters. |
+| Selection loses map continuity | High | Keep exact selection state and route marker emphasis; remove only broad background fill. |
+
+### Open Questions
+
+- None blocking; the supplied refinement brief fixes the visual priorities and
+  explicitly prohibits another architecture redesign.
+
+---
+
+## Phase 8 Addendum: Transit-Faithful Route Rows
+
+### Overview
+
+Correct the over-designed subway interaction introduced in Phase 7. Match the
+Transit references at the information-architecture level: one compact row per
+route, row-level direction swipe, and immediate horizontal ETA cards after
+selection. Remove visible direction tabs and departure disclosure controls.
+
+### Architecture decisions
+
+- Keep route-first grouping and exact trip selection; change only presentation
+  and interaction within `NearbySubwayServicePanel`.
+- Use the existing snap rail as the direction gesture surface instead of adding
+  a second visual control layer.
+- Treat selected ETA cards as exact-trip selectors, not navigation links. The
+  existing Train details link remains the only navigation action.
+- Preserve map expansion, normalized trip identity, and all bus behavior.
+
+### Task list
+
+- [x] Task 23: Record the authoritative Transit-faithful interaction contract
+  and failing component/browser expectations.
+- [x] Task 24: Replace visible direction tabs and departure disclosure with
+  row swipe plus immediate exact ETA cards.
+- [x] Task 25: Compare collapsed, opposite-direction, and selected mobile
+  captures against the references and run regression gates.
+
+### Checkpoint: Complete
+
+- [x] No visible subway direction tablist or departure disclosure control
+  remains in initial or selected Nearby states.
+- [x] Swipe and keyboard direction switching remain local to one route.
+- [x] Selecting a route immediately reveals horizontally scrollable exact ETA
+  cards and selecting another ETA updates the exact detail link.
+- [x] Focused tests, relevant Playwright coverage, lint, typecheck, and the
+  production build pass on Node 24.
+
+### Risks and mitigations
+
+| Risk | Impact | Mitigation |
+|---|---|---|
+| Invisible swipe is undiscoverable | Medium | Keep direction copy inside the row and a precise accessible swipe/arrow instruction; preserve repeatable row behavior across routes. |
+| ETA strip duplicates the hero ETA | High | Convert the selected row into a route/direction header and render time only in the ETA cards. |
+| Horizontal gestures steal page scroll | High | Retain native snap scrolling and allow mixed-axis touch behavior; browser-test vertical scroll and page overflow. |
+| Alternate ETA loses exact map/detail identity | High | Route every ETA-card press through the existing exact departure selection callback and assert the deep link. |
+
+### Open questions
+
+- None; the current user correction is authoritative.
+
+---
+
+## Phase 9 Addendum: Map-Centered Nearby Exploration
+
+### Overview
+
+Make the map itself a first-class Nearby location picker. A fixed center pin
+drives stop discovery after dragging, while the former Plan a trip overlay
+becomes combined station/place search.
+
+### Architecture decisions
+
+- Keep actual device position separate from the active Nearby search origin.
+- Update origin only from user drag-end, explicit search selection, or the
+  locate control; ignore programmatic map movement.
+- Add one bounded `GET /api/locations` contract that combines existing static
+  station search with the already-used NYC Nominatim provider and validates the
+  external response server-side.
+- Keep the search field inside `NearbyMap`; lift only selected coordinates and
+  labels to `NearbyClient`, where discovery and selection state already live.
+
+### Task list
+
+- [x] Task 26: Define and test the bounded location-search contract.
+- [x] Task 27: Separate device position from search origin and enable center-pin
+  map exploration with drag-end discovery.
+- [x] Task 28: Replace the trip-planning link with accessible combined search
+  and complete responsive/browser verification.
+
+### Checkpoint: Complete
+
+- [x] Dragging changes discovery coordinates exactly once after drag end.
+- [x] Search selection recenters and refreshes Nearby without moving the actual
+  user marker or navigating to `/routes`.
+- [x] Locate restores device-centered discovery.
+- [x] Unit/component tests, Nearby Playwright coverage, lint, typecheck, and
+  production build pass on Node 24.
+
+### Risks and mitigations
+
+| Risk | Impact | Mitigation |
+|---|---|---|
+| Programmatic fit triggers origin changes | High | Listen to Leaflet `dragend`, not generic `moveend`. |
+| Search point is mistaken for device location | High | Model and render device position and search origin separately. |
+| Drag causes request storms | High | Commit only once at drag end; retain existing polling after discovery. |
+| External place search is malformed/unavailable | Medium | Fixed host, Zod validation, request timeout/cache, station-only fallback. |
+| Search dropdown competes with map gestures/nav | Medium | Open upward inside the bounded overlay; close on selection, Escape, or outside press. |
+
+### Open questions
+
+- None; the user explicitly requested map-centered exploration and manual
+  location/station entry.

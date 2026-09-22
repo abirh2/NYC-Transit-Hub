@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import type { Map as LeafletMap } from "leaflet";
-import { LocateFixed, Minimize2, Search } from "lucide-react";
+import { LocateFixed, MapPin, Minimize2 } from "lucide-react";
 
+import { NearbyLocationSearch } from "@/components/nearby/NearbyLocationSearch";
 import { useSubwayRouteGeometry } from "@/lib/hooks/useSubwayRouteGeometry";
 import { getBusRouteColor } from "@/lib/gtfs/bus-routes";
 import {
@@ -15,6 +15,7 @@ import {
 import { getSubwayRouteColor } from "@/lib/transit/route-colors";
 import type { GeolocationPosition } from "@/lib/hooks/useGeolocation";
 import type { NearbyService } from "@/lib/transit/nearby";
+import type { LocationSearchResult, NearbySearchOrigin } from "@/types/location";
 import type {
   NearbyBusRealtimeResult,
   NearbyBusStopGroup,
@@ -31,7 +32,8 @@ const NearbyMapCanvas = dynamic(() => import("./NearbyMapCanvas"), {
 });
 
 interface NearbyMapProps {
-  position: GeolocationPosition;
+  userPosition: GeolocationPosition | null;
+  searchOrigin: NearbySearchOrigin;
   stations: Array<TransitStation & { distance: number }>;
   busGroups: NearbyBusStopGroup[];
   selectedService: NearbyService | null;
@@ -40,10 +42,13 @@ interface NearbyMapProps {
   expanded: boolean;
   onCollapse: () => void;
   onSelectLocation: (locationId: string) => void;
+  onSearchOriginChange: (origin: NearbySearchOrigin) => void;
+  onUseCurrentLocation: () => void;
 }
 
 export function NearbyMap({
-  position,
+  userPosition,
+  searchOrigin,
   stations,
   busGroups,
   selectedService,
@@ -52,8 +57,11 @@ export function NearbyMap({
   expanded,
   onCollapse,
   onSelectLocation,
+  onSearchOriginChange,
+  onUseCurrentLocation,
 }: NearbyMapProps) {
   const [map, setMap] = useState<LeafletMap | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const [busRouteShape, setBusRouteShape] = useState<[number, number][]>([]);
   const selectedRouteId = selectedService?.departure.routeId ?? null;
   const subwayGeometryState = useSubwayRouteGeometry(
@@ -140,8 +148,29 @@ export function NearbyMap({
       : "#0039A6";
 
   const recenter = useCallback(() => {
-    map?.setView([position.latitude, position.longitude], 15, { animate: true });
-  }, [map, position.latitude, position.longitude]);
+    if (!userPosition) return;
+    map?.setView([userPosition.latitude, userPosition.longitude], 15, { animate: true });
+    onUseCurrentLocation();
+  }, [map, onUseCurrentLocation, userPosition]);
+
+  const selectMapCenter = useCallback((latitude: number, longitude: number) => {
+    onSearchOriginChange({
+      latitude,
+      longitude,
+      label: "Map area",
+      source: "map",
+    });
+  }, [onSearchOriginChange]);
+
+  const selectSearchResult = useCallback((result: LocationSearchResult) => {
+    map?.setView([result.latitude, result.longitude], 15, { animate: true });
+    onSearchOriginChange({
+      latitude: result.latitude,
+      longitude: result.longitude,
+      label: result.name,
+      source: "search",
+    });
+  }, [map, onSearchOriginChange]);
 
   return (
     <section
@@ -149,14 +178,15 @@ export function NearbyMap({
       role="region"
       aria-label="Nearby map"
       data-expanded={expanded}
-      className={`rt-map relative overflow-hidden bg-surface-elevated motion-safe:transition-[height] motion-safe:duration-300 lg:sticky lg:top-24 lg:h-[calc(100dvh-8rem)] lg:max-h-none lg:rounded-lg ${
+      className={`nearby-map rt-map relative overflow-hidden bg-surface-elevated motion-safe:transition-[height] motion-safe:duration-200 lg:sticky lg:top-24 lg:h-[calc(100dvh-8rem)] lg:max-h-none lg:rounded-lg ${
         expanded
-          ? "h-[46dvh] min-h-80 max-h-[32rem]"
-          : "h-[40dvh] min-h-72 max-h-[26rem]"
+          ? "h-[44dvh] min-h-72 max-h-[30rem]"
+          : "h-[34dvh] min-h-60 max-h-[22rem]"
       }`}
     >
       <NearbyMapCanvas
-        position={position}
+        userPosition={userPosition}
+        searchOrigin={searchOrigin}
         stations={stations}
         busGroups={busGroups}
         selectedService={selectedService}
@@ -168,13 +198,26 @@ export function NearbyMap({
         routeColor={routeColor}
         onSelectLocation={onSelectLocation}
         onMapReady={setMap}
+        onMapDragEnd={selectMapCenter}
+        onMapDraggingChange={setIsDragging}
       />
+
+      <div
+        data-testid="nearby-search-origin-pin"
+        aria-hidden="true"
+        className={`pointer-events-none absolute left-1/2 top-1/2 z-[475] -translate-x-1/2 text-state-selected drop-shadow-[0_3px_4px_rgba(0,0,0,0.45)] motion-safe:transition-transform motion-safe:duration-150 ${
+          isDragging ? "-translate-y-[calc(100%+0.5rem)] scale-110" : "-translate-y-full"
+        }`}
+      >
+        <MapPin className="h-9 w-9 fill-surface-floating stroke-[2.25]" />
+      </div>
 
       <button
         type="button"
         onClick={recenter}
-        aria-label="Center map on my location"
-        className="absolute right-3 top-3 z-[500] flex h-11 w-11 items-center justify-center rounded-pill border border-border-strong bg-surface-floating text-foreground shadow-[var(--shadow-md)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+        aria-label="Use my location"
+        disabled={!userPosition}
+        className="absolute right-3 top-3 z-[500] flex h-11 w-11 items-center justify-center rounded-pill border border-border-strong bg-surface-floating text-foreground shadow-[var(--shadow-md)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-45"
       >
         <LocateFixed className="h-5 w-5" aria-hidden="true" />
       </button>
@@ -191,16 +234,8 @@ export function NearbyMap({
         </button>
       )}
 
-      <div className="absolute inset-x-3 bottom-6 z-[500]">
-        <Link
-          href="/routes"
-          aria-label="Plan a trip"
-          className="flex min-h-14 items-center gap-3 rounded-lg bg-surface-floating px-4 text-base font-semibold text-foreground shadow-[var(--shadow-lg)] transition-colors hover:bg-surface-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-        >
-          <Search className="h-5 w-5 text-state-selected" aria-hidden="true" />
-          <span className="flex-1">Where to?</span>
-          <span className="text-xs font-medium text-foreground/55">Plan</span>
-        </Link>
+      <div className="absolute inset-x-3 bottom-4 z-[500]">
+        <NearbyLocationSearch onSelect={selectSearchResult} />
       </div>
     </section>
   );

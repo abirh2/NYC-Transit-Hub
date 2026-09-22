@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowUpRight, MapPin } from "lucide-react";
 
 import { BusBadge, SubwayBullet } from "@/components/ui";
+import { getBusRouteColor } from "@/lib/gtfs/bus-routes";
 import {
   createBusDeepLink,
   createTrainDeepLink,
@@ -11,6 +12,7 @@ import {
   getRiderDirectionLabel,
   type NearbyService,
 } from "@/lib/transit/nearby";
+import { getSubwayRouteColor } from "@/lib/transit/route-colors";
 import { estimateWalkingTime, formatWalkingTime } from "@/lib/utils/distance";
 
 function Eta({ service, now }: { service: NearbyService; now: Date }) {
@@ -62,21 +64,25 @@ export function NearbyDepartureRow({
           : getRiderDirectionLabel(departure.direction)
     );
   const freshness = service.sourceState === "stale" ? " · Updates delayed" : "";
+  const routeColor = service.mode === "subway"
+    ? getSubwayRouteColor(departure.routeId)
+    : getBusRouteColor(departure.routeId);
 
   return (
     <article
       id={`nearby-service-${encodeURIComponent(service.id)}`}
       data-selected={selected || undefined}
-      className={`flex min-w-0 border-b border-border-subtle transition-colors last:border-b-0 ${
-        selected ? "bg-surface-selected/65" : "bg-surface-panel hover:bg-surface-hover"
+      className={`flex min-w-0 border-b border-border-subtle bg-surface-panel transition-colors last:border-b-0 ${
+        selected ? "bg-surface-elevated" : "hover:bg-surface-hover"
       }`}
+      style={selected ? { boxShadow: `inset 3px 0 0 ${routeColor}` } : undefined}
     >
       <button
         type="button"
         aria-pressed={selected}
         aria-label={`Select ${departure.routeId} ${modeLabel} to ${destination}`}
         onClick={() => onSelect(service)}
-        className="grid min-h-28 min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 text-left focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset"
+        className="grid min-h-24 min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-2.5 text-left focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset"
       >
         <span className="self-start pt-1">
           {service.mode === "subway" ? (
@@ -91,7 +97,7 @@ export function NearbyDepartureRow({
           <span className="mt-0.5 block text-base font-semibold leading-snug text-foreground">
             {destination}
           </span>
-          <span className="mt-2 flex min-w-0 items-center gap-1.5 text-xs text-foreground/55">
+          <span className="mt-1.5 flex min-w-0 items-center gap-1.5 text-xs text-foreground/55">
             <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             <span className="truncate">{service.locationName}</span>
             <span aria-hidden="true">·</span>
@@ -107,8 +113,11 @@ export function NearbyDepartureRow({
       <Link
         href={detailHref}
         aria-label={`View ${departure.routeId} ${modeLabel} details`}
-        className="flex min-h-11 w-12 shrink-0 items-center justify-center border-l border-border-subtle text-foreground/55 transition-colors hover:bg-surface-hover hover:text-foreground focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset"
+        className={`flex min-h-11 shrink-0 items-center justify-center gap-2 text-foreground/55 transition-colors hover:bg-surface-hover hover:text-foreground focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset ${
+          selected ? "w-auto px-3 text-xs font-semibold" : "w-12"
+        }`}
       >
+        {selected && <span>{service.mode === "bus" ? "Bus details" : "Train details"}</span>}
         <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
       </Link>
     </article>

@@ -25,7 +25,8 @@ describe("NearbySubwayServicePanel", () => {
     expect(screen.getByRole("heading", { name: "D train departures" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "F train departures" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "B train departures" })).toBeInTheDocument();
-    expect(screen.getAllByRole("tablist")).toHaveLength(3);
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /show .*more departure/i })).not.toBeInTheDocument();
     expect(screen.queryByText("d-south-1")).not.toBeInTheDocument();
   });
 
@@ -34,24 +35,40 @@ describe("NearbySubwayServicePanel", () => {
     render(<NearbySubwayServicePanel stationName="47-50 Sts-Rockefeller Ctr" departures={departures} now={now} selectedTripId={null} onSelectDeparture={vi.fn()} />);
     const dCard = screen.getByRole("heading", { name: "D train departures" }).closest("article");
     expect(dCard).not.toBeNull();
-    const downtown = within(dCard!).getByRole("tab", { name: "D Downtown / Brooklyn" });
-    downtown.focus();
+    const directionRail = within(dCard!).getByRole("group", { name: /D train, Downtown \/ Brooklyn/i });
+    directionRail.focus();
     await user.keyboard("{ArrowRight}");
-    expect(within(dCard!).getByRole("tab", { name: "D Uptown / Bronx" })).toHaveFocus();
+    expect(directionRail).toHaveAttribute("aria-label", expect.stringMatching(/Uptown \/ Bronx/i));
     expect(within(dCard!).getByRole("button", { name: /Select D train to Norwood-205 St/i })).toBeVisible();
     expect(screen.getByRole("button", { name: /Select F train to Coney Island-Stillwell Av/i })).toBeVisible();
   });
 
-  it("expands only the selected route direction and preserves exact links", async () => {
+  it("keeps route direction inside the row without visible tabs", () => {
+    render(<NearbySubwayServicePanel stationName="47-50 Sts-Rockefeller Ctr" departures={departures} now={now} selectedTripId={null} onSelectDeparture={vi.fn()} />);
+
+    const dCard = screen.getByRole("heading", { name: "D train departures" }).closest("article");
+    expect(dCard).not.toBeNull();
+    expect(within(dCard!).queryByRole("tablist")).not.toBeInTheDocument();
+    expect(within(dCard!).getByText("Downtown / Brooklyn")).toBeVisible();
+  });
+
+  it("shows swipeable exact departure times only for the selected route", async () => {
     const user = userEvent.setup();
-    render(<NearbySubwayServicePanel stationName="47-50 Sts-Rockefeller Ctr" departures={departures} now={now} selectedTripId="f-south-1" onSelectDeparture={vi.fn()} />);
+    const onSelectDeparture = vi.fn();
+    const { rerender } = render(<NearbySubwayServicePanel stationName="47-50 Sts-Rockefeller Ctr" departures={departures} now={now} selectedTripId="f-south-1" onSelectDeparture={onSelectDeparture} />);
     const fCard = screen.getByRole("heading", { name: "F train departures" }).closest("article");
     expect(fCard).not.toBeNull();
-    expect(within(fCard!).queryByRole("link", { name: /F train in 18 minutes/i })).not.toBeInTheDocument();
-    await user.click(within(fCard!).getByRole("button", { name: /Select F train to Coney Island-Stillwell Av/i }));
-    expect(within(fCard!).getByRole("link", { name: /F train in 18 minutes to Jamaica-179 St/i })).toHaveAttribute("href", expect.stringMatching(/trip=f-south-2/));
+    const laterDeparture = within(fCard!).getByRole("button", { name: /Select F train in 18 minutes to Jamaica-179 St/i });
+    expect(laterDeparture).toBeVisible();
+    await user.click(laterDeparture);
+    expect(onSelectDeparture).toHaveBeenCalledWith(departures[3]);
     expect(within(fCard!).getByRole("link", { name: "View F train details" })).toHaveAttribute("href", expect.stringMatching(/trip=f-south-1/));
-    expect(screen.getByRole("heading", { name: "D train departures" }).closest("article")).not.toContainHTML("f-south-2");
+    expect(screen.getByRole("heading", { name: "D train departures" }).closest("article")).not.toHaveTextContent("18 min");
+
+    rerender(<NearbySubwayServicePanel stationName="47-50 Sts-Rockefeller Ctr" departures={departures} now={now} selectedTripId="f-south-2" onSelectDeparture={onSelectDeparture} />);
+    expect(within(fCard!).getByRole("button", { name: /Select F train to Jamaica-179 St, 18 minutes/i })).toBeVisible();
+    expect(laterDeparture).toHaveAttribute("aria-pressed", "true");
+    expect(within(fCard!).getByRole("link", { name: "View F train details" })).toHaveAttribute("href", expect.stringMatching(/trip=f-south-2/));
   });
 
   it("selects the exact hero departure without exposing implementation IDs", async () => {

@@ -12,12 +12,14 @@ const stop = {
   distanceMiles: 0.1,
 };
 
-async function mockNearby(page: Page) {
+async function mockNearby(page: Page, discoveryDelayMs = 0) {
   const arrival = new Date(Date.now() + 5 * 60_000).toISOString();
   const trainArrival = new Date(Date.now() + 3 * 60_000).toISOString();
   const laterTrainArrival = new Date(Date.now() + 18 * 60_000).toISOString();
   const uptownTrainArrival = new Date(Date.now() + 8 * 60_000).toISOString();
-  await page.route("**/api/stations?**", (route) => route.fulfill({
+  await page.route("**/api/stations?**", async (route) => {
+    if (discoveryDelayMs) await new Promise((resolve) => setTimeout(resolve, discoveryDelayMs));
+    await route.fulfill({
     contentType: "application/json",
     body: JSON.stringify({ success: true, data: { stations: [{
       id: "D15",
@@ -32,8 +34,11 @@ async function mockNearby(page: Page) {
       routeIds: ["B", "D", "F", "M"],
       distance: 0.2,
     }] } }),
-  }));
-  await page.route("**/api/buses/stops?**", (route) => route.fulfill({
+  });
+  });
+  await page.route("**/api/buses/stops?**", async (route) => {
+    if (discoveryDelayMs) await new Promise((resolve) => setTimeout(resolve, discoveryDelayMs));
+    await route.fulfill({
     contentType: "application/json",
     body: JSON.stringify({ success: true, data: { groups: [{
       id: "bus-stop-group:400001",
@@ -44,7 +49,8 @@ async function mockNearby(page: Page) {
       routeIds: stop.routeIds,
       stops: [stop],
     }] } }),
-  }));
+  });
+  });
   await page.route("**/api/buses/nearby?**", (route) => route.fulfill({
     contentType: "application/json",
     body: JSON.stringify({ success: true, data: { results: [{
@@ -91,6 +97,20 @@ async function mockNearby(page: Page) {
         status: "realtime",
         minutesAway: 3,
       }, {
+        id: "train-trip-d-later:D15S",
+        mode: "subway",
+        tripId: "train-trip-d-later",
+        routeId: "D",
+        stopId: "D15S",
+        stationId: "D15",
+        direction: "southbound",
+        destination: "Coney Island-Stillwell Av",
+        predictedArrival: laterTrainArrival,
+        predictedDeparture: laterTrainArrival,
+        delaySeconds: 0,
+        status: "realtime",
+        minutesAway: 18,
+      }, {
         id: "train-trip-2:D15S",
         mode: "subway",
         tripId: "train-trip-2",
@@ -104,6 +124,20 @@ async function mockNearby(page: Page) {
         delaySeconds: 0,
         status: "realtime",
         minutesAway: 18,
+      }, {
+        id: "train-trip-d-north:D15N",
+        mode: "subway",
+        tripId: "train-trip-d-north",
+        routeId: "D",
+        stopId: "D15N",
+        stationId: "D15",
+        direction: "northbound",
+        destination: "Norwood-205 St",
+        predictedArrival: uptownTrainArrival,
+        predictedDeparture: uptownTrainArrival,
+        delaySeconds: 0,
+        status: "realtime",
+        minutesAway: 8,
       }, {
         id: "train-trip-3:D15N",
         mode: "subway",
@@ -178,7 +212,8 @@ test("shows a distance-ranked mixed feed and links the exact bus trip", async ({
   await page.goto("/nearby");
   const map = page.getByRole("region", { name: "Nearby map" });
   await expect(map).toBeVisible();
-  await expect(page.getByRole("link", { name: "Plan a trip" })).toHaveAttribute("href", "/routes");
+  await expect(page.getByRole("combobox", { name: "Search location or station" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Plan a trip" })).toHaveCount(0);
   await expect(page.getByText("47-50 Sts-Rockefeller Ctr").first()).toBeVisible();
   const trainSelect = page.getByRole("button", { name: /select D train to Coney Island-Stillwell Av/i });
   await expect(trainSelect).toBeVisible();
@@ -216,11 +251,24 @@ test("pages directional subway service and expands the exact selected train on t
 
   const map = page.getByRole("region", { name: "Nearby map" });
   await expect(map).toHaveAttribute("data-expanded", "false");
-  await expect(page.getByRole("heading", { name: "47-50 Sts-Rockefeller Ctr" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "D train departures" })).toBeAttached();
+  await expect(page.getByText("47-50 Sts-Rockefeller Ctr").first()).toBeVisible();
+  await expect(page.getByRole("tablist")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /show .*more departure/i })).toHaveCount(0);
 
-  const downtownTab = page.getByRole("tab", { name: "Downtown / Brooklyn" });
-  const uptownTab = page.getByRole("tab", { name: "Uptown / Bronx" });
-  await expect(downtownTab).toHaveAttribute("aria-selected", "true");
+  const directionRail = page.getByTestId("subway-route-D-pages");
+  await expect(directionRail).toHaveAttribute("aria-label", /Downtown \/ Brooklyn/i);
+  await directionRail.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(directionRail).toHaveAttribute("aria-label", /Uptown \/ Bronx/i);
+  await expect(page.getByRole("button", { name: /Select D train to Norwood-205 St/i })).toBeVisible();
+  if (process.env.IMPECCABLE_CAPTURE === "1") {
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.screenshot({ path: ".impeccable/review/opposite-direction-390.png", fullPage: false });
+  }
+  await directionRail.focus();
+  await page.keyboard.press("ArrowLeft");
+  await expect(directionRail).toHaveAttribute("aria-label", /Downtown \/ Brooklyn/i);
 
   const hero = page.getByRole("button", {
     name: /Select D train to Coney Island-Stillwell Av, 3 minutes/i,
@@ -235,30 +283,129 @@ test("pages directional subway service and expands the exact selected train on t
   await expect(page.locator(".rt-marker--subway:not(.rt-marker--selected)")).toBeVisible();
   await expect(page.locator(".nearby-selected-route")).toBeVisible();
 
+  const firstDeparture = page.getByRole("button", {
+    name: /Select D train in 3 minutes to Coney Island-Stillwell Av/i,
+  });
+  await expect(firstDeparture).toHaveAttribute("aria-pressed", "true");
+  await expect(firstDeparture).toHaveCSS("border-top-color", "rgb(255, 99, 25)");
+
   const nav = page.getByRole("navigation", { name: "Primary mobile navigation" });
   const heroBox = await hero.boundingBox();
   const navBox = await nav.boundingBox();
   expect(heroBox).not.toBeNull();
   expect(navBox).not.toBeNull();
-  expect(Math.min(heroBox!.y + heroBox!.height, navBox!.y) - heroBox!.y).toBeGreaterThan(180);
+  expect(Math.min(heroBox!.y + heroBox!.height, navBox!.y) - heroBox!.y).toBeGreaterThan(80);
   if (process.env.IMPECCABLE_CAPTURE === "1") {
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
     await page.screenshot({ path: ".impeccable/review/expanded-mobile.png", fullPage: true });
   }
 
-  await page.getByRole("button", { name: "Show 1 more departure" }).click();
-  await expect(page.getByRole("link", { name: /F train in 18 minutes/i })).toHaveAttribute(
+  const laterDeparture = page.getByRole("button", {
+    name: /Select D train in 18 minutes to Coney Island-Stillwell Av/i,
+  });
+  await expect(laterDeparture).toBeVisible();
+  await laterDeparture.click();
+  await expect(laterDeparture).toHaveAttribute("aria-pressed", "true");
+  await expect(firstDeparture).toHaveAttribute("aria-pressed", "false");
+  await expect(laterDeparture).toHaveCSS("border-top-color", "rgb(255, 99, 25)");
+  await expect(firstDeparture).toHaveCSS("border-top-color", "rgba(255, 255, 255, 0.08)");
+  await expect(page.getByRole("link", { name: "View D train details" })).toHaveAttribute(
     "href",
-    /mode=subway.*route=F.*trip=train-trip-2/,
+    /mode=subway.*route=D.*trip=train-trip-d-later/,
   );
-
-  await uptownTab.click();
-  await expect(page.getByRole("button", { name: /Select B train to Bedford Park Blvd/i })).toBeVisible();
-  await downtownTab.click();
-  await expect(page.getByRole("link", { name: /F train in 18 minutes/i })).toBeVisible();
+  if (process.env.IMPECCABLE_CAPTURE === "1") {
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.screenshot({ path: ".impeccable/review/expanded-departures-390.png", fullPage: false });
+  }
 
   await page.getByRole("button", { name: "Collapse train map" }).click();
   await expect(map).toHaveAttribute("data-expanded", "false");
   expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
+});
+
+test("uses the dragged map center for nearby discovery and restores device location", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const stationOrigins: string[] = [];
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (url.pathname === "/api/stations" && url.searchParams.has("near")) {
+      stationOrigins.push(url.searchParams.get("near") ?? "");
+    }
+  });
+
+  await page.goto("/nearby");
+  await expect.poll(() => stationOrigins.at(-1)).toBe("40.758,-73.9855");
+  await expect(page.getByTestId("nearby-search-origin-pin")).toBeVisible();
+
+  const mapCanvas = page.locator(".leaflet-container");
+  const mapBox = await mapCanvas.boundingBox();
+  expect(mapBox).not.toBeNull();
+  const startX = mapBox!.x + mapBox!.width * 0.7;
+  const startY = mapBox!.y + mapBox!.height * 0.4;
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX - 90, startY + 30, { steps: 8 });
+  await page.mouse.up();
+
+  await expect.poll(() => stationOrigins.length).toBeGreaterThan(1);
+  await expect.poll(() => stationOrigins.at(-1)).not.toBe("40.758,-73.9855");
+  await expect(page.getByText("Map area", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "Use my location" }).click();
+  await expect.poll(() => stationOrigins.at(-1)).toBe("40.758,-73.9855");
+});
+
+test("searches a station or place and uses its exact coordinates without moving the user marker", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const stationOrigins: string[] = [];
+  const busOrigins: string[] = [];
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (url.pathname === "/api/stations" && url.searchParams.has("near")) {
+      stationOrigins.push(url.searchParams.get("near") ?? "");
+    }
+    if (url.pathname === "/api/buses/stops" && url.searchParams.has("near")) {
+      busOrigins.push(url.searchParams.get("near") ?? "");
+    }
+  });
+  await page.route("**/api/locations?**", (route) => route.fulfill({
+    contentType: "application/json",
+    body: JSON.stringify({
+      success: true,
+      data: {
+        locations: [{
+          id: "place:node:4242",
+          kind: "place",
+          name: "Bryant Park",
+          description: "Midtown South, Manhattan",
+          latitude: 40.7535965,
+          longitude: -73.9832326,
+        }],
+      },
+    }),
+  }));
+
+  await page.goto("/nearby");
+  await expect.poll(() => stationOrigins.at(-1)).toBe("40.758,-73.9855");
+  const userMarker = page.locator(".rt-user-location");
+  await expect(userMarker).toBeVisible();
+
+  const search = page.getByRole("combobox", { name: "Search location or station" });
+  await search.fill("Bryant Park");
+  await page.getByRole("option", { name: /Bryant Park.*Place.*Midtown South, Manhattan/i }).click();
+
+  await expect.poll(() => stationOrigins.at(-1)).toBe("40.7535965,-73.9832326");
+  await expect.poll(() => busOrigins.at(-1)).toBe("40.7535965,-73.9832326");
+  await expect(page.getByText("Bryant Park", { exact: true }).first()).toBeVisible();
+  await expect(userMarker).toBeVisible();
+  await expect(search).toHaveValue("Bryant Park");
+  await expect(page).toHaveURL(/\/nearby$/);
+
+  if (process.env.IMPECCABLE_CAPTURE === "1") {
+    await search.fill("Bryant");
+    await expect(page.getByRole("listbox", { name: "Location search results" })).toBeVisible();
+    await page.screenshot({ path: ".impeccable/review/location-search-390.png", fullPage: false });
+  }
 });
 
 test("filters to bus mode without horizontal overflow on mobile", async ({ page }) => {
@@ -271,8 +418,13 @@ test("filters to bus mode without horizontal overflow on mobile", async ({ page 
     await page.screenshot({ path: ".impeccable/review/mobile.png", fullPage: true });
   }
   await page.getByRole("button", { name: "bus", exact: true }).click();
-  await expect(page.getByRole("button", { name: /select M1 bus to East Village/i }).getByText("5 AV/W 42 ST")).toBeVisible();
+  const bus = page.getByRole("button", { name: /select M1 bus to East Village/i });
+  await expect(bus.getByText("5 AV/W 42 ST")).toBeVisible();
   await expect(page.getByRole("button", { name: /select D train to Coney Island-Stillwell Av/i })).toHaveCount(0);
+  await bus.click();
+  if (process.env.IMPECCABLE_CAPTURE === "1") {
+    await page.screenshot({ path: ".impeccable/review/selected-bus-390.png", fullPage: false });
+  }
   expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
 });
 
@@ -294,4 +446,73 @@ test("surfaces feed-level partial realtime failures", async ({ page }) => {
   await expect(page.getByText("Partial", { exact: true })).toBeVisible();
   await expect(page.getByText(/Bus updates are unavailable/i)).toBeVisible();
   await expect(page.getByRole("button", { name: /select D train to Coney Island-Stillwell Av/i })).toBeVisible();
+});
+
+test("keeps the initial hierarchy intact across target viewports and light mode", async ({ page }) => {
+  const viewports = [
+    { width: 375, height: 812 },
+    { width: 393, height: 852 },
+    { width: 430, height: 932 },
+    { width: 768, height: 1024 },
+    { width: 1280, height: 800 },
+  ];
+
+  for (const viewport of viewports) {
+    await page.setViewportSize(viewport);
+    await page.goto("/nearby");
+    await expect(page.getByRole("button", { name: /select D train to Coney Island-Stillwell Av/i })).toBeVisible();
+    await expect(page.locator("img.leaflet-tile-loaded").first()).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false);
+    if (process.env.IMPECCABLE_CAPTURE === "1") {
+      await page.screenshot({ path: `.impeccable/review/initial-${viewport.width}.png`, fullPage: false });
+    }
+  }
+
+  await page.setViewportSize({ width: 393, height: 852 });
+  if (!(await page.locator("html").getAttribute("class"))?.includes("light")) {
+    await page.getByRole("button", { name: "Switch to light mode" }).click();
+  }
+  await expect(page.locator("html")).toHaveClass(/light/);
+  await expect(page.locator("img.leaflet-tile-loaded[src*='World_Light_Gray_Base']").first()).toBeVisible();
+  if (process.env.IMPECCABLE_CAPTURE === "1") {
+    await page.screenshot({ path: ".impeccable/review/light-393.png", fullPage: false });
+  }
+});
+
+test("keeps loading and location-denied recovery compact", async ({ context, page }) => {
+  await page.unroute("**/api/stations?**");
+  await page.unroute("**/api/buses/stops?**");
+  await page.unroute("**/api/buses/nearby?**");
+  await page.unroute("**/api/trains/realtime?**");
+  await mockNearby(page, 1_000);
+  await page.setViewportSize({ width: 393, height: 852 });
+  await page.goto("/nearby");
+  await expect(page.getByLabel("Loading nearby departures")).toBeVisible();
+  if (process.env.IMPECCABLE_CAPTURE === "1") {
+    await page.screenshot({ path: ".impeccable/review/loading-393.png", fullPage: false });
+  }
+  await expect(page.getByRole("button", { name: /select D train to Coney Island-Stillwell Av/i })).toBeVisible();
+
+  await context.clearPermissions();
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator.permissions, "query", {
+      configurable: true,
+      value: async () => ({
+        state: "denied",
+        onchange: null,
+        addEventListener() {},
+        removeEventListener() {},
+        dispatchEvent: () => true,
+      }),
+    });
+  });
+  await page.goto("/nearby");
+  await expect(page.getByRole("heading", { name: "Location access is off" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Try location again" })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Search location or station" })).toBeVisible();
+  await expect(page.getByTestId("nearby-search-origin-pin")).toBeVisible();
+  await expect(page.locator(".rt-user-location")).toHaveCount(0);
+  if (process.env.IMPECCABLE_CAPTURE === "1") {
+    await page.screenshot({ path: ".impeccable/review/location-denied-393.png", fullPage: false });
+  }
 });

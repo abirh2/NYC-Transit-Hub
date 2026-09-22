@@ -484,3 +484,235 @@ reference hierarchy.
 - [x] Focused component and browser tests pass.
 - [x] Lint, typecheck, and production build pass.
 - [x] Mobile and desktop captures pass the bounded finish review.
+
+---
+
+# Final Mobile-First Nearby Refinement
+
+## Task 20: Compact the first viewport
+
+**Description:** Reduce map and toolbar height on mobile while preserving useful
+map context, search, status, filtering, and the existing desktop split.
+
+**Acceptance criteria:**
+- [x] At 375–430px, the first viewport includes the map/search and multiple
+  useful nearby service options or a focused selected-service state.
+- [x] Controls remain at least 44px and the fixed bottom navigation obscures no
+  terminal content.
+
+**Verification:**
+- [x] Relevant Playwright layout assertions and browser captures pass.
+
+**Dependencies:** Completed Task 19.
+
+**Files likely touched:**
+- `components/nearby/NearbyMap.tsx`
+- `components/nearby/NearbyClient.tsx`
+- `tests/e2e/nearby-bus.spec.ts`
+
+**Estimated scope:** Medium
+
+## Task 21: Refine service hierarchy and selection
+
+**Description:** Make route, direction, destination, and ETA hierarchy explicit;
+surface route-local direction controls and progressive disclosure; replace broad
+selected fills with restrained route-led emphasis.
+
+**Acceptance criteria:**
+- [x] Every subway route card exposes its own accessible direction control and
+  one dominant ETA with compact additional exact-trip departures.
+- [x] Bus badges remain distinct from subway bullets and bus selection does not
+  create a large application-blue rectangle.
+- [x] No normal rider state exposes raw trip, stop, feed, enum, or debug copy.
+
+**Verification:**
+- [x] Focused component tests pass.
+- [x] Dark and light selected states pass browser inspection.
+
+**Dependencies:** Task 20.
+
+**Files likely touched:**
+- `components/nearby/NearbySubwayServicePanel.tsx`
+- `components/nearby/NearbyDepartureRow.tsx`
+- `tests/components/NearbySubwayServicePanel.test.tsx`
+
+**Estimated scope:** Medium
+
+## Task 22: Harden states and complete verification
+
+**Description:** Align loading, permission, empty, and partial-failure states with
+the refined surface, update stale E2E expectations, and run the required quality
+gates plus one bounded Impeccable critique/correction round.
+
+**Acceptance criteria:**
+- [x] Loading, denied, empty, partial failure, selected train/bus, and light mode
+  remain compact, actionable, and accessible.
+- [x] No horizontal overflow, console errors, inaccessible controls, or
+  regressions to exact Trip/Vehicle links remain.
+
+**Verification:**
+- [x] `npm run lint`, `npx tsc --noEmit`, `npm run test`, `npm run build`, and
+  `npx playwright test tests/e2e/nearby-bus.spec.ts` pass on Node 24.
+
+**Dependencies:** Task 21.
+
+**Files likely touched:**
+- `components/nearby/NearbyClient.tsx`
+- `tests/e2e/nearby-bus.spec.ts`
+
+**Estimated scope:** Medium
+
+## Checkpoint: Final Nearby refinement complete
+
+- [x] All brief states and requested viewport classes have been inspected.
+- [x] Automated quality gates pass and the final critique has no unresolved P0/P1 finding.
+
+---
+
+# Transit-Faithful Nearby Route Rows
+
+## Task 23: Lock the corrected interaction contract
+
+**Description:** Translate the Transit screenshots, official behavior, and user
+correction into an authoritative spec and red-first tests.
+
+**Acceptance criteria:**
+- [x] The spec explicitly prohibits visible direction tabs and departure
+  disclosure controls.
+- [x] Tests describe row-level direction swipe and immediate selected ETA cards.
+
+**Verification:**
+- [x] Focused component tests fail against the previous tab/disclosure UI.
+
+**Dependencies:** Completed Task 22.
+
+**Files:** `SPEC-nearby-map-first-experience.md`,
+`tests/components/NearbySubwayServicePanel.test.tsx`, `tasks/plan.md`,
+`tasks/todo.md`
+
+**Estimated scope:** Medium
+
+## Task 24: Implement route swipe and ETA cards
+
+**Description:** Remove the extra control bands while preserving exact route,
+direction, departure, map, and detail behavior.
+
+**Acceptance criteria:**
+- [x] Each route is one compact row with no visible direction controls.
+- [x] Swipe and ArrowLeft/ArrowRight change only that route's direction.
+- [x] Selecting a route immediately shows exact ETA cards; selecting an ETA
+  updates exact trip context without a disclosure step.
+
+**Verification:**
+- [x] Focused component tests pass.
+- [x] Focused Playwright interaction passes.
+
+**Dependencies:** Task 23.
+
+**Files:** `components/nearby/NearbySubwayServicePanel.tsx`,
+`tests/components/NearbySubwayServicePanel.test.tsx`,
+`tests/e2e/nearby-bus.spec.ts`
+
+**Estimated scope:** Medium
+
+## Task 25: Reference comparison and regression gates
+
+**Description:** Inspect bounded responsive captures against the Transit
+hierarchy and complete the repository's required validation.
+
+**Acceptance criteria:**
+- [x] Collapsed, opposite-direction, and selected captures match the specified
+  hierarchy and contain no tab/disclosure bands.
+- [x] Dark/light and target widths retain no overflow or bottom-nav collision.
+
+**Verification:**
+- [x] Relevant Playwright suite, lint, typecheck, production build, and diff
+  checks pass.
+
+**Dependencies:** Task 24.
+
+**Files:** `tests/e2e/nearby-bus.spec.ts`, `.impeccable/review/`
+
+**Estimated scope:** Small
+
+## Checkpoint: Transit-faithful route interaction complete
+
+- [x] No visible direction tabs or departure disclosure controls remain.
+- [x] Exact trip selection, map continuity, and Train details remain correct.
+- [x] Automated checks and bounded screenshot review pass.
+
+---
+
+# Map-Centered Nearby Exploration
+
+## Task 26: Define and test location search
+
+**Description:** Add a typed, validated, bounded endpoint that combines static
+MTA station matches with NYC place/address matches from the existing geocoder.
+
+**Acceptance criteria:**
+- [x] Query and limit are validated; the upstream URL is fixed server-side.
+- [x] Results use stable `station`/`place` variants with validated coordinates.
+- [x] Bad or unavailable geocoder data falls back to station matches.
+
+**Verification:**
+- [x] Focused unit/API tests fail before implementation and pass afterward.
+
+**Dependencies:** Task 25.
+
+**Files:** `types/location.ts`, `lib/transit/location-search.ts`,
+`app/api/locations/route.ts`, `docs/api.md`,
+`tests/unit/location-search.test.ts`
+
+**Estimated scope:** Medium
+
+## Task 27: Make the map center the Nearby origin
+
+**Description:** Separate real device position from the search origin, enable
+Leaflet panning, add a fixed center pin, and refresh discovery at drag end.
+
+**Acceptance criteria:**
+- [x] User drag-end updates the origin once; programmatic movement does not.
+- [x] The blue marker remains the actual device and Locate restores it.
+- [x] Origin changes clear stale selections and drive station/bus discovery.
+
+**Verification:**
+- [x] Focused Playwright drag flow passes with changed `near` coordinates.
+
+**Dependencies:** Task 26.
+
+**Files:** `components/nearby/NearbyClient.tsx`,
+`components/nearby/NearbyMap.tsx`, `components/nearby/NearbyMapCanvas.tsx`,
+`tests/e2e/nearby-bus.spec.ts`
+
+**Estimated scope:** Medium
+
+## Task 28: Add the location/station search overlay
+
+**Description:** Replace the Plan a trip link with an accessible combined
+search field and connect selection to the map-centered origin flow.
+
+**Acceptance criteria:**
+- [x] Search renders station/place states and selects exact coordinates.
+- [x] Suggestions open above the field and remain clear at mobile sizes.
+- [x] Manual exploration works without fabricating a user location marker.
+
+**Verification:**
+- [x] Component tests and mocked Playwright search flow pass.
+- [x] Responsive captures, lint, typecheck, full tests, and build pass.
+
+**Dependencies:** Tasks 26–27.
+
+**Files:** `components/nearby/NearbyLocationSearch.tsx`,
+`components/nearby/NearbyMap.tsx`,
+`tests/components/NearbyLocationSearch.test.tsx`,
+`tests/e2e/nearby-bus.spec.ts`
+
+**Estimated scope:** Medium
+
+## Checkpoint: Map-centered exploration complete
+
+- [x] Map drag, search selection, and locate restoration share one origin model.
+- [x] Actual device location remains semantically and visually distinct.
+- [x] Existing Transit-faithful route interactions remain unchanged.
+- [x] Automated and visual quality gates pass.

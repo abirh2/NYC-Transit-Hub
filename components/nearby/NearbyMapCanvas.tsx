@@ -11,7 +11,7 @@ import {
   Polyline,
   TileLayer,
   Tooltip,
-  useMap,
+  useMapEvents,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -24,6 +24,7 @@ import {
 } from "@/components/realtime/map/markerIcons";
 import { getRiderDirectionLabel, type NearbyService } from "@/lib/transit/nearby";
 import type { GeolocationPosition } from "@/lib/hooks/useGeolocation";
+import type { NearbySearchOrigin } from "@/types/location";
 import type { NearbyBusStopGroup, TransitStation, TransitVehicle } from "@/types/transit";
 
 interface NearbySubwayTrainPosition {
@@ -34,12 +35,17 @@ interface NearbySubwayTrainPosition {
   coordinates: [number, number];
 }
 
-const TILE_URLS = {
-  dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-  light: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+const TILE_LAYERS = {
+  dark: {
+    base: "https://services.arcgisonline.com/arcgis/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+    labels: "https://services.arcgisonline.com/arcgis/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}",
+  },
+  light: {
+    base: "https://services.arcgisonline.com/arcgis/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+    labels: "https://services.arcgisonline.com/arcgis/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}",
+  },
 } as const;
-const TILE_ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
+const TILE_ATTRIBUTION = "Tiles &copy; Esri";
 const PANES = {
   route: { name: "nearby-route", zIndex: 400 },
   locations: { name: "nearby-locations", zIndex: 450 },
@@ -63,17 +69,28 @@ function readToken(name: string, fallback: string): string {
 }
 
 function MapBridge({
-  points,
   selectedPoint,
   focusedPoints,
+  searchOrigin,
   onMapReady,
+  onMapDragEnd,
+  onMapDraggingChange,
 }: {
-  points: [number, number][];
   selectedPoint: [number, number] | null;
   focusedPoints: [number, number][];
+  searchOrigin: NearbySearchOrigin;
   onMapReady: (map: LeafletMap | null) => void;
+  onMapDragEnd: (latitude: number, longitude: number) => void;
+  onMapDraggingChange: (dragging: boolean) => void;
 }) {
-  const map = useMap();
+  const map = useMapEvents({
+    dragstart: () => onMapDraggingChange(true),
+    dragend: () => {
+      onMapDraggingChange(false);
+      const center = map.getCenter();
+      onMapDragEnd(center.lat, center.lng);
+    },
+  });
 
   useEffect(() => {
     onMapReady(map);
@@ -93,10 +110,14 @@ function MapBridge({
       map.setView(selectedPoint, Math.max(map.getZoom(), 15), { animate: true });
       return;
     }
-    if (points.length > 0) {
-      map.setView(points[0], 15, { animate: false });
+    const center = map.getCenter();
+    if (
+      Math.abs(center.lat - searchOrigin.latitude) > 0.00001 ||
+      Math.abs(center.lng - searchOrigin.longitude) > 0.00001
+    ) {
+      map.setView([searchOrigin.latitude, searchOrigin.longitude], map.getZoom(), { animate: true });
     }
-  }, [focusedPoints, map, points, selectedPoint]);
+  }, [focusedPoints, map, searchOrigin, selectedPoint]);
 
   return null;
 }
@@ -138,21 +159,38 @@ function AccessibleLocationMarker({
   }, [label, onSelect]);
 
   return (
-    <CircleMarker
-      ref={markerRef}
-      pane={pane}
-      center={center}
-      radius={radius}
-      pathOptions={pathOptions}
-      eventHandlers={{ click: onSelect }}
-    >
-      {children}
-    </CircleMarker>
+    <Fragment>
+      <CircleMarker
+        pane={pane}
+        center={center}
+        radius={radius}
+        interactive={false}
+        pathOptions={pathOptions}
+      >
+        {children}
+      </CircleMarker>
+      <CircleMarker
+        ref={markerRef}
+        pane={pane}
+        center={center}
+        radius={22}
+        pathOptions={{
+          className: "nearby-marker-hit",
+          color: "transparent",
+          fillColor: "transparent",
+          fillOpacity: 0,
+          opacity: 0,
+          weight: 0,
+        }}
+        eventHandlers={{ click: onSelect }}
+      />
+    </Fragment>
   );
 }
 
 function NearbyMapCanvas({
-  position,
+  userPosition,
+  searchOrigin,
   stations,
   busGroups,
   selectedService,
@@ -164,8 +202,11 @@ function NearbyMapCanvas({
   routeColor,
   onSelectLocation,
   onMapReady,
+  onMapDragEnd,
+  onMapDraggingChange,
 }: {
-  position: GeolocationPosition;
+  userPosition: GeolocationPosition | null;
+  searchOrigin: NearbySearchOrigin;
   stations: Array<TransitStation & { distance: number }>;
   busGroups: NearbyBusStopGroup[];
   selectedService: NearbyService | null;
@@ -177,9 +218,11 @@ function NearbyMapCanvas({
   routeColor: string;
   onSelectLocation: (locationId: string) => void;
   onMapReady: (map: LeafletMap | null) => void;
+  onMapDragEnd: (latitude: number, longitude: number) => void;
+  onMapDraggingChange: (dragging: boolean) => void;
 }) {
   const { resolvedTheme } = useTheme();
-  const tileUrl = resolvedTheme === "light" ? TILE_URLS.light : TILE_URLS.dark;
+  const tileLayers = resolvedTheme === "light" ? TILE_LAYERS.light : TILE_LAYERS.dark;
   const tokens = useMemo(() => ({
     selected: readToken("--state-selected", "#0039A6"),
     surface: readToken("--surface-app", "#0a0a0a"),
@@ -188,14 +231,6 @@ function NearbyMapCanvas({
   // Re-read CSS tokens when the active theme changes.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [resolvedTheme]);
-
-  const allPoints = useMemo<[number, number][]>(() => [
-    [position.latitude, position.longitude],
-    ...stations.flatMap((station) => station.location
-      ? [[station.location.latitude, station.location.longitude] as [number, number]]
-      : []),
-    ...busGroups.map((group) => [group.location.latitude, group.location.longitude] as [number, number]),
-  ], [busGroups, position.latitude, position.longitude, stations]);
 
   const selectedPoint = useMemo<[number, number] | null>(() => {
     if (!selectedService) return null;
@@ -231,7 +266,7 @@ function NearbyMapCanvas({
       Math.abs(longitude - selectedTrainPosition[1]) <= 0.018);
 
     return [
-      [position.latitude, position.longitude],
+      [searchOrigin.latitude, searchOrigin.longitude],
       ...(boardingStation?.location
         ? [[boardingStation.location.latitude, boardingStation.location.longitude] as [number, number]]
         : []),
@@ -242,8 +277,8 @@ function NearbyMapCanvas({
   }, [
     focusSelectedTrain,
     otherSubwayTrainPositions,
-    position.latitude,
-    position.longitude,
+    searchOrigin.latitude,
+    searchOrigin.longitude,
     routeGeometry,
     selectedService,
     selectedTrainPosition,
@@ -252,23 +287,26 @@ function NearbyMapCanvas({
 
   return (
     <MapContainer
-      center={[position.latitude, position.longitude]}
+      center={[searchOrigin.latitude, searchOrigin.longitude]}
       zoom={15}
       zoomControl={false}
-      dragging={false}
+      dragging
       scrollWheelZoom={false}
-      doubleClickZoom={false}
-      touchZoom={false}
-      keyboard={false}
+      doubleClickZoom
+      touchZoom
+      keyboard
       style={{ height: "100%", width: "100%" }}
     >
       <MapBridge
-        points={allPoints}
         selectedPoint={selectedPoint}
         focusedPoints={focusedPoints}
+        searchOrigin={searchOrigin}
         onMapReady={onMapReady}
+        onMapDragEnd={onMapDragEnd}
+        onMapDraggingChange={onMapDraggingChange}
       />
-      <TileLayer key={tileUrl} attribution={TILE_ATTRIBUTION} url={tileUrl} />
+      <TileLayer key={tileLayers.base} attribution={TILE_ATTRIBUTION} url={tileLayers.base} />
+      <TileLayer key={tileLayers.labels} url={tileLayers.labels} />
       <Pane name={PANES.route.name} style={{ zIndex: PANES.route.zIndex }} />
       <Pane name={PANES.locations.name} style={{ zIndex: PANES.locations.zIndex }} />
       <Pane name={PANES.vehicles.name} style={{ zIndex: PANES.vehicles.zIndex }} />
@@ -348,13 +386,15 @@ function NearbyMapCanvas({
         );
       })}
 
-      <Marker
-        pane={PANES.selected.name}
-        position={[position.latitude, position.longitude]}
-        icon={toDivIcon(buildUserLocationHtml())}
-        interactive={false}
-        zIndexOffset={1000}
-      />
+      {userPosition && (
+        <Marker
+          pane={PANES.selected.name}
+          position={[userPosition.latitude, userPosition.longitude]}
+          icon={toDivIcon(buildUserLocationHtml())}
+          interactive={false}
+          zIndexOffset={1000}
+        />
+      )}
 
       {selectedService?.mode === "subway" && selectedTrainPosition && (
         <Marker
