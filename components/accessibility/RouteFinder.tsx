@@ -1,76 +1,25 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
-import { Card, CardBody, Button, Input, Switch, Spinner, Listbox, ListboxItem, Chip, Divider } from "@heroui/react";
-import { 
-  MapPin, 
-  Navigation, 
-  ArrowRight, 
-  Accessibility, 
-  RotateCcw,
-  Search,
+import { useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { format } from "date-fns";
+import {
+  Accessibility,
+  ArrowDownUp,
+  ChevronDown,
   Clock,
   Footprints,
-  AlertCircle
+  LoaderCircle,
 } from "lucide-react";
-import { SubwayBullet } from "@/components/ui";
-import { getSubwayRouteColor } from "@/lib/transit/route-colors";
-import { format } from "date-fns";
 
-interface GeocodingResult {
-  display_name: string;
-  lat: string;
-  lon: string;
-  address?: {
-    house_number?: string;
-    road?: string;
-    neighbourhood?: string;
-    suburb?: string;
-    city?: string;
-    borough?: string;
-    state?: string;
-    postcode?: string;
-  };
-  type?: string;
-  class?: string;
-}
-
-// Format address for cleaner display
-function formatAddressDisplay(result: GeocodingResult): string {
-  const addr = result.address;
-  if (!addr) return result.display_name.split(",").slice(0, 3).join(", ");
-  
-  const parts: string[] = [];
-  
-  // Street address
-  if (addr.house_number && addr.road) {
-    parts.push(`${addr.house_number} ${addr.road}`);
-  } else if (addr.road) {
-    parts.push(addr.road);
-  }
-  
-  // Neighborhood or suburb
-  if (addr.neighbourhood) {
-    parts.push(addr.neighbourhood);
-  } else if (addr.suburb) {
-    parts.push(addr.suburb);
-  }
-  
-  // Borough (for NYC)
-  if (addr.borough) {
-    parts.push(addr.borough);
-  } else if (addr.city && addr.city !== "New York") {
-    parts.push(addr.city);
-  }
-  
-  return parts.length > 0 ? parts.join(", ") : result.display_name.split(",").slice(0, 2).join(", ");
-}
-
-interface LocationInput {
-  address: string;
-  lat: number | null;
-  lon: number | null;
-}
+import { BusBadge, LocationSearchField, SubwayBullet, Surface } from "@/components/ui";
+import {
+  buildPlanQueryString,
+  parsePlanQueryState,
+  type PlanQueryState,
+  type RiderLocationContext,
+} from "@/lib/transit/rider-query-state";
+import type { LocationSearchResult } from "@/types/location";
 
 interface OTPLeg {
   startTime: number;
@@ -79,7 +28,6 @@ interface OTPLeg {
   endTimeFmt: string;
   mode: "WALK" | "BUS" | "SUBWAY" | "TRAM" | "RAIL" | "FERRY";
   route?: string;
-  routeColor?: string;
   headsign?: string;
   tripHeadsign?: string;
   duration: number;
@@ -87,7 +35,6 @@ interface OTPLeg {
   from: { name: string; lon: number; lat: number };
   to: { name: string; lon: number; lat: number };
   intermediateStops?: Array<{ name: string }>;
-  steps?: Array<{ instructionText?: string; distance: number }>;
   transitLeg: boolean;
 }
 
@@ -97,6 +44,7 @@ interface OTPItinerary {
   endTimeFmt: string;
   walkTime: number;
   transitTime: number;
+  waitingTime?: number;
   walkDistance: number;
   transfers: number;
   legs: OTPLeg[];
@@ -114,685 +62,268 @@ interface TripResponse {
   };
 }
 
-function formatDuration(seconds: number): string {
-  const mins = Math.round(seconds / 60);
-  if (mins < 60) return `${mins} min`;
-  const hrs = Math.floor(mins / 60);
-  const remainMins = mins % 60;
-  return remainMins > 0 ? `${hrs}h ${remainMins}m` : `${hrs}h`;
+type ResultState =
+  | { type: "idle" }
+  | { type: "loading" }
+  | { type: "ready"; response: TripResponse & { data: NonNullable<TripResponse["data"]> } }
+  | { type: "no-path" }
+  | { type: "unavailable" };
+
+function contextToSearchResult(context: RiderLocationContext | null): LocationSearchResult | null {
+  if (!context) return null;
+  return context.stationId
+    ? {
+        id: `station:${context.stationId}`,
+        kind: "station",
+        stationId: context.stationId,
+        name: context.name,
+        description: "Subway station",
+        latitude: context.latitude,
+        longitude: context.longitude,
+      }
+    : {
+        id: `query:${context.latitude},${context.longitude}`,
+        kind: "place",
+        name: context.name,
+        description: "New York City",
+        latitude: context.latitude,
+        longitude: context.longitude,
+      };
 }
 
-function formatTime(isoString: string): string {
-  try {
-    const date = new Date(isoString);
-    return format(date, "h:mm a");
-  } catch {
-    return isoString;
-  }
+function resultToContext(result: LocationSearchResult | null): RiderLocationContext | null {
+  if (!result) return null;
+  return {
+    name: result.name,
+    latitude: result.latitude,
+    longitude: result.longitude,
+    ...(result.kind === "station" ? { stationId: result.stationId } : {}),
+  };
+}
+
+function formatDuration(seconds: number): string {
+  const minutes = Math.max(0, Math.round(seconds / 60));
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return remainder ? `${hours}h ${remainder}m` : `${hours}h`;
+}
+
+function formatTime(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : format(date, "h:mm a");
 }
 
 function formatDistance(meters: number): string {
-  const miles = meters / 1609.34;
-  if (miles < 0.1) return `${Math.round(meters)} ft`;
+  const miles = meters / 1609.344;
+  if (miles < 0.1) return `${Math.round(meters * 3.28084)} ft`;
   return `${miles.toFixed(1)} mi`;
 }
 
-// Subway lines that should use the bullet icon
-const SUBWAY_LINES = new Set([
-  "1", "2", "3", "4", "5", "6", "7",
-  "A", "B", "C", "D", "E", "F", "G",
-  "J", "L", "M", "N", "Q", "R", "S", "W", "Z",
-  "SI", "SIR", "FS", "GS", "6X", "7X"
-]);
-
-function isSubwayLine(route: string | undefined): boolean {
-  if (!route) return false;
-  return SUBWAY_LINES.has(route.toUpperCase());
-}
-
-// Commuter rail routes (Metro-North, LIRR) that render in MTA blue.
-const COMMUTER_RAIL_BLUE = "#0039A6";
-const COMMUTER_RAIL_ROUTES = new Set([
-  "HARLEM", "HUDSON", "NEW HAVEN", "LIRR"
-]);
-
-function getLineColor(leg: OTPLeg): string {
-  // GTFS-provided color wins.
-  if (leg.routeColor) return `#${leg.routeColor}`;
-
-  // Commuter rail (Metro-North / LIRR) fall back to MTA blue.
-  if (COMMUTER_RAIL_ROUTES.has(leg.route?.toUpperCase() || "")) {
-    return COMMUTER_RAIL_BLUE;
-  }
-
-  // Subway route-family color from the single source of truth
-  // (falls back to neutral gray for unknown lines).
-  return getSubwayRouteColor(leg.route || "");
-}
-
-// Render transit line badge - subway bullet or chip for commuter rail
-function TransitBadge({ leg, size = "md" }: { leg: OTPLeg; size?: "sm" | "md" }) {
-  const route = leg.route || "";
-  
-  if (isSubwayLine(route)) {
-    return <SubwayBullet line={route} size={size} />;
-  }
-  
-  // For commuter rail and buses, use a chip
-  const color = getLineColor(leg);
-  const displayName = route.length > 8 ? route.slice(0, 3).toUpperCase() : route;
-  const sizeClasses = size === "sm" ? "text-xs px-1.5 py-0.5" : "text-sm px-2 py-1";
-  
+function RouteIdentity({ leg }: { leg: OTPLeg }) {
+  const route = leg.route?.trim();
+  if (!route) return <span className="text-sm font-semibold text-foreground">Transit</span>;
+  if (leg.mode === "SUBWAY") return <SubwayBullet line={route} size="sm" />;
+  if (leg.mode === "BUS") return <BusBadge route={route} size="sm" />;
   return (
-    <span 
-      className={`${sizeClasses} rounded font-semibold text-white`}
-      style={{ backgroundColor: color }}
-    >
-      {displayName}
+    <span className="rounded-md bg-state-selected px-2 py-1 text-xs font-bold text-white">
+      {route}
     </span>
   );
 }
+function ItineraryResult({ itinerary, index }: { itinerary: OTPItinerary; index: number }) {
+  const [expanded, setExpanded] = useState(index === 0);
+  const transitLegs = itinerary.legs.filter((leg) => leg.transitLeg);
+  const transferLabel = `${itinerary.transfers} transfer${itinerary.transfers === 1 ? "" : "s"}`;
 
-function ItineraryCard({ itinerary, index, isAccessible, originAddress, destinationAddress }: { 
-  itinerary: OTPItinerary; 
-  index: number; 
-  isAccessible: boolean;
-  originAddress: string;
-  destinationAddress: string;
-}) {
-  const [isExpanded, setIsExpanded] = useState(index === 0);
-  
-  // Get transit legs for preview
-  const transitLegs = itinerary.legs.filter(l => l.transitLeg);
-  
   return (
-    <Card className={index === 0 ? "border-2 border-primary" : "border border-default-200"}>
-      <CardBody className="py-4 px-5">
-        {/* Header - Click to expand/collapse */}
-        <button 
-          className="w-full text-left"
-          onClick={() => setIsExpanded(!isExpanded)}
-        >
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              {/* Time range */}
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-success">
-                  {formatTime(itinerary.startTimeFmt)}
+    <Surface as="article" className="overflow-hidden">
+      <button
+        type="button"
+        aria-expanded={expanded}
+        onClick={() => setExpanded((current) => !current)}
+        className="grid min-h-24 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-3 text-left hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset sm:px-5"
+      >
+        <span className="min-w-0">
+          <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <span className="text-2xl font-bold tracking-[-0.03em] tabular-nums text-foreground">
+              {formatDuration(itinerary.duration)}
+            </span>
+            <span className="text-sm text-foreground/65">
+              {formatTime(itinerary.startTimeFmt)}–{formatTime(itinerary.endTimeFmt)}
+            </span>
+          </span>
+          <span className="mt-2 flex flex-wrap items-center gap-2">
+            {transitLegs.map((leg, legIndex) => (
+              <span key={`${leg.route ?? leg.mode}-${legIndex}`} className="inline-flex items-center gap-2">
+                {legIndex > 0 && <span className="text-foreground/35" aria-hidden="true">→</span>}
+                <RouteIdentity leg={leg} />
+              </span>
+            ))}
+            <span className="text-xs font-medium text-foreground/60">{transferLabel}</span>
+            {itinerary.walkDistance > 0 && (
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-foreground/60">
+                <Footprints className="h-3.5 w-3.5" aria-hidden="true" />
+                Walk {formatDistance(itinerary.walkDistance)}
+              </span>
+            )}
+            {(itinerary.waitingTime ?? 0) > 0 && (
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-foreground/60">
+                <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                {formatDuration(itinerary.waitingTime ?? 0)} wait
+              </span>
+            )}
+          </span>
+        </span>
+        <ChevronDown className={`h-5 w-5 text-foreground/50 transition-transform motion-reduce:transition-none ${expanded ? "rotate-180" : ""}`} aria-hidden="true" />
+      </button>
+
+      {expanded && (
+        <ol className="border-t border-border-subtle px-4 py-2 sm:px-5">
+          {itinerary.legs.map((leg, legIndex) => {
+            const destination = leg.headsign || leg.tripHeadsign || leg.to.name;
+            return (
+              <li key={`${leg.mode}-${legIndex}`} className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 border-b border-border-subtle py-3 last:border-b-0">
+                <span className="pt-0.5">
+                  {leg.transitLeg ? <RouteIdentity leg={leg} /> : <Footprints className="h-5 w-5 text-foreground/60" aria-hidden="true" />}
                 </span>
-                <ArrowRight className="h-4 w-4 text-foreground/40" />
-                <span className="font-semibold text-foreground">
-                  {formatTime(itinerary.endTimeFmt)}
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-foreground">
+                    {leg.transitLeg ? destination : `Walk ${formatDistance(leg.distance)}`}
+                  </span>
+                  <span className="mt-0.5 block text-xs text-foreground/60">
+                    {leg.from.name} to {leg.to.name} · {formatDuration(leg.duration)}
+                    {leg.intermediateStops?.length
+                      ? ` · ${leg.intermediateStops.length} stop${leg.intermediateStops.length === 1 ? "" : "s"}`
+                      : ""}
+                  </span>
                 </span>
-              </div>
-              
-              {/* Duration */}
-              <div className="flex items-center gap-1.5 text-foreground/70">
-                <Clock className="h-4 w-4" />
-                <span className="font-medium">{formatDuration(itinerary.duration)}</span>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              {/* Route preview icons */}
-              <div className="flex items-center gap-1">
-                {transitLegs.map((leg, i) => (
-                  <div key={i} className="flex items-center gap-1">
-                    {i > 0 && <span className="text-foreground/30 text-xs mx-0.5">→</span>}
-                    <TransitBadge leg={leg} size="sm" />
-                  </div>
-                ))}
-              </div>
-              
-              {isAccessible && (
-                <Accessibility className="h-4 w-4 text-success" />
-              )}
-            </div>
-          </div>
-        </button>
-        
-        {/* Expanded Timeline */}
-        {isExpanded && (
-          <div className="mt-5">
-            {itinerary.legs.map((leg, legIndex) => {
-              const isWalk = !leg.transitLeg;
-              const lineColor = getLineColor(leg);
-              const prevLeg = legIndex > 0 ? itinerary.legs[legIndex - 1] : null;
-              const prevWasTransit = prevLeg && prevLeg.transitLeg;
-              const prevLineColor = prevLeg ? getLineColor(prevLeg) : null;
-              const stopCount = leg.intermediateStops?.length || 0;
-              
-              // Dot color logic:
-              // - First stop: dark border
-              // - Start of transit leg: use that transit's color
-              // - After transit leg (walk): use previous transit's color
-              const dotColor = legIndex === 0 
-                ? undefined 
-                : !isWalk 
-                  ? lineColor 
-                  : prevWasTransit 
-                    ? prevLineColor 
-                    : undefined;
-              
-              return (
-                <div key={legIndex} className="flex">
-                  {/* Time column */}
-                  <div className="w-16 shrink-0 text-right pr-4">
-                    <span className="text-sm font-medium text-foreground/70">
-                      {formatTime(leg.startTimeFmt)}
-                    </span>
-                  </div>
-                  
-                  {/* Timeline column */}
-                  <div className="flex flex-col items-center w-6 shrink-0">
-                    {/* Station dot */}
-                    <div 
-                      className={`w-3.5 h-3.5 rounded-full border-2 bg-background shrink-0 ${
-                        legIndex === 0 ? "border-foreground" : !dotColor ? "border-foreground/40" : ""
-                      }`}
-                      style={dotColor ? { borderColor: dotColor } : undefined}
-                    />
-                    
-                    {/* Connecting line */}
-                    <div 
-                      className={`w-1 flex-1 min-h-12 ${isWalk ? "border-l-2 border-dashed border-primary/50" : ""}`}
-                      style={!isWalk ? { backgroundColor: lineColor } : undefined}
-                    />
-                  </div>
-                  
-                  {/* Content column */}
-                  <div className="flex-1 pl-3 pb-2">
-                    {/* Station name */}
-                    <p className="font-semibold text-foreground leading-tight">
-                      {legIndex === 0 && (leg.from.name === "Origin" || leg.from.name === "origin") 
-                        ? originAddress 
-                        : leg.from.name}
-                    </p>
-                    {legIndex === 0 && (
-                      <p className="text-xs text-foreground/50 mt-0.5">Origin</p>
-                    )}
-                    
-                    {/* Leg info */}
-                    <div className="mt-3 mb-3">
-                      {isWalk ? (
-                        <div className="flex items-center gap-2 text-foreground/60">
-                          <Footprints className="h-4 w-4" />
-                          <span className="text-sm">Walk</span>
-                          <span className="text-xs text-foreground/40">
-                            About {formatDuration(leg.duration)}, {formatDistance(leg.distance)}
-                          </span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <TransitBadge leg={leg} size="md" />
-                          <div>
-                            <p className="text-sm font-medium text-foreground">
-                              {leg.headsign || leg.tripHeadsign || ""}
-                            </p>
-                            {stopCount > 0 && (
-                              <p className="text-xs text-foreground/50">
-                                {formatDuration(leg.duration)} ({stopCount} stop{stopCount !== 1 ? "s" : ""})
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-            
-            {/* Final destination */}
-            {(() => {
-              // Find the last transit leg to get its color for the final dot
-              const lastLeg = itinerary.legs[itinerary.legs.length - 1];
-              const lastTransitLeg = [...itinerary.legs].reverse().find(l => l.transitLeg);
-              const finalDotColor = lastTransitLeg ? getLineColor(lastTransitLeg) : undefined;
-              
-              return (
-                <div className="flex">
-                  {/* Time column */}
-                  <div className="w-16 shrink-0 text-right pr-4">
-                    <span className="text-sm font-medium text-foreground/70">
-                      {formatTime(itinerary.endTimeFmt)}
-                    </span>
-                  </div>
-                  
-                  {/* Timeline column */}
-                  <div className="flex flex-col items-center w-6 shrink-0">
-                    <div 
-                      className="w-4 h-4 rounded-full flex items-center justify-center"
-                      style={{ backgroundColor: finalDotColor || 'currentColor' }}
-                    >
-                      <div className="w-2 h-2 rounded-full bg-background" />
-                    </div>
-                  </div>
-                  
-                  {/* Content column */}
-                  <div className="flex-1 pl-3">
-                    <p className="font-semibold text-foreground">
-                      {lastLeg?.to.name === "Destination" || lastLeg?.to.name === "destination" 
-                        ? destinationAddress 
-                        : (lastLeg?.to.name || destinationAddress)}
-                    </p>
-                    <p className="text-xs text-foreground/50 mt-0.5">Destination</p>
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-        )}
-      </CardBody>
-    </Card>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </Surface>
   );
 }
 
 export function RouteFinder() {
-  const [fromLocation, setFromLocation] = useState<LocationInput>({
-    address: "",
-    lat: null,
-    lon: null
-  });
-  const [toLocation, setToLocation] = useState<LocationInput>({
-    address: "",
-    lat: null,
-    lon: null
-  });
-  
-  const [fromSuggestions, setFromSuggestions] = useState<GeocodingResult[]>([]);
-  const [toSuggestions, setToSuggestions] = useState<GeocodingResult[]>([]);
-  const [showFromSuggestions, setShowFromSuggestions] = useState(false);
-  const [showToSuggestions, setShowToSuggestions] = useState(false);
-  
-  const [requireAccessible, setRequireAccessible] = useState(true);
-  const [isGeocodingFrom, setIsGeocodingFrom] = useState(false);
-  const [isGeocodingTo, setIsGeocodingTo] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [tripResults, setTripResults] = useState<TripResponse | null>(null);
-  
-  const fromRef = useRef<HTMLDivElement>(null);
-  const toRef = useRef<HTMLDivElement>(null);
-  const debounceTimerFrom = useRef<NodeJS.Timeout | null>(null);
-  const debounceTimerTo = useRef<NodeJS.Timeout | null>(null);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const initial = parsePlanQueryState(searchParams);
+  const [planState, setPlanState] = useState<PlanQueryState>(initial);
+  const [resultState, setResultState] = useState<ResultState>({ type: "idle" });
 
-  // Close suggestions when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (fromRef.current && !fromRef.current.contains(event.target as Node)) {
-        setShowFromSuggestions(false);
-      }
-      if (toRef.current && !toRef.current.contains(event.target as Node)) {
-        setShowToSuggestions(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  // Geocode address using Nominatim (free OpenStreetMap geocoding)
-  const geocodeAddress = async (query: string): Promise<GeocodingResult[]> => {
-    if (query.length < 3) return [];
-    
-    try {
-      // Add "New York" to query if not present to bias results
-      const searchQuery = query.toLowerCase().includes("ny") || query.toLowerCase().includes("new york")
-        ? query
-        : `${query}, New York, NY`;
-      
-      const params = new URLSearchParams({
-        q: searchQuery,
-        format: "json",
-        addressdetails: "1",
-        limit: "6",
-        countrycodes: "us",
-        viewbox: "-74.3,40.4,-73.6,41.0", // NYC bounding box
-        bounded: "1"
-      });
-      
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?${params}`,
-        {
-          headers: {
-            "User-Agent": "NYC-Transit-Hub/1.0"
-          }
-        }
-      );
-      
-      if (!response.ok) throw new Error("Geocoding failed");
-      const results: GeocodingResult[] = await response.json();
-      
-      // Sort to prioritize actual addresses over POIs
-      return results.sort((a, b) => {
-        const aIsAddress = a.class === "place" || a.class === "building" || (a.address?.house_number && a.address?.road);
-        const bIsAddress = b.class === "place" || b.class === "building" || (b.address?.house_number && b.address?.road);
-        if (aIsAddress && !bIsAddress) return -1;
-        if (!aIsAddress && bIsAddress) return 1;
-        return 0;
-      });
-    } catch (err) {
-      console.error("Geocoding error:", err);
-      return [];
-    }
+  const updatePlanState = (next: PlanQueryState) => {
+    setPlanState(next);
+    setResultState({ type: "idle" });
+    const query = buildPlanQueryString(next, new URLSearchParams(searchParams.toString()));
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
   };
 
-  const handleFromAddressChange = useCallback((value: string) => {
-    setFromLocation({ address: value, lat: null, lon: null });
-    setError(null);
-    setTripResults(null);
-    
-    if (debounceTimerFrom.current) {
-      clearTimeout(debounceTimerFrom.current);
-    }
-    
-    debounceTimerFrom.current = setTimeout(async () => {
-      if (value.length >= 3) {
-        setIsGeocodingFrom(true);
-        const results = await geocodeAddress(value);
-        setFromSuggestions(results);
-        setShowFromSuggestions(results.length > 0);
-        setIsGeocodingFrom(false);
-      } else {
-        setFromSuggestions([]);
-        setShowFromSuggestions(false);
-      }
-    }, 300);
-  }, []);
-
-  const handleToAddressChange = useCallback((value: string) => {
-    setToLocation({ address: value, lat: null, lon: null });
-    setError(null);
-    setTripResults(null);
-    
-    if (debounceTimerTo.current) {
-      clearTimeout(debounceTimerTo.current);
-    }
-    
-    debounceTimerTo.current = setTimeout(async () => {
-      if (value.length >= 3) {
-        setIsGeocodingTo(true);
-        const results = await geocodeAddress(value);
-        setToSuggestions(results);
-        setShowToSuggestions(results.length > 0);
-        setIsGeocodingTo(false);
-      } else {
-        setToSuggestions([]);
-        setShowToSuggestions(false);
-      }
-    }, 300);
-  }, []);
-
-  const selectFromSuggestion = (suggestion: GeocodingResult) => {
-    setFromLocation({
-      address: formatAddressDisplay(suggestion),
-      lat: parseFloat(suggestion.lat),
-      lon: parseFloat(suggestion.lon)
+  const planTrip = async () => {
+    if (!planState.from || !planState.to) return;
+    setResultState({ type: "loading" });
+    const params = new URLSearchParams({
+      fromLat: String(planState.from.latitude),
+      fromLon: String(planState.from.longitude),
+      toLat: String(planState.to.latitude),
+      toLon: String(planState.to.longitude),
+      wheelchair: String(planState.accessible),
+      numItineraries: "3",
     });
-    setShowFromSuggestions(false);
-  };
-
-  const selectToSuggestion = (suggestion: GeocodingResult) => {
-    setToLocation({
-      address: formatAddressDisplay(suggestion),
-      lat: parseFloat(suggestion.lat),
-      lon: parseFloat(suggestion.lon)
-    });
-    setShowToSuggestions(false);
-  };
-
-  const handleSwapLocations = () => {
-    const temp = fromLocation;
-    setFromLocation(toLocation);
-    setToLocation(temp);
-    setTripResults(null);
-  };
-
-  const handleFindRoute = async () => {
-    if (!fromLocation.lat || !fromLocation.lon || !toLocation.lat || !toLocation.lon) {
-      setError("Please select addresses from the suggestions to get coordinates");
-      return;
-    }
-
-    setIsSearching(true);
-    setError(null);
-    setTripResults(null);
 
     try {
-      const params = new URLSearchParams({
-        fromLat: String(fromLocation.lat),
-        fromLon: String(fromLocation.lon),
-        toLat: String(toLocation.lat),
-        toLon: String(toLocation.lon),
-        wheelchair: String(requireAccessible),
-        numItineraries: "3"
-      });
-
-      const response = await fetch(`/api/routes/trip?${params}`);
-      const data: TripResponse = await response.json();
-
-      setTripResults(data);
-
-      if (!data.success) {
-        setError(data.error || "Could not find a route");
+      const response = await fetch(`/api/routes/trip?${params.toString()}`);
+      const payload = await response.json() as TripResponse;
+      if (payload.success && payload.data) {
+        setResultState({ type: "ready", response: { ...payload, data: payload.data } });
+      } else if (payload.noPath) {
+        setResultState({ type: "no-path" });
+      } else {
+        setResultState({ type: "unavailable" });
       }
-    } catch (err) {
-      console.error("Trip planning error:", err);
-      setError(err instanceof Error ? err.message : "Failed to plan trip");
-    } finally {
-      setIsSearching(false);
+    } catch {
+      setResultState({ type: "unavailable" });
     }
   };
-
-  const handleClear = () => {
-    setFromLocation({ address: "", lat: null, lon: null });
-    setToLocation({ address: "", lat: null, lon: null });
-    setFromSuggestions([]);
-    setToSuggestions([]);
-    setError(null);
-    setTripResults(null);
-  };
-
-  const canSubmit = fromLocation.lat !== null && toLocation.lat !== null;
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardBody className="space-y-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Navigation className="h-5 w-5 text-primary" />
-            <h3 className="font-semibold text-foreground">Plan Accessible Trip</h3>
-          </div>
-
-          <p className="text-sm text-foreground/60">
-            Enter any address in NYC to find accessible transit routes.
-          </p>
-
-          {/* Address Inputs */}
-          <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-start">
-            {/* From Address */}
-            <div className="flex-1 relative" ref={fromRef}>
-              <label className="block text-sm font-medium text-foreground/70 mb-1.5">
-                <MapPin className="h-3.5 w-3.5 inline mr-1" />
-                From
-              </label>
-              <Input
-                placeholder="Enter origin address..."
-                value={fromLocation.address}
-                onValueChange={handleFromAddressChange}
-                onFocus={() => fromSuggestions.length > 0 && setShowFromSuggestions(true)}
-                endContent={isGeocodingFrom ? <Spinner size="sm" /> : null}
-                classNames={{
-                  input: "text-sm",
-                  inputWrapper: fromLocation.lat ? "border-success" : undefined
-                }}
-              />
-              {fromLocation.lat && (
-                <span className="text-xs text-success mt-1 block">Location confirmed</span>
-              )}
-              
-            {showFromSuggestions && fromSuggestions.length > 0 && (
-              <div className="absolute z-50 w-full mt-1 bg-content1 border border-default-200 rounded-lg shadow-lg max-h-60 overflow-auto">
-                <Listbox
-                  aria-label="Address suggestions"
-                  onAction={(key) => {
-                    const idx = parseInt(key as string);
-                    const suggestion = fromSuggestions[idx];
-                    if (suggestion) selectFromSuggestion(suggestion);
-                  }}
-                >
-                  {fromSuggestions.map((suggestion, idx) => (
-                    <ListboxItem key={idx} className="text-sm py-2">
-                      <div>
-                        <p className="font-medium">{formatAddressDisplay(suggestion)}</p>
-                        {suggestion.address?.postcode && (
-                          <p className="text-xs text-foreground/50">{suggestion.address.postcode}</p>
-                        )}
-                      </div>
-                    </ListboxItem>
-                  ))}
-                </Listbox>
-              </div>
-            )}
-            </div>
-
-            {/* Swap Button */}
-            <Button
-              isIconOnly
-              variant="flat"
-              size="lg"
-              onPress={handleSwapLocations}
-              className="self-center lg:mt-7"
-              isDisabled={!fromLocation.address && !toLocation.address}
-            >
-              <RotateCcw className="h-4 w-4" />
-            </Button>
-
-            {/* To Address */}
-            <div className="flex-1 relative" ref={toRef}>
-              <label className="block text-sm font-medium text-foreground/70 mb-1.5">
-                <MapPin className="h-3.5 w-3.5 inline mr-1" />
-                To
-              </label>
-              <Input
-                placeholder="Enter destination address..."
-                value={toLocation.address}
-                onValueChange={handleToAddressChange}
-                onFocus={() => toSuggestions.length > 0 && setShowToSuggestions(true)}
-                endContent={isGeocodingTo ? <Spinner size="sm" /> : null}
-                classNames={{
-                  input: "text-sm",
-                  inputWrapper: toLocation.lat ? "border-success" : undefined
-                }}
-              />
-              {toLocation.lat && (
-                <span className="text-xs text-success mt-1 block">Location confirmed</span>
-              )}
-              
-            {showToSuggestions && toSuggestions.length > 0 && (
-              <div className="absolute z-50 w-full mt-1 bg-content1 border border-default-200 rounded-lg shadow-lg max-h-60 overflow-auto">
-                <Listbox
-                  aria-label="Address suggestions"
-                  onAction={(key) => {
-                    const idx = parseInt(key as string);
-                    const suggestion = toSuggestions[idx];
-                    if (suggestion) selectToSuggestion(suggestion);
-                  }}
-                >
-                  {toSuggestions.map((suggestion, idx) => (
-                    <ListboxItem key={idx} className="text-sm py-2">
-                      <div>
-                        <p className="font-medium">{formatAddressDisplay(suggestion)}</p>
-                        {suggestion.address?.postcode && (
-                          <p className="text-xs text-foreground/50">{suggestion.address.postcode}</p>
-                        )}
-                      </div>
-                    </ListboxItem>
-                  ))}
-                </Listbox>
-              </div>
-            )}
-            </div>
-          </div>
-
-          {/* Options and Actions */}
-          <div className="flex flex-wrap items-center gap-4 justify-between">
-            {/* Accessible Only Toggle */}
-            <div className="flex items-center gap-3 px-3 py-2 bg-default-100 rounded-lg">
-              <Switch
-                size="sm"
-                isSelected={requireAccessible}
-                onValueChange={setRequireAccessible}
-                color="primary"
-              />
-              <div className="flex items-center gap-1.5">
-                <Accessibility className="h-4 w-4 text-primary" />
-                <span className="text-sm font-medium">Wheelchair accessible</span>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex items-center gap-2">
-              {(fromLocation.address || toLocation.address) && (
-                <Button size="md" variant="flat" onPress={handleClear}>
-                  Clear
-                </Button>
-              )}
-              <Button
-                size="md"
-                color="primary"
-                onPress={handleFindRoute}
-                isDisabled={!canSubmit || isSearching}
-                startContent={isSearching ? <Spinner size="sm" color="current" /> : <Search className="h-4 w-4" />}
-              >
-                {isSearching ? "Finding..." : "Find Route"}
-              </Button>
-            </div>
-          </div>
-
-          {/* Error Display */}
-          {error && (
-            <div className="px-4 py-3 bg-danger/10 border border-danger/20 rounded-lg text-danger text-sm flex items-start gap-2">
-              <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
-        </CardBody>
-      </Card>
-
-      {/* Trip Results */}
-      {tripResults?.success && tripResults.data && (
-        <div className="space-y-4">
-          <Divider />
-          
-          {/* Results header */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <h4 className="font-semibold text-foreground">
-                {tripResults.data.itineraries.length} route{tripResults.data.itineraries.length !== 1 ? "s" : ""} found
-              </h4>
-              {tripResults.data.wheelchair && (
-                <Chip size="sm" color="success" variant="flat" startContent={<Accessibility className="h-3 w-3" />}>
-                  Accessible
-                </Chip>
-              )}
-            </div>
-          </div>
-          
-          {/* Itinerary cards */}
-          <div className="space-y-3">
-            {tripResults.data.itineraries.map((itinerary, idx) => (
-              <ItineraryCard 
-                key={idx} 
-                itinerary={itinerary} 
-                index={idx}
-                isAccessible={tripResults.data!.wheelchair}
-                originAddress={fromLocation.address}
-                destinationAddress={toLocation.address}
-              />
-            ))}
-          </div>
+    <div className="space-y-6">
+      <Surface as="section" className="p-4 sm:p-6">
+        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-end">
+          <LocationSearchField
+            label="Where from?"
+            value={contextToSearchResult(planState.from)}
+            onSelect={(result) => updatePlanState({ ...planState, from: resultToContext(result) })}
+            placeholder="NYC street address, station, or landmark"
+          />
+          <button
+            type="button"
+            aria-label="Swap origin and destination"
+            onClick={() => updatePlanState({ ...planState, from: planState.to, to: planState.from })}
+            disabled={!planState.from && !planState.to}
+            className="flex min-h-11 min-w-11 items-center justify-center justify-self-center rounded-lg text-foreground/65 hover:bg-surface-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:opacity-40 md:mb-0.5"
+          >
+            <ArrowDownUp className="h-5 w-5 md:rotate-90" aria-hidden="true" />
+          </button>
+          <LocationSearchField
+            label="Where to?"
+            value={contextToSearchResult(planState.to)}
+            onSelect={(result) => updatePlanState({ ...planState, to: resultToContext(result) })}
+            placeholder="NYC street address, station, or landmark"
+          />
         </div>
+
+        <div className="mt-5 flex flex-col gap-4 border-t border-border-subtle pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <label className="inline-flex min-h-11 cursor-pointer items-center gap-3 text-sm font-medium text-foreground">
+            <input
+              type="checkbox"
+              checked={planState.accessible}
+              onChange={(event) => updatePlanState({ ...planState, accessible: event.target.checked })}
+              className="h-5 w-5 rounded border-border-strong accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+            />
+            <Accessibility className="h-4 w-4 text-primary" aria-hidden="true" />
+            Step-free routes only
+          </label>
+          <button
+            type="button"
+            aria-label="Plan trip"
+            onClick={() => void planTrip()}
+            disabled={!planState.from || !planState.to || resultState.type === "loading"}
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-primary px-6 font-semibold text-primary-foreground hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            {resultState.type === "loading" && <LoaderCircle className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />}
+            {resultState.type === "loading" ? "Planning…" : "Plan"}
+          </button>
+        </div>
+      </Surface>
+
+      {resultState.type === "no-path" && (
+        <div role="status" className="rounded-lg bg-state-advisory/10 px-4 py-5">
+          <h2 className="font-semibold text-foreground">No supported route found</h2>
+          <p className="mt-1 text-sm text-foreground/65">Try a nearby station or a different destination.</p>
+        </div>
+      )}
+      {resultState.type === "unavailable" && (
+        <div role="alert" className="rounded-lg bg-state-severe/10 px-4 py-5">
+          <h2 className="font-semibold text-foreground">Trip planning is unavailable</h2>
+          <p className="mt-1 text-sm text-foreground/65">Your locations are saved. Try planning again shortly.</p>
+        </div>
+      )}
+      {resultState.type === "ready" && (
+        <section aria-labelledby="plan-results-heading" className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 id="plan-results-heading" className="text-lg font-semibold text-foreground">
+              {resultState.response.data.itineraries.length} route{resultState.response.data.itineraries.length === 1 ? "" : "s"}
+            </h2>
+            <p className="text-xs text-foreground/60">Live conditions can change while you travel.</p>
+          </div>
+          {resultState.response.data.itineraries.map((itinerary, index) => (
+            <ItineraryResult key={`${itinerary.startTimeFmt}-${index}`} itinerary={itinerary} index={index} />
+          ))}
+        </section>
       )}
     </div>
   );

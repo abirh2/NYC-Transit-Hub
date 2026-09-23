@@ -1,27 +1,22 @@
 "use client";
 
-/**
- * StationBoard Component
- * 
- * Main component for displaying train arrivals at a selected station.
- * Includes station search, arrivals by direction, and refresh functionality.
- */
+import { useCallback, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { formatDistanceToNow } from "date-fns";
+import { Clock, RefreshCw, Star, Train } from "lucide-react";
+import Link from "next/link";
 
-import { useState, useEffect, useCallback } from "react";
-import { Card, CardBody, CardHeader, Button, Divider } from "@heroui/react";
-import { RefreshCw, Star, Train, Clock } from "lucide-react";
-import { StationSearch } from "./StationSearch";
 import { ArrivalsList } from "./ArrivalsList";
+import { StationSearch, type StationSearchResult } from "./StationSearch";
+import { StationAccessibilityStatus } from "@/components/accessibility/StationAccessibilityStatus";
+import { EmptyState, ErrorState, SubwayBullet, Surface } from "@/components/ui";
 import { useStationPreferences } from "@/lib/hooks/useStationPreferences";
 import type { TrainArrival } from "@/types/mta";
-import { formatDistanceToNow } from "date-fns";
+import { buildPlanQueryString } from "@/lib/transit/rider-query-state";
 
 interface StationBoardProps {
-  /** Initially selected station ID (overrides preferences) */
   initialStationId?: string;
-  /** Whether to auto-refresh arrivals */
   autoRefresh?: boolean;
-  /** Refresh interval in seconds */
   refreshInterval?: number;
 }
 
@@ -33,267 +28,264 @@ interface ArrivalsState {
   error: string | null;
 }
 
+const EMPTY_ARRIVALS: ArrivalsState = {
+  northbound: [],
+  southbound: [],
+  lastUpdated: null,
+  isLoading: false,
+  error: null,
+};
+
 export function StationBoard({
   initialStationId,
   autoRefresh = true,
   refreshInterval = 30,
 }: StationBoardProps) {
-  const { primaryStation, addFavorite, removeFavorite, isFavorite, favorites } =
-    useStationPreferences();
-
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const { primaryStation, addFavorite, removeFavorite, isFavorite, favorites } = useStationPreferences();
+  const queryStationId = searchParams.get("station")?.trim() || null;
   const [selectedStationId, setSelectedStationId] = useState<string | null>(
-    initialStationId ?? null
+    initialStationId ?? queryStationId,
   );
-  const [selectedStationName, setSelectedStationName] = useState<string>("");
-  // Store all platform IDs for stations with multiple complexes (e.g., Times Sq)
-  const [arrivals, setArrivals] = useState<ArrivalsState>({
-    northbound: [],
-    southbound: [],
-    lastUpdated: null,
-    isLoading: false,
-    error: null,
-  });
+  const [selectedStationName, setSelectedStationName] = useState("");
+  const [routeIds, setRouteIds] = useState<string[]>([]);
+  const [stationLocation, setStationLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [arrivals, setArrivals] = useState<ArrivalsState>(EMPTY_ARRIVALS);
 
-  // Use primary station from preferences if no station selected
+  const writeStationUrl = useCallback((stationId: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("station", stationId);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }, [pathname, router, searchParams]);
+
+  useEffect(() => {
+    if (queryStationId && queryStationId !== selectedStationId) {
+      setSelectedStationId(queryStationId);
+      setSelectedStationName("");
+      setRouteIds([]);
+    }
+  }, [queryStationId, selectedStationId]);
+
   useEffect(() => {
     if (!selectedStationId && primaryStation) {
       setSelectedStationId(primaryStation.stationId);
       setSelectedStationName(primaryStation.stationName);
-      // fetchArrivals will fetch the full station info including allPlatforms
+      writeStationUrl(primaryStation.stationId);
     }
-  }, [selectedStationId, primaryStation]);
+  }, [primaryStation, selectedStationId, writeStationUrl]);
 
-  // Fetch arrivals for selected station (supports multiple platform IDs)
   const fetchArrivals = useCallback(async () => {
     if (!selectedStationId) return;
-
-    setArrivals((prev) => ({ ...prev, isLoading: true, error: null }));
+    setArrivals((previous) => ({ ...previous, isLoading: true, error: null }));
 
     try {
-      // First, fetch station info to get allPlatforms (for multi-complex stations)
-      const stationRes = await fetch(`/api/stations?id=${encodeURIComponent(selectedStationId)}`);
-      const stationData = await stationRes.json();
-      
-      let northPlatforms: string[] = [`${selectedStationId}N`];
-      let southPlatforms: string[] = [`${selectedStationId}S`];
-      
-      if (stationData.success && stationData.data.stations.length > 0) {
-        const station = stationData.data.stations[0];
-        // Update state with station info
-        setSelectedStationName(station.name);
-        
-        if (station.allPlatforms?.north?.length) {
-          northPlatforms = station.allPlatforms.north;
-        }
-        if (station.allPlatforms?.south?.length) {
-          southPlatforms = station.allPlatforms.south;
-        }
-        
+      const stationResponse = await fetch(`/api/stations?id=${encodeURIComponent(selectedStationId)}`);
+      const stationPayload = await stationResponse.json() as {
+        success: boolean;
+        data?: { stations: StationSearchResult[] };
+      };
+      const station = stationPayload.data?.stations[0];
+      if (!stationResponse.ok || !stationPayload.success || !station) {
+        throw new Error("Station not found. Search for another station.");
       }
 
-      // Fetch all platforms in parallel
-      const northPromises = northPlatforms.map(id => 
-        fetch(`/api/trains/realtime?stationId=${id}&limit=10`).then(r => r.json())
-      );
-      const southPromises = southPlatforms.map(id => 
-        fetch(`/api/trains/realtime?stationId=${id}&limit=10`).then(r => r.json())
-      );
+      setSelectedStationName(station.name);
+      setRouteIds(station.routeIds ?? []);
+      setStationLocation({ latitude: station.latitude, longitude: station.longitude });
+      const northPlatforms = station.allPlatforms?.north?.length
+        ? station.allPlatforms.north
+        : [`${selectedStationId}N`];
+      const southPlatforms = station.allPlatforms?.south?.length
+        ? station.allPlatforms.south
+        : [`${selectedStationId}S`];
+
+      const requestPlatforms = (platforms: string[]) => Promise.all(platforms.map(async (platformId) => {
+        const response = await fetch(`/api/trains/realtime?stationId=${encodeURIComponent(platformId)}&limit=10`);
+        const payload = await response.json() as {
+          success: boolean;
+          data?: { arrivals?: TrainArrival[] };
+        };
+        return payload.success ? payload.data?.arrivals ?? [] : [];
+      }));
 
       const [northResults, southResults] = await Promise.all([
-        Promise.all(northPromises),
-        Promise.all(southPromises),
+        requestPlatforms(northPlatforms),
+        requestPlatforms(southPlatforms),
       ]);
-
-      // Parse arrival times back to Date objects
-      const parseArrivals = (data: { arrivals: TrainArrival[] }): TrainArrival[] => {
-        return (data.arrivals || []).map((arrival: TrainArrival) => ({
+      const seenTrips = new Set<string>();
+      const normalize = (groups: TrainArrival[][]) => groups.flatMap((group) => group).flatMap((arrival) => {
+        if (seenTrips.has(arrival.tripId)) return [];
+        seenTrips.add(arrival.tripId);
+        return [{
           ...arrival,
           arrivalTime: new Date(arrival.arrivalTime),
           departureTime: arrival.departureTime ? new Date(arrival.departureTime) : null,
-        }));
-      };
+        }];
+      }).sort((left, right) => left.arrivalTime.getTime() - right.arrivalTime.getTime());
 
-      // Combine and dedupe arrivals from all platforms
-      const allNorth: TrainArrival[] = [];
-      const allSouth: TrainArrival[] = [];
-      const seenTrips = new Set<string>();
-
-      for (const data of northResults) {
-        if (data.success) {
-          for (const arrival of parseArrivals(data.data)) {
-            if (!seenTrips.has(arrival.tripId)) {
-              seenTrips.add(arrival.tripId);
-              allNorth.push(arrival);
-            }
-          }
-        }
-      }
-
-      for (const data of southResults) {
-        if (data.success) {
-          for (const arrival of parseArrivals(data.data)) {
-            if (!seenTrips.has(arrival.tripId)) {
-              seenTrips.add(arrival.tripId);
-              allSouth.push(arrival);
-            }
-          }
-        }
-      }
-
-      // Sort by arrival time
-      allNorth.sort((a, b) => a.arrivalTime.getTime() - b.arrivalTime.getTime());
-      allSouth.sort((a, b) => a.arrivalTime.getTime() - b.arrivalTime.getTime());
-
+      const northbound = normalize(northResults);
+      const southbound = normalize(southResults);
+      setRouteIds([...new Set([
+        ...(station.routeIds ?? []),
+        ...northbound.map((arrival) => arrival.routeId),
+        ...southbound.map((arrival) => arrival.routeId),
+      ])]);
       setArrivals({
-        northbound: allNorth.slice(0, 10),
-        southbound: allSouth.slice(0, 10),
+        northbound: northbound.slice(0, 10),
+        southbound: southbound.slice(0, 10),
         lastUpdated: new Date(),
         isLoading: false,
         error: null,
       });
     } catch (error) {
-      console.error("Failed to fetch arrivals:", error);
-      setArrivals((prev) => ({
-        ...prev,
+      setArrivals((previous) => ({
+        ...previous,
         isLoading: false,
-        error: error instanceof Error ? error.message : "Failed to fetch arrivals",
+        error: error instanceof Error ? error.message : "Departures are temporarily unavailable.",
       }));
     }
   }, [selectedStationId]);
 
-  // Fetch arrivals when station changes
   useEffect(() => {
-    if (selectedStationId) {
-      fetchArrivals();
-    }
-  }, [selectedStationId, fetchArrivals]);
+    if (selectedStationId) void fetchArrivals();
+  }, [fetchArrivals, selectedStationId]);
 
-  // Auto-refresh
   useEffect(() => {
     if (!autoRefresh || !selectedStationId) return;
+    const interval = window.setInterval(fetchArrivals, refreshInterval * 1000);
+    return () => window.clearInterval(interval);
+  }, [autoRefresh, fetchArrivals, refreshInterval, selectedStationId]);
 
-    const interval = setInterval(fetchArrivals, refreshInterval * 1000);
-    return () => clearInterval(interval);
-  }, [autoRefresh, refreshInterval, selectedStationId, fetchArrivals]);
-
-  const handleStationSelect = (stationId: string, stationName: string) => {
+  const handleStationSelect = (
+    stationId: string,
+    stationName: string,
+    _allPlatforms?: { north: string[]; south: string[] },
+    location?: { latitude: number; longitude: number },
+  ) => {
     setSelectedStationId(stationId);
     setSelectedStationName(stationName);
-    // fetchArrivals will fetch full station info including allPlatforms
+    setRouteIds([]);
+    setStationLocation(location ?? null);
+    setArrivals(EMPTY_ARRIVALS);
+    writeStationUrl(stationId);
   };
 
-  const handleToggleFavorite = () => {
+  const isSaved = selectedStationId ? isFavorite(selectedStationId) : false;
+  const toggleSaved = () => {
     if (!selectedStationId || !selectedStationName) return;
-
-    if (isFavorite(selectedStationId)) {
-      removeFavorite(selectedStationId);
-    } else {
-      addFavorite(selectedStationId, selectedStationName);
-    }
+    if (isSaved) removeFavorite(selectedStationId);
+    else addFavorite(selectedStationId, selectedStationName);
   };
-
-  const isCurrentFavorite = selectedStationId ? isFavorite(selectedStationId) : false;
 
   return (
-    <Card className="w-full">
-      <CardHeader className="flex flex-col gap-4 pb-0">
-        {/* Station Search */}
-        <div className="w-full">
-          <StationSearch
-            onSelect={handleStationSelect}
-            selectedId={selectedStationId}
-            favoriteIds={favorites.map((f) => f.stationId)}
-          />
-        </div>
+    <div className="space-y-5">
+      <StationSearch
+        onSelect={handleStationSelect}
+        selectedId={selectedStationId}
+        favoriteIds={favorites.map((favorite) => favorite.stationId)}
+        savedStations={favorites.map((favorite) => ({ id: favorite.stationId, name: favorite.stationName }))}
+      />
 
-        {/* Station Header (when selected) */}
-        {selectedStationId && selectedStationName && (
-          <div className="flex items-center justify-between w-full">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <Train className="h-5 w-5" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold">{selectedStationName}</h2>
-                {arrivals.lastUpdated && (
-                  <p className="text-xs text-foreground/50 flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    Updated {formatDistanceToNow(arrivals.lastUpdated, { addSuffix: true })}
-                  </p>
-                )}
-              </div>
+      {!selectedStationId ? (
+        <EmptyState
+          icon={<Train className="h-6 w-6" aria-hidden="true" />}
+          title="Choose a station"
+          description="Search by station name or pick one of your saved stations."
+          headingLevel="h2"
+        />
+      ) : (
+        <>
+          <header className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-xl font-bold leading-tight text-foreground sm:text-2xl">
+                {selectedStationName || "Loading station…"}
+              </h2>
+              {routeIds.length > 0 && (
+                <div aria-label="Routes served" className="mt-2 flex flex-wrap gap-1.5">
+                  {routeIds.map((routeId) => <SubwayBullet key={routeId} line={routeId} size="sm" />)}
+                </div>
+              )}
+              {arrivals.lastUpdated && (
+                <p className="mt-2 flex items-center gap-1.5 text-xs text-foreground/60">
+                  <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                  Updated {formatDistanceToNow(arrivals.lastUpdated, { addSuffix: true })}
+                </p>
+              )}
             </div>
-            <div className="flex items-center gap-2">
-              <Button
-                isIconOnly
-                size="sm"
-                variant="light"
-                className={isCurrentFavorite ? "text-warning" : "text-foreground/50"}
-                onPress={handleToggleFavorite}
+            <div className="flex items-center gap-1">
+              {stationLocation && (
+                <Link
+                  href={`/routes?${buildPlanQueryString({
+                    from: {
+                      name: selectedStationName,
+                      stationId: selectedStationId,
+                      ...stationLocation,
+                    },
+                    to: null,
+                    accessible: false,
+                  })}`}
+                  className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold text-primary hover:bg-surface-hover hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+                >
+                  Plan from here
+                </Link>
+              )}
+              <button
+                type="button"
+                aria-label={isSaved ? "Remove saved station" : "Save station"}
+                aria-pressed={isSaved}
+                onClick={toggleSaved}
+                className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-foreground/65 hover:bg-surface-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
               >
-                <Star className={`h-5 w-5 ${isCurrentFavorite ? "fill-current" : ""}`} />
-              </Button>
-              <Button
-                isIconOnly
-                size="sm"
-                variant="light"
-                onPress={fetchArrivals}
-                isLoading={arrivals.isLoading}
+                <Star className={`h-5 w-5 ${isSaved ? "fill-current text-state-advisory" : ""}`} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                aria-label="Refresh departures"
+                onClick={() => void fetchArrivals()}
+                disabled={arrivals.isLoading}
+                className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-foreground/65 hover:bg-surface-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:opacity-50"
               >
-                <RefreshCw className="h-4 w-4" />
-              </Button>
+                <RefreshCw className={`h-4 w-4 ${arrivals.isLoading ? "animate-spin motion-reduce:animate-none" : ""}`} aria-hidden="true" />
+              </button>
             </div>
-          </div>
-        )}
-      </CardHeader>
+          </header>
 
-      <CardBody>
-        {!selectedStationId ? (
-          <div className="text-center py-8">
-            <Train className="h-12 w-12 mx-auto text-foreground/30 mb-4" />
-            <p className="text-foreground/60">
-              Search for a station above to see upcoming trains
-            </p>
-          </div>
-        ) : arrivals.error ? (
-          <div className="text-center py-8">
-            <p className="text-danger mb-4">{arrivals.error}</p>
-            <Button
-              size="sm"
-              variant="flat"
-              startContent={<RefreshCw className="h-3 w-3" />}
-              onPress={fetchArrivals}
-            >
-              Try Again
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {/* Northbound */}
-            <div>
-              <ArrivalsList
-                arrivals={arrivals.northbound}
-                isLoading={arrivals.isLoading && arrivals.northbound.length === 0}
-                directionLabel="Uptown & The Bronx"
-                maxArrivals={5}
-              />
-            </div>
+          {selectedStationName && (
+            <StationAccessibilityStatus stationName={selectedStationName} />
+          )}
 
-            <Divider />
-
-            {/* Southbound */}
-            <div>
-              <ArrivalsList
-                arrivals={arrivals.southbound}
-                isLoading={arrivals.isLoading && arrivals.southbound.length === 0}
-                directionLabel="Downtown & Brooklyn"
-                maxArrivals={5}
-              />
-            </div>
-          </div>
-        )}
-      </CardBody>
-    </Card>
+          {arrivals.error ? (
+            <ErrorState
+              title="Departures unavailable"
+              description={arrivals.error}
+              onRetry={() => void fetchArrivals()}
+            />
+          ) : (
+            <Surface as="section" className="overflow-hidden">
+              <div className="grid divide-y divide-border-subtle md:grid-cols-2 md:divide-x md:divide-y-0">
+                <div className="p-4 sm:p-5">
+                  <ArrivalsList
+                    arrivals={arrivals.northbound}
+                    isLoading={arrivals.isLoading && arrivals.northbound.length === 0}
+                    directionLabel="Uptown / Bronx"
+                    maxArrivals={5}
+                  />
+                </div>
+                <div className="p-4 sm:p-5">
+                  <ArrivalsList
+                    arrivals={arrivals.southbound}
+                    isLoading={arrivals.isLoading && arrivals.southbound.length === 0}
+                    directionLabel="Downtown / Brooklyn"
+                    maxArrivals={5}
+                  />
+                </div>
+              </div>
+            </Surface>
+          )}
+        </>
+      )}
+    </div>
   );
 }
-

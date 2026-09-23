@@ -192,6 +192,7 @@ export function OutageFilters({
         {/* ADA Only Toggle */}
         <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-default-100">
           <Switch
+            aria-label="ADA-impacting outages only"
             size="sm"
             isSelected={filters.adaOnly}
             onValueChange={(value) => onFiltersChange({ ...filters, adaOnly: value })}
@@ -285,4 +286,3 @@ export function OutageFilters({
     </div>
   );
 }
-

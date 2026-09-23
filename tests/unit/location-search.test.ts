@@ -86,4 +86,32 @@ describe("location search", () => {
       stationId: "127",
     }]);
   });
+
+  it("accepts residential street addresses with an empty provider name", async () => {
+    searchStations.mockReturnValue([]);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify([{
+      osm_type: "way",
+      osm_id: 284834306,
+      display_name: "3151, Perry Avenue, Norwood, The Bronx, New York, 10467",
+      name: "",
+      lat: "40.8739315",
+      lon: "-73.8781459",
+      address: {
+        house_number: "3151",
+        road: "Perry Avenue",
+        neighbourhood: "Norwood",
+        suburb: "The Bronx",
+        postcode: "10467",
+      },
+    }]), { status: 200 })));
+
+    await expect(searchLocations("3151 Perry Avenue", 8)).resolves.toEqual([{
+      id: "place:way:284834306",
+      kind: "place",
+      name: "3151 Perry Avenue",
+      description: "Norwood, The Bronx · 10467",
+      latitude: 40.8739315,
+      longitude: -73.8781459,
+    }]);
+  });
 });

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@heroui/react";
 import { LocateFixed } from "lucide-react";
+import Link from "next/link";
 
 import { NearbyDepartureRow } from "@/components/nearby/NearbyDepartureRow";
 import { NearbyMap } from "@/components/nearby/NearbyMap";
@@ -25,6 +26,7 @@ import type {
   TransitVehicle,
 } from "@/types/transit";
 import type { NearbySearchOrigin } from "@/types/location";
+import { buildPlanQueryString } from "@/lib/transit/rider-query-state";
 
 interface NearbyStationResponse extends TransitStation {
   distance: number;
@@ -477,6 +479,23 @@ export function NearbyClient() {
               label={activeError ? isPartialFailure ? "Partial" : "Offline" : selectedState === "ok" ? "Live" : selectedState === "stale" ? "Delayed" : "Checking"}
               size="sm"
             />
+          )}
+
+          {searchOrigin && (
+            <Link
+              href={`/routes?${buildPlanQueryString({
+                from: {
+                  name: searchOrigin.label,
+                  latitude: searchOrigin.latitude,
+                  longitude: searchOrigin.longitude,
+                },
+                to: null,
+                accessible: false,
+              })}`}
+              className="inline-flex min-h-11 items-center px-2 text-xs font-semibold text-primary hover:underline"
+            >
+              Plan
+            </Link>
           )}
 
           <Button

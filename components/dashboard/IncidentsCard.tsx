@@ -92,7 +92,7 @@ export function IncidentsCard() {
               <AlertTriangle className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-lg font-semibold">Incidents</p>
+              <p className="text-lg font-semibold">Service changes</p>
               <p className="text-sm text-foreground/50">
                 {loading ? "Loading..." : error ? "Error" : "Active now"}
               </p>
@@ -118,7 +118,7 @@ export function IncidentsCard() {
                   {stats.total}
                 </p>
                 <p className="text-sm text-foreground/50">
-                  {stats.total === 0 ? "no incidents" : "active incidents"}
+                  {stats.total === 0 ? "none reported" : "active changes"}
                 </p>
               </div>
               {topTypes.length > 0 && (

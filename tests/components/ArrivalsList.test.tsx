@@ -49,6 +49,20 @@ describe("ArrivalsList", () => {
     expect(screen.getByText("8 min")).toBeInTheDocument();
   });
 
+  it("links each arrival to the exact existing train detail flow", () => {
+    const exactTrip = {
+      ...mockArrivals[0],
+      tripId: "073850_A..N03R/encoded+identity",
+    };
+    render(<ArrivalsList arrivals={[exactTrip]} />);
+
+    expect(screen.getByRole("link", { name: /A train to Inwood-207 St in 3 minutes/i }))
+      .toHaveAttribute(
+        "href",
+        "/realtime?mode=subway&route=A&station=A15&stop=A15N&direction=northbound&trip=073850_A..N03R%2Fencoded%2Bidentity&view=map",
+      );
+  });
+
   it("should render subway bullets", () => {
     render(<ArrivalsList arrivals={mockArrivals} />);
 
@@ -112,4 +126,3 @@ describe("ArrivalsList", () => {
     expect(screen.getByText("+3 min")).toBeInTheDocument();
   });
 });
-

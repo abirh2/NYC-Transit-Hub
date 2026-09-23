@@ -20,4 +20,5 @@ export type { RouteSelectorProps } from "./RouteSelector";
 export { SubwayBullet } from "./SubwayBullet";
 export { BusBadge } from "./BusBadge";
 export { RailBadge } from "./RailBadge";
-
+export { LocationSearchField } from "./LocationSearchField";
+export type { LocationSearchFieldProps } from "./LocationSearchField";

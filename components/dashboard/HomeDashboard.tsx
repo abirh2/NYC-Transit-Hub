@@ -375,6 +375,11 @@ export function HomeDashboard() {
       alertsLoading={alertsLoading}
       alertsError={alertsError}
       routeStatuses={routeStatuses}
+      planOrigin={position ? {
+        name: "My location",
+        latitude: position.latitude,
+        longitude: position.longitude,
+      } : null}
     />
   );
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { Suspense } from "react";
+import { useRouter } from "next/navigation";
 import { Tabs, Tab } from "@heroui/react";
 import { Train, Bus, TrainFront } from "lucide-react";
 import { 
@@ -10,16 +12,15 @@ import {
 } from "@/components/board";
 import { useStationPreferences } from "@/lib/hooks/useStationPreferences";
 import { PageContainer, PageHeader } from "@/components/layout";
+import { LoadingSkeleton } from "@/components/ui";
 
 export default function BoardPage() {
+  const router = useRouter();
   const { addFavorite, removeFavorite, isFavorite, favorites } = useStationPreferences();
 
   return (
     <PageContainer>
-      <PageHeader
-        title="Station Board"
-        description="View upcoming departures at your favorite stations"
-      />
+      <PageHeader title="Station Board" />
 
       {/* Tabs for different transit modes */}
       <Tabs
@@ -44,12 +45,14 @@ export default function BoardPage() {
         >
           <div className="mt-6 space-y-6">
             {/* Main Station Board */}
-            <StationBoard autoRefresh={true} refreshInterval={30} />
+            <Suspense fallback={<LoadingSkeleton variant="card" count={2} />}>
+              <StationBoard autoRefresh={true} refreshInterval={30} />
+            </Suspense>
 
             {/* Nearby Stations */}
             <NearbyStations
-              onStationSelect={() => {
-                // Future: scroll to board or trigger selection
+              onStationSelect={(stationId) => {
+                router.replace(`/board?station=${encodeURIComponent(stationId)}`, { scroll: false });
               }}
               onFavorite={(stationId, stationName) => addFavorite(stationId, stationName)}
               isFavorite={isFavorite}

@@ -314,9 +314,6 @@ export function IncidentsClient() {
         />
       </Tabs>
 
-      {/* Stats Cards */}
-      <IncidentStats stats={stats} isLoading={isLoading && allIncidents.length === 0} activeTab={activeTab} />
-
       {/* Filters Bar */}
       <Card>
         <CardBody className="py-4">
@@ -368,10 +365,13 @@ export function IncidentsClient() {
         error={error}
         emptyMessage={
           activeTab === "active"
-            ? "No active service incidents right now. Good service!"
-            : "No upcoming planned work or service changes scheduled."
+            ? "No active service changes match these filters."
+            : "No upcoming planned work matches these filters."
         }
       />
+
+      {/* Secondary trend context follows the rider-impact list. */}
+      <IncidentStats stats={stats} isLoading={isLoading && allIncidents.length === 0} activeTab={activeTab} />
     </div>
   );
 }

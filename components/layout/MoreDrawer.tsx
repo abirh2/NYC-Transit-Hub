@@ -61,7 +61,7 @@ const MORE_DESTINATIONS: MoreDrawerItem[] = [
   { href: "/reliability", label: "Reliability", icon: <TrendingUp className="h-5 w-5" /> },
   { href: "/accessibility", label: "Accessibility", icon: <Accessibility className="h-5 w-5" /> },
   { href: "/crowding", label: "Crowding", icon: <Users className="h-5 w-5" /> },
-  { href: "/incidents", label: "Incidents", icon: <AlertTriangle className="h-5 w-5" /> },
+  { href: "/incidents", label: "Service Changes", icon: <AlertTriangle className="h-5 w-5" /> },
   { href: "/commute", label: "Commute", icon: <Clock className="h-5 w-5" /> },
   { href: "/about", label: "About", icon: <Info className="h-5 w-5" /> },
 ];

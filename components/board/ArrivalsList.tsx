@@ -7,10 +7,12 @@
  * Shows line icon, destination, and time until arrival.
  */
 
+import Link from "next/link";
 import { Chip, Spinner, Tooltip } from "@heroui/react";
 import { AlertCircle, Clock, Info } from "lucide-react";
 import { SubwayBullet } from "@/components/ui";
 import type { TrainArrival } from "@/types/mta";
+import { createRealtimeSearchParams } from "@/lib/transit/deep-link";
 
 interface ArrivalsListProps {
   /** Arrivals to display */
@@ -122,10 +124,26 @@ export function ArrivalsList({
         </div>
       )}
       <div className={compact ? "space-y-2" : "space-y-3"}>
-        {displayArrivals.map((arrival, index) => (
-          <div
+        {displayArrivals.map((arrival, index) => {
+          const destination = arrival.headsign || getDefaultHeadsign(arrival.routeId, arrival.direction);
+          const eta = arrival.minutesAway <= 0
+            ? "due now"
+            : `in ${arrival.minutesAway} ${arrival.minutesAway === 1 ? "minute" : "minutes"}`;
+          const params = createRealtimeSearchParams({
+            mode: "subway",
+            routeId: arrival.routeId,
+            stationId: arrival.stopId.replace(/[NS]$/, ""),
+            stopId: arrival.stopId,
+            direction: arrival.direction === "N" ? "northbound" : "southbound",
+            tripId: arrival.tripId,
+            view: "map",
+          });
+          return (
+          <Link
             key={`${arrival.tripId}-${arrival.stopId}-${index}`}
-            className={`flex items-center justify-between ${
+            href={`/realtime?${params.toString()}`}
+            aria-label={`${arrival.routeId} train to ${destination} ${eta}`}
+            className={`flex min-h-14 items-center justify-between rounded-md px-2 transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus ${
               compact ? "py-1" : "py-2"
             }`}
           >
@@ -133,7 +151,7 @@ export function ArrivalsList({
               <SubwayBullet line={arrival.routeId} size={compact ? "sm" : "md"} />
               <div className="min-w-0">
                 <p className={`text-foreground truncate ${compact ? "text-sm" : ""}`}>
-                  {arrival.headsign || getDefaultHeadsign(arrival.routeId, arrival.direction)}
+                  {destination}
                 </p>
                 {!compact && !arrival.isAssigned && (
                   <p className="text-xs text-foreground/50">Scheduled</p>
@@ -154,8 +172,9 @@ export function ArrivalsList({
               </span>
               {!compact && getDelayChip(arrival.delay)}
             </div>
-          </div>
-        ))}
+          </Link>
+          );
+        })}
       </div>
     </div>
   );
@@ -200,4 +219,3 @@ function getDefaultHeadsign(routeId: string, direction: "N" | "S"): string {
 
   return direction === "N" ? "Uptown" : "Downtown";
 }
-

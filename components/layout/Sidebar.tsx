@@ -68,7 +68,7 @@ const NAV_GROUPS: readonly NavGroup[] = [
       { href: "/", label: "Dashboard", icon: <LayoutDashboard className={ICON_CLASS} /> },
       { href: "/realtime", label: "Realtime", icon: <Radio className={ICON_CLASS} /> },
       { href: "/board", label: "Station Board", icon: <TrainFront className={ICON_CLASS} /> },
-      { href: "/routes", label: "Route Finder", icon: <Navigation className={ICON_CLASS} /> },
+      { href: "/routes", label: "Plan", icon: <Navigation className={ICON_CLASS} /> },
       {
         href: "/accessibility",
         label: "Accessibility",
@@ -81,7 +81,7 @@ const NAV_GROUPS: readonly NavGroup[] = [
     items: [
       { href: "/reliability", label: "Reliability", icon: <TrendingUp className={ICON_CLASS} /> },
       { href: "/crowding", label: "Crowding", icon: <Users className={ICON_CLASS} /> },
-      { href: "/incidents", label: "Incidents", icon: <AlertTriangle className={ICON_CLASS} /> },
+      { href: "/incidents", label: "Service Changes", icon: <AlertTriangle className={ICON_CLASS} /> },
       { href: "/commute", label: "Commute", icon: <Clock className={ICON_CLASS} /> },
       { href: "/about", label: "About", icon: <Info className={ICON_CLASS} /> },
     ],

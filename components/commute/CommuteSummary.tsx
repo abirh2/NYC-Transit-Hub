@@ -24,7 +24,10 @@ import {
   Navigation,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import Link from "next/link";
 import { CommuteRoutePreview, AlternativeRoute, RouteLineSummary } from "./CommuteRoutePreview";
+import type { CommuteData } from "./CommuteSetup";
+import { buildPlanQueryString } from "@/lib/transit/rider-query-state";
 
 interface RouteLeg {
   mode: string;
@@ -70,11 +73,12 @@ interface CommuteSummaryData {
 interface CommuteSummaryProps {
   commuteId?: string;
   onSetupClick?: () => void;
+  planContext?: CommuteData;
 }
 
 const REFRESH_INTERVAL = 60; // seconds
 
-export function CommuteSummary({ commuteId, onSetupClick }: CommuteSummaryProps) {
+export function CommuteSummary({ commuteId, onSetupClick, planContext }: CommuteSummaryProps) {
   const [data, setData] = useState<CommuteSummaryData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -199,6 +203,19 @@ export function CommuteSummary({ commuteId, onSetupClick }: CommuteSummaryProps)
             <span className="font-semibold">Your Commute</span>
           </div>
           <div className="flex items-center gap-2">
+            {planContext?.fromAddress && planContext.fromLat != null && planContext.fromLon != null
+              && planContext.toAddress && planContext.toLat != null && planContext.toLon != null && (
+              <Link
+                href={`/routes?${buildPlanQueryString({
+                  from: { name: planContext.fromAddress, latitude: planContext.fromLat, longitude: planContext.fromLon },
+                  to: { name: planContext.toAddress, latitude: planContext.toLat, longitude: planContext.toLon },
+                  accessible: false,
+                })}`}
+                className="inline-flex min-h-11 items-center px-2 text-sm font-semibold text-primary hover:underline"
+              >
+                Plan again
+              </Link>
+            )}
             {statusInfo && (
               <Chip
                 size="sm"
@@ -340,4 +357,3 @@ export function CommuteSummary({ commuteId, onSetupClick }: CommuteSummaryProps)
     </Card>
   );
 }
-

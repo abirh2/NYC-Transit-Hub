@@ -23,6 +23,7 @@ import { NearbyDepartureRow } from "@/components/nearby/NearbyDepartureRow";
 import { BusBadge, StatusChip, SubwayBullet, Surface } from "@/components/ui";
 import type { GeolocationPermissionState } from "@/lib/hooks/useGeolocation";
 import type { NearbyService } from "@/lib/transit/nearby";
+import { buildPlanQueryString } from "@/lib/transit/rider-query-state";
 import type { ServiceAlert, ServiceStatus } from "@/types/transit";
 
 interface HomeSectionsProps {
@@ -43,6 +44,7 @@ interface HomeSectionsProps {
   alertsLoading: boolean;
   alertsError: string | null;
   routeStatuses: ServiceStatus[];
+  planOrigin: { name: string; latitude: number; longitude: number } | null;
 }
 
 const SUBWAY_ROUTES = new Set([
@@ -436,6 +438,7 @@ export function HomeSections({
   alertsLoading,
   alertsError,
   routeStatuses,
+  planOrigin,
 }: HomeSectionsProps) {
   const prioritizePersonalTransit = !nearbyLoading
     && nearbyServices.length === 0
@@ -475,7 +478,7 @@ export function HomeSections({
           </p>
         </div>
         <Link
-          href="/routes"
+          href={`/routes${planOrigin ? `?${buildPlanQueryString({ from: planOrigin, to: null, accessible: false })}` : ""}`}
           className="inline-flex min-h-12 items-center justify-between gap-4 rounded-lg bg-primary px-4 py-2.5 font-semibold text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus sm:min-w-56"
         >
           <span className="inline-flex items-center gap-2"><Navigation className="h-4 w-4" aria-hidden="true" /> Where to?</span>

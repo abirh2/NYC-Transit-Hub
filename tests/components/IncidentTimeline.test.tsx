@@ -101,14 +101,14 @@ describe('IncidentTimeline', () => {
   it('renders error state', () => {
     render(<IncidentTimeline incidents={[]} error="Network error" />);
     
-    expect(screen.getByText('Failed to load incidents')).toBeInTheDocument();
+    expect(screen.getByText('Service changes are unavailable')).toBeInTheDocument();
     expect(screen.getByText('Network error')).toBeInTheDocument();
   });
 
   it('renders empty state when no incidents', () => {
     render(<IncidentTimeline incidents={[]} />);
     
-    expect(screen.getByText('No Incidents Found')).toBeInTheDocument();
+    expect(screen.getByText('No service changes found')).toBeInTheDocument();
     expect(screen.getByText('There are no service incidents matching your filters.')).toBeInTheDocument();
   });
 
@@ -216,4 +216,3 @@ describe('IncidentTimeline', () => {
     expect(aTrains.length).toBeGreaterThanOrEqual(2); // One in header, one in description
   });
 });
-

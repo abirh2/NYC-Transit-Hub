@@ -63,13 +63,7 @@ function OutageCard({ outage, isUpcoming = false }: { outage: EquipmentOutage; i
   const Icon = isElevator ? MoveVertical : Scaling;
   
   return (
-    <Card 
-      className={`transition-all ${
-        outage.adaCompliant 
-          ? "border-l-4 border-l-danger" 
-          : "border-l-4 border-l-warning"
-      }`}
-    >
+    <Card className="border border-border-subtle shadow-none">
       <CardBody className="py-3 px-4">
         {/* Header Row */}
         <div className="flex items-start justify-between gap-3">
@@ -199,10 +193,6 @@ function OutageCard({ outage, isUpcoming = false }: { outage: EquipmentOutage; i
                 <p className="text-foreground/60">Equipment Type</p>
                 <p className="font-medium">{isElevator ? "Elevator" : "Escalator"}</p>
               </div>
-              <div>
-                <p className="text-foreground/60">Equipment ID</p>
-                <p className="font-medium">{outage.equipmentId}</p>
-              </div>
               {outage.borough && (
                 <div>
                   <p className="text-foreground/60">Borough</p>
@@ -263,8 +253,8 @@ export function OutageList({
       <Card>
         <CardBody className="py-8 text-center">
           <AlertTriangle className="h-8 w-8 mx-auto text-danger mb-3" />
-          <p className="text-foreground font-medium">Failed to load outages</p>
-          <p className="text-sm text-foreground/60 mt-1">{error}</p>
+          <p className="text-foreground font-medium">Accessibility status is unavailable</p>
+          <p className="text-sm text-foreground/60 mt-1">{error} Try refreshing in a moment.</p>
         </CardBody>
       </Card>
     );
@@ -275,7 +265,7 @@ export function OutageList({
       <Card>
         <CardBody className="py-12 text-center">
           <CheckCircle2 className="h-12 w-12 mx-auto text-success mb-4" />
-          <p className="text-lg font-medium text-foreground">No Outages Found</p>
+          <p className="text-lg font-medium text-foreground">No outages found</p>
           <p className="text-sm text-foreground/60 mt-1">
             {emptyMessage || "All elevators and escalators are operating normally."}
           </p>
@@ -296,4 +286,3 @@ export function OutageList({
     </div>
   );
 }
-

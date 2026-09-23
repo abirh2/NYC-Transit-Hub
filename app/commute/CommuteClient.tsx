@@ -353,6 +353,7 @@ export function CommuteClient() {
           {/* Commute Summary */}
           <CommuteSummary 
             commuteId={selectedCommute.id} 
+            planContext={selectedCommute}
             onSetupClick={() => handleEditCommute(selectedCommute)}
           />
         </div>

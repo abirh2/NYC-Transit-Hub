@@ -390,7 +390,7 @@ export function IncidentTimeline({ incidents, isLoading, error, emptyMessage }: 
       <Card>
         <CardBody className="py-8 text-center">
           <AlertTriangle className="h-8 w-8 mx-auto text-danger mb-3" />
-          <p className="text-foreground font-medium">Failed to load incidents</p>
+          <p className="text-foreground font-medium">Service changes are unavailable</p>
           <p className="text-sm text-foreground/60 mt-1">{error}</p>
         </CardBody>
       </Card>
@@ -402,7 +402,7 @@ export function IncidentTimeline({ incidents, isLoading, error, emptyMessage }: 
       <Card>
         <CardBody className="py-12 text-center">
           <CheckCircle2 className="h-12 w-12 mx-auto text-success mb-4" />
-          <p className="text-lg font-medium text-foreground">No Incidents Found</p>
+          <p className="text-lg font-medium text-foreground">No service changes found</p>
           <p className="text-sm text-foreground/60 mt-1">
             {emptyMessage || "There are no service incidents matching your filters."}
           </p>
