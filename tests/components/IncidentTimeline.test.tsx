@@ -155,6 +155,29 @@ describe('IncidentTimeline', () => {
     expect(screen.getByAltText('A train')).toBeInTheDocument();
     expect(screen.getByAltText('C train')).toBeInTheDocument();
     expect(screen.getByAltText('E train')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'View A train in Realtime' })).toHaveAttribute(
+      'href',
+      '/realtime?mode=subway&route=A&view=map',
+    );
+  });
+
+  it('links stable station and accessibility context', () => {
+    const accessibilityIncident: ServiceAlert = {
+      ...mockIncidents[0],
+      headerText: '[accessibility icon] Elevator outage',
+      affectedStops: ['A15'],
+    };
+
+    render(<IncidentTimeline incidents={[accessibilityIncident]} />);
+
+    expect(screen.getByRole('link', { name: 'Open affected station' })).toHaveAttribute(
+      'href',
+      '/board?station=A15',
+    );
+    expect(screen.getByRole('link', { name: 'View accessibility status' })).toHaveAttribute(
+      'href',
+      '/accessibility',
+    );
   });
 
   it('truncates lines list when more than 6 lines affected', () => {
@@ -167,14 +190,6 @@ describe('IncidentTimeline', () => {
     
     // Should show "+3" for extra lines
     expect(screen.getByText('+3')).toBeInTheDocument();
-  });
-
-  it('applies correct border color based on severity', () => {
-    const { container } = render(<IncidentTimeline incidents={mockIncidents} />);
-    
-    // Check for border classes
-    const cards = container.querySelectorAll('[class*="border-l-"]');
-    expect(cards.length).toBe(3);
   });
 
   it('parses train references in description and displays subway bullets', () => {

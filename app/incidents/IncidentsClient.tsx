@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Card, CardBody, Switch, Chip, Tabs, Tab } from "@heroui/react";
-import { Clock, Wifi, WifiOff, Calendar, Zap } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { Wifi, WifiOff, Calendar, Zap, History } from "lucide-react";
 import { 
   IncidentStats, 
   IncidentFilters, 
@@ -12,13 +11,13 @@ import {
   type IncidentTab,
   type SortOption,
 } from "@/components/incidents";
-import type { ServiceAlert, AlertSeverity, AlertType } from "@/types/mta";
+import type { ServiceAlert, AlertSeverity } from "@/types/mta";
 import type { IncidentStats as IncidentStatsType } from "@/types/api";
+import { DataFreshness } from "@/components/ui";
+import { useVisiblePolling } from "@/lib/hooks";
+import { partitionIncidentsByStatus } from "@/lib/incidents/status";
 
 const REFRESH_INTERVAL = 30; // seconds
-
-// Types that can appear in "Upcoming" tab
-const UPCOMING_ALERT_TYPES: AlertType[] = ["PLANNED_WORK", "REDUCED_SERVICE", "SERVICE_CHANGE"];
 
 interface IncidentsApiResponse {
   success: boolean;
@@ -28,20 +27,6 @@ interface IncidentsApiResponse {
     lastUpdated: string;
   };
   error?: string;
-}
-
-// Determine if incident is currently active (has started and not ended)
-function isActiveNow(incident: ServiceAlert): boolean {
-  const now = new Date();
-  const hasStarted = !incident.activePeriodStart || incident.activePeriodStart <= now;
-  const hasEnded = incident.activePeriodEnd && incident.activePeriodEnd <= now;
-  return hasStarted && !hasEnded;
-}
-
-// Determine if incident is upcoming (not yet started)
-function isUpcoming(incident: ServiceAlert): boolean {
-  const now = new Date();
-  return incident.activePeriodStart !== null && incident.activePeriodStart > now;
 }
 
 // Filter incidents by user selections
@@ -164,7 +149,7 @@ export function IncidentsClient() {
     setActiveTab(tab);
     setFilters(prev => ({
       ...prev,
-      sortBy: tab === "active" ? "severity" : "soonest",
+      sortBy: tab === "upcoming" ? "soonest" : tab === "recent" ? "recent" : "severity",
     }));
   };
 
@@ -208,31 +193,22 @@ export function IncidentsClient() {
     fetchIncidents();
   }, [fetchIncidents]);
 
-  // Auto-refresh
-  useEffect(() => {
-    if (!autoRefresh) return;
-    const interval = setInterval(fetchIncidents, REFRESH_INTERVAL * 1000);
-    return () => clearInterval(interval);
-  }, [autoRefresh, fetchIncidents]);
+  const { isOnline } = useVisiblePolling(
+    fetchIncidents,
+    REFRESH_INTERVAL * 1000,
+    autoRefresh,
+  );
 
   // Split incidents into Active Now and Upcoming
-  const { activeIncidents, upcomingIncidents } = useMemo(() => {
-    const active: ServiceAlert[] = [];
-    const upcoming: ServiceAlert[] = [];
-    
-    for (const incident of allIncidents) {
-      if (isActiveNow(incident)) {
-        active.push(incident);
-      } else if (isUpcoming(incident) && UPCOMING_ALERT_TYPES.includes(incident.alertType)) {
-        upcoming.push(incident);
-      }
-    }
-    
-    return { activeIncidents: active, upcomingIncidents: upcoming };
-  }, [allIncidents]);
+  const incidentsByStatus = useMemo(
+    () => partitionIncidentsByStatus(allIncidents),
+    [allIncidents],
+  );
 
   // Get incidents for current tab
-  const currentTabIncidents = activeTab === "active" ? activeIncidents : upcomingIncidents;
+  const currentTabIncidents = activeTab === "recent"
+    ? incidentsByStatus.resolved
+    : incidentsByStatus[activeTab];
   
   // Apply user filters and sorting
   const filteredIncidents = useMemo(() => {
@@ -283,9 +259,9 @@ export function IncidentsClient() {
             <div className="flex items-center gap-2">
               <Zap className="h-4 w-4" />
               <span>Active Now</span>
-              {activeIncidents.length > 0 && (
+              {incidentsByStatus.active.length > 0 && (
                 <Chip size="sm" variant="flat" color="warning">
-                  {activeIncidents.length}
+                  {incidentsByStatus.active.length}
                 </Chip>
               )}
             </div>
@@ -297,7 +273,7 @@ export function IncidentsClient() {
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
               <span>Upcoming</span>
-              {upcomingIncidents.length > 0 && (
+              {incidentsByStatus.upcoming.length > 0 && (
                 <Chip 
                   size="sm" 
                   variant="flat" 
@@ -306,7 +282,21 @@ export function IncidentsClient() {
                     content: "text-sky-700 dark:text-sky-400"
                   }}
                 >
-                  {upcomingIncidents.length}
+                  {incidentsByStatus.upcoming.length}
+                </Chip>
+              )}
+            </div>
+          }
+        />
+        <Tab
+          key="recent"
+          title={
+            <div className="flex items-center gap-2">
+              <History className="h-4 w-4" />
+              <span>Recent</span>
+              {incidentsByStatus.resolved.length > 0 && (
+                <Chip size="sm" variant="flat">
+                  {incidentsByStatus.resolved.length}
                 </Chip>
               )}
             </div>
@@ -329,14 +319,7 @@ export function IncidentsClient() {
 
       {/* Status Bar */}
       <div className="flex flex-wrap items-center gap-4 text-sm">
-        {lastUpdated && (
-          <div className="flex items-center gap-1.5 text-foreground/60">
-            <Clock className="h-4 w-4" />
-            <span>
-              Updated {formatDistanceToNow(lastUpdated, { addSuffix: true })}
-            </span>
-          </div>
-        )}
+        <DataFreshness updatedAt={lastUpdated} isOffline={!isOnline} />
         
         {!isLoading && activeTab === "active" && (
           <Chip size="sm" variant="flat" color={filteredIncidents.length > 0 ? "warning" : "success"}>
@@ -356,17 +339,24 @@ export function IncidentsClient() {
             {filteredIncidents.length} upcoming incident{filteredIncidents.length !== 1 ? "s" : ""}
           </Chip>
         )}
+        {!isLoading && activeTab === "recent" && (
+          <Chip size="sm" variant="flat">
+            {filteredIncidents.length} recent incident{filteredIncidents.length !== 1 ? "s" : ""}
+          </Chip>
+        )}
       </div>
 
       {/* Incidents Timeline */}
       <IncidentTimeline
         incidents={filteredIncidents}
         isLoading={isLoading && allIncidents.length === 0}
-        error={error}
+        error={allIncidents.length === 0 ? error : null}
         emptyMessage={
           activeTab === "active"
             ? "No active service changes match these filters."
-            : "No upcoming planned work matches these filters."
+            : activeTab === "upcoming"
+              ? "No upcoming service changes match these filters."
+              : "No recently resolved service changes match these filters."
         }
       />
 

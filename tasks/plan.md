@@ -1,124 +1,91 @@
-# Implementation Plan: Rider Utility Modernization
+# Implementation Plan: Final Modernization
 
 ## Overview
 
-Modernize the remaining rider utilities as a connected system. Establish shared
-search/query-state and status foundations first, then deliver focused vertical
-slices for Station Board, Plan, Accessibility, Commute, and Service Changes.
-Preserve every existing public route and data capability while removing embedded
-planner/geocoder duplication and old oversized-card hierarchy.
+Complete analytics/exploration, establish truthful PWA and realtime behavior, perform an evidence-driven app-wide quality pass, and finish portfolio documentation. Work proceeds in thin slices, preserves the normalized transit domain, and extends the rider design system without another rewrite.
 
 ## Architecture Decisions
 
-- `/routes` remains the Plan route; page metadata and visible copy call it Plan.
-- `/api/locations` is the only client-facing address/place/station geocoder.
-- `/api/stations` remains the station-complex search source for board-specific
-  selection because it retains `allIds`, `allPlatforms`, routes, and stops.
-- Query state is owned by small pure helpers and initialized through App Router
-  client boundaries; no new global state library is introduced.
-- Subway board departures adapt to the normalized shared departure presentation
-  while preserving all-platform fetching and exact `tripId` identity.
-- Accessibility owns outage polling. Contextual status receives data through a
-  parent or bounded cached request and does not introduce synchronized polling.
-- Local saved stations and authenticated commutes keep existing persistence.
-- `/incidents` keeps its URL and history but becomes rider-facing Service Changes.
+- The capability map and four module specs are the scope source of truth.
+- Shared analytics components live in `components/analytics`; only repeated patterns are promoted.
+- Existing API shapes remain authoritative. Reliability and crowding copy becomes precise rather than inventing metrics.
+- Cache policy is split by data semantics: realtime prioritizes freshness; static/GTFS-derived artifacts prioritize efficient reuse.
+- Shared visibility-aware polling/freshness is introduced incrementally.
+- Impeccable verification is bounded to one evidence batch, one correction batch, and one confirmation batch.
 
 ## Dependency Graph and Build Order
 
 ```text
-location/station search contracts + query helpers
-  ├── Station Board → accessibility station context → saved station journey
-  ├── Plan form → Plan result hierarchy → Home/Nearby/Board handoff
-  │                  ├── Accessibility planner handoff
-  │                  └── Commute endpoint handoff
-  └── shared rider states/status → Accessibility + Service Changes
-
-Commute modernization depends on shared location search and Plan handoff.
-Cross-page E2E and visual QA depend on every vertical slice.
+analytics primitives → Reliability → Crowding → Service Changes
+cache classification → service worker → freshness UI → polling migrations
+analytics + PWA foundations
+  → app-wide audit fixes
+  → portfolio docs + cleanup/test gaps
+  → full gates + representative flows
 ```
 
 ## Task List
 
-### Phase 1: Shared contracts
+### Phase 1: Analytics foundation
 
-- [x] Task 1: Add tested rider utility query-state helpers and shared location
-  search field backed by `/api/locations`.
-- [x] Task 2: Modernize the station-complex search control with saved results,
-  route identity, keyboard behavior, and deterministic states.
+- [x] Task 1: Add shared analytics surface, tooltip, freshness, and empty-chart primitives with tests.
+- [x] Task 2: Recompose Reliability around metric truth, route comparison, trend, time-of-day, and contextual links.
+- [x] Task 3: Modernize Crowding around estimated relative conditions, line context, methodology, and limitations.
+- [x] Task 4: Modernize Service Changes as active/planned/recent exploration with contextual actions.
 
-### Checkpoint: Shared foundations
+### Checkpoint: Analytics
 
-- [x] Focused unit/component tests pass.
-- [x] No client-side external geocoder remains in the new shared path.
-
-### Phase 2: Primary rider journeys
-
-- [x] Task 3: Make Station Board selection URL-driven and modernize its focused
-  station identity/save hierarchy.
-- [x] Task 4: Present subway board departures through shared exact-trip rows and
-  add compact station accessibility context.
-- [x] Task 5: Rebuild Plan's origin/destination form around shared search and
-  reload-safe context handoff.
-- [x] Task 6: Distill Plan itinerary results around duration, route identity,
-  transfers, destination, departure/wait, walking, and honest errors.
-
-### Checkpoint: Core journeys
-
-- [x] Station Board → exact train → Realtime works with stable trip identity.
-- [x] Home/Nearby/Board context can prefill Plan and survive reload.
 - [x] Focused tests, lint, and typecheck pass.
+- [x] Analytics pages work at mobile/desktop widths in both themes.
 
-### Phase 3: Supporting rider utilities
+### Phase 2: PWA and realtime integrity
 
-- [x] Task 7: Refactor Accessibility filtering/state into tested pure helpers and
-  a rider-first current/upcoming outage presentation.
-- [x] Task 8: Remove the embedded Accessibility planner and add station/saved
-  filtering plus contextual Plan and Board links.
-- [x] Task 9: Modernize Commute setup/status using shared location search and
-  Plan handoff while preserving authenticated persistence.
-- [x] Task 10: Modernize Service Changes hierarchy and shared status/route
-  presentation without altering Reliability or Crowding.
+- [x] Task 5: Formalize and test static, slow-changing, and realtime cache/freshness classifications.
+- [x] Task 6: Apply semantic Serwist caching and complete install metadata verification.
+- [x] Task 7: Add shared online/visibility-aware polling and freshness presentation.
+- [x] Task 8: Migrate primary realtime consumers and implement honest offline states in consumer-sized slices.
 
-### Checkpoint: Utility integration
+### Checkpoint: Realtime integrity
 
-- [x] Accessibility, Commute, and Service Changes state matrices pass.
-- [x] Existing API contracts and persistence tests remain green.
+- [x] Focused tests and production build pass; offline behavior is covered by deterministic tests because browser network emulation was unavailable.
+- [x] Hidden tabs do not retain duplicate full-rate polling.
 
-### Phase 4: Cross-page verification and finish
+### Phase 3: App-wide quality
 
-- [x] Task 11: Add cross-page Playwright coverage for the four required rider
-  journeys and responsive widths.
-- [x] Task 12: Run the bounded Impeccable desktop/mobile audit, apply one batched
-  correction pass, then run lint, typecheck, full tests, build, and E2E.
+- [x] Task 9: Run Impeccable detector plus one batched desktop/mobile audit and record verified findings.
+- [x] Task 10: Fix shared accessibility, safe-area, theme, and global-state defects.
+- [x] Task 11: Fix route-specific responsive and partial-failure defects in route-sized slices.
+- [x] Task 12: Fix verified map/chart/client performance problems without identity regressions.
+
+### Checkpoint: Product quality
+
+- [x] One confirmation pass clears priority findings at required widths/themes.
+- [x] Relevant tests, lint, typecheck, build, and E2E pass.
+
+### Phase 4: Portfolio and release evidence
+
+- [x] Task 13: Rewrite README and architecture/accuracy documentation against source truth.
+- [x] Task 14: Establish a lightweight screenshot/demo capture structure.
+- [x] Task 15: Remove verified debris and close critical behavior-test gaps.
+- [x] Task 16: Run full gates and representative rider/visualization flows; record limitations.
 
 ### Checkpoint: Complete
 
-- [x] Every specification success criterion is satisfied.
-- [x] No analytics-heavy page was redesigned.
-- [x] Final report covers all ten requested completion categories.
+- [x] All module success criteria are satisfied or documented as external limitations.
+- [x] Final report covers all fourteen requested deliverable categories.
 
 ## Risks and Mitigations
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| Existing planner mixes form, geocoding, and results | High | Extract contract-first in two slices; preserve `/api/routes/trip` |
-| Station Board still uses legacy `TrainArrival` | High | Adapt at presentation boundary; retain multi-platform fetch and `tripId` |
-| Outages lack stable station IDs | Medium | Match conservatively by normalized name; never infer healthy from missing data |
-| Shared search becomes over-generic | Medium | Keep location and station-complex search as two explicit contracts |
-| Commute auth/API regressions | High | Preserve endpoints/ownership and cover changed consumers with tests |
-| Live MTA/OTP variability causes flaky tests | High | Use deterministic fixtures and mock network boundaries |
-| Scope expands into analytics pages | Medium | Limit changes to compile-safe shared primitive compatibility |
-| Mobile fixes harm desktop density | Medium | Verify 375, 393, 430, 768, and 1280 widths together |
-
-## Verification Checkpoints
-
-1. Shared contracts: focused unit/component tests.
-2. Board + Plan: focused tests, lint, typecheck, and critical manual journey.
-3. Supporting utilities: state-matrix tests and unchanged API contract tests.
-4. Finish: Impeccable detector, one desktop/mobile inspection batch, one fix
-   batch, full lint/typecheck/test/build, and relevant Playwright specs.
+| Incident-derived reliability is overstated | High | Put the metric definition next to the headline and test the copy |
+| Service-worker fallback exposes old ETAs | High | Separate realtime caches, cap age, and make UI freshness/offline state authoritative |
+| Polling refactor duplicates timers or misses resume | High | Pure hook contract with fake-timer and visibility cleanup tests |
+| Analytics abstraction becomes too generic | Medium | Promote only repeated presentation; keep shaping local |
+| Live MTA/database variability blocks verification | Medium | Deterministic fixtures plus documented live-only limitations |
+| Broad polish creates unrelated churn | Medium | Fix only recorded high-confidence findings in small batches |
+| Charts/maps regress mobile or themes | High | Verify all required widths and both themes in the same bounded pass |
 
 ## Open Questions
 
-None. The capability map records the source-based assumptions authorized by the
-user's instruction to continue without approval pauses.
+None blocking. The user authorized proceeding without approval pauses; discoveries that alter product truth update the relevant spec before implementation.

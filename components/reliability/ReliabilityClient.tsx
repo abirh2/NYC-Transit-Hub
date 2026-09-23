@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Card, CardBody, Switch, Chip, Alert, Tabs, Tab, Button } from "@heroui/react";
-import { TrendingUp, Clock, Wifi, WifiOff, AlertTriangle, Info, ChevronDown, ChevronUp } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
-import { SubwayBullet } from "@/components/ui";
+import { TrendingUp, Wifi, WifiOff, AlertTriangle, Info, ChevronDown, ChevronUp } from "lucide-react";
+import { DataFreshness, SubwayBullet } from "@/components/ui";
+import { useVisiblePolling } from "@/lib/hooks";
 import { ReliabilitySummaryCards } from "./ReliabilitySummaryCards";
 import { LinePerformanceCard } from "./LinePerformanceCard";
 import { ReliabilityChart } from "./ReliabilityChart";
@@ -63,12 +63,11 @@ export function ReliabilityClient() {
     fetchData();
   }, [fetchData]);
 
-  // Auto-refresh
-  useEffect(() => {
-    if (!autoRefresh) return;
-    const interval = setInterval(fetchData, REFRESH_INTERVAL * 1000);
-    return () => clearInterval(interval);
-  }, [autoRefresh, fetchData]);
+  const { isOnline } = useVisiblePolling(
+    fetchData,
+    REFRESH_INTERVAL * 1000,
+    autoRefresh,
+  );
 
   // Filter daily trend data when a line is selected
   const filteredDailyTrend = useMemo(() => {
@@ -86,7 +85,7 @@ export function ReliabilityClient() {
             Line Reliability
           </h1>
           <p className="mt-1 text-foreground/70">
-            Track service performance and incident patterns
+            Compare incident-derived scores and recorded disruption patterns by line.
           </p>
         </div>
 
@@ -190,12 +189,7 @@ export function ReliabilityClient() {
       {/* Status Bar */}
       <div className="flex flex-wrap items-center gap-4 text-sm">
         {lastUpdated && (
-          <div className="flex items-center gap-1.5 text-foreground/60">
-            <Clock className="h-4 w-4" />
-            <span>
-              Updated {formatDistanceToNow(lastUpdated, { addSuffix: true })}
-            </span>
-          </div>
+          <DataFreshness updatedAt={lastUpdated} isOffline={!isOnline} />
         )}
         {data?.dataStartDate && (
           <Chip size="sm" variant="flat">
@@ -209,29 +203,23 @@ export function ReliabilityClient() {
         )}
       </div>
 
-      {/* Main Content Grid */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Line Performance */}
-        <LinePerformanceCard
-          lines={data?.byLine ?? []}
-          isLoading={isLoading && !data}
-          selectedLine={selectedLine}
-          onSelectLine={setSelectedLine}
-        />
+      <LinePerformanceCard
+        lines={data?.byLine ?? []}
+        isLoading={isLoading && !data}
+        selectedLine={selectedLine}
+        onSelectLine={setSelectedLine}
+      />
 
-        {/* Time of Day Chart */}
-        <TimeOfDayChart
-          data={data?.byTimeOfDay ?? []}
-          isLoading={isLoading && !data}
-        />
-      </div>
-
-      {/* Trend Chart - Full Width */}
       <ReliabilityChart
         data={filteredDailyTrend}
         isLoading={isLoading && !data}
         selectedMetric={chartMetric}
         onMetricChange={setChartMetric}
+      />
+
+      <TimeOfDayChart
+        data={data?.byTimeOfDay ?? []}
+        isLoading={isLoading && !data}
       />
 
       {/* Detailed Line Stats Table */}
@@ -301,4 +289,3 @@ export function ReliabilityClient() {
     </div>
   );
 }
-

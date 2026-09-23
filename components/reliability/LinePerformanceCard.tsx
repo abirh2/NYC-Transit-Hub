@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Card, CardBody, CardHeader, Progress, Button } from "@heroui/react";
 import { BarChart3, ChevronDown, ChevronUp } from "lucide-react";
 import { SubwayBullet } from "@/components/ui";
@@ -100,6 +101,8 @@ export function LinePerformanceCard({
               <button
                 key={line.routeId}
                 onClick={() => onSelectLine?.(isSelected ? undefined : line.routeId)}
+                aria-label={`${line.routeId} line, incident-derived score ${line.reliabilityScore}, ${line.totalIncidents} incidents`}
+                aria-pressed={isSelected}
                 className={`w-full flex items-center gap-3 p-2 rounded-lg transition-colors ${
                   isSelected 
                     ? "bg-primary/10 ring-1 ring-primary" 
@@ -109,6 +112,7 @@ export function LinePerformanceCard({
                 <SubwayBullet line={line.routeId} size="md" />
                 <div className="flex-1 min-w-0">
                   <Progress
+                    aria-label={`${line.routeId} line incident-derived score`}
                     value={line.reliabilityScore}
                     color={getScoreColor(line.reliabilityScore)}
                     size="sm"
@@ -132,6 +136,15 @@ export function LinePerformanceCard({
             );
           })}
         </div>
+
+        {selectedLine ? (
+          <Link
+            href={`/realtime?mode=subway&route=${encodeURIComponent(selectedLine)}&view=map`}
+            className="mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-primary underline-offset-4 hover:underline"
+          >
+            Explore {selectedLine} in Realtime
+          </Link>
+        ) : null}
 
         {/* Expand/Collapse Button */}
         {hiddenCount > 0 && (
@@ -162,4 +175,3 @@ export function LinePerformanceCard({
     </Card>
   );
 }
-

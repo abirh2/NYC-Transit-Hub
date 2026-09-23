@@ -1,7 +1,5 @@
 "use client";
 
-import { Card, CardBody, CardHeader } from "@heroui/react";
-import { Clock } from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -13,6 +11,7 @@ import {
   Cell,
 } from "recharts";
 import type { TimeOfDayBreakdown } from "@/types/api";
+import { ChartSurface, ChartTooltip, EmptyChartState } from "@/components/analytics";
 
 interface TimeOfDayChartProps {
   data: TimeOfDayBreakdown[];
@@ -31,17 +30,12 @@ const PERIOD_COLORS: Record<TimeOfDayBreakdown["period"], string> = {
 export function TimeOfDayChart({ data, isLoading }: TimeOfDayChartProps) {
   if (isLoading) {
     return (
-      <Card className="h-full">
-        <CardHeader className="pb-2">
-          <div className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-primary" />
-            <h3 className="text-lg font-semibold">Time of Day Analysis</h3>
-          </div>
-        </CardHeader>
-        <CardBody>
-          <div className="h-48 animate-pulse rounded bg-default-100" />
-        </CardBody>
-      </Card>
+      <ChartSurface
+        title="When incidents happen"
+        description="Recorded incidents grouped by time of day."
+      >
+        <div className="h-48 animate-pulse rounded-md bg-surface-hover" />
+      </ChartSurface>
     );
   }
 
@@ -54,54 +48,51 @@ export function TimeOfDayChart({ data, isLoading }: TimeOfDayChartProps) {
   }));
 
   return (
-    <Card className="h-full">
-      <CardHeader className="pb-2">
-        <div className="flex items-center gap-2">
-          <Clock className="h-5 w-5 text-primary" />
-          <h3 className="text-lg font-semibold">Time of Day Analysis</h3>
-        </div>
-      </CardHeader>
-      <CardBody className="pt-0">
-        {!hasData ? (
-          <div className="h-48 flex items-center justify-center text-foreground/50">
-            <p className="text-center">
-              No time-of-day data available yet.
-              <br />
-              <span className="text-sm">Patterns will emerge as incidents are tracked.</span>
-            </p>
-          </div>
-        ) : (
+    <ChartSurface
+      title="When incidents happen"
+      description="Recorded incidents grouped by time of day."
+    >
+      {!hasData ? (
+        <EmptyChartState
+          title="No time-of-day data available yet."
+          description="Patterns will emerge as incidents are tracked."
+        />
+      ) : (
           <>
+            <div className="min-w-0 text-foreground/50">
             <ResponsiveContainer width="100%" height={200}>
               <BarChart
                 data={chartData}
                 margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="#525252" strokeOpacity={0.3} />
+                <CartesianGrid strokeDasharray="3 3" stroke="currentColor" strokeOpacity={0.18} />
                 <XAxis
                   dataKey="label"
-                  tick={{ fontSize: 11, fill: "#a1a1aa" }}
+                  tick={{ fontSize: 11, fill: "currentColor" }}
                   tickLine={false}
-                  axisLine={{ stroke: "#525252" }}
+                  axisLine={{ stroke: "currentColor", strokeOpacity: 0.3 }}
                 />
                 <YAxis
-                  tick={{ fontSize: 11, fill: "#a1a1aa" }}
+                  tick={{ fontSize: 11, fill: "currentColor" }}
                   tickLine={false}
-                  axisLine={{ stroke: "#525252" }}
+                  axisLine={{ stroke: "currentColor", strokeOpacity: 0.3 }}
                   allowDecimals={false}
                 />
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#27272a",
-                    border: "1px solid #3f3f46",
-                    borderRadius: "8px",
-                    boxShadow: "0 4px 14px 0 rgba(0,0,0,0.3)",
-                    color: "#fafafa",
-                  }}
-                  labelStyle={{ color: "#fafafa", fontWeight: 600 }}
-                  formatter={(value: number, _name: string, props) => {
-                    const payload = props.payload as TimeOfDayBreakdown | undefined;
-                    return [`${value} incidents`, payload?.hours ?? ""];
+                  content={({ active, payload }) => {
+                    if (!active || !payload?.length) return null;
+                    const point = payload[0].payload as (typeof chartData)[number];
+                    return (
+                      <ChartTooltip
+                        label={point.label}
+                        items={[{
+                          label: point.hours,
+                          value: point.totalIncidents,
+                          unit: " incidents",
+                          color: point.fill,
+                        }]}
+                      />
+                    );
                   }}
                 />
                 <Bar dataKey="totalIncidents" radius={[4, 4, 0, 0]}>
@@ -111,6 +102,7 @@ export function TimeOfDayChart({ data, isLoading }: TimeOfDayChartProps) {
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
+            </div>
             
             {/* Insight text */}
             <div className="mt-4 text-center">
@@ -141,9 +133,7 @@ export function TimeOfDayChart({ data, isLoading }: TimeOfDayChartProps) {
               })()}
             </div>
           </>
-        )}
-      </CardBody>
-    </Card>
+      )}
+    </ChartSurface>
   );
 }
-

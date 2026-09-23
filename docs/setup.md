@@ -8,13 +8,13 @@ Before you begin, ensure you have the following installed:
 
 | Requirement | Version | Notes |
 |-------------|---------|-------|
-| Node.js | >= 20.9.0 | Use nvm for version management |
+| Node.js | 24.12.0 | Use nvm for version management |
 | npm | >= 10.0.0 | Comes with Node.js |
 | Git | Latest | For version control |
 
 ### Node.js Version Management
 
-This project requires Node.js 20.9.0 or higher. We recommend using [nvm](https://github.com/nvm-sh/nvm) to manage Node versions.
+This project is developed and validated with Node.js 24.12.0. We recommend using [nvm](https://github.com/nvm-sh/nvm) to manage Node versions.
 
 ```bash
 # Install nvm (if not already installed)
@@ -36,7 +36,7 @@ node --version  # Should output v24.12.0
 
 ```bash
 # Clone the repository
-git clone https://github.com/ahossain/NYC-Transit-Hub.git
+git clone https://github.com/abirh2/NYC-Transit-Hub.git
 cd NYC-Transit-Hub
 
 # Install dependencies
@@ -254,4 +254,3 @@ Then open http://localhost:3000 and:
 - Read the [Architecture Guide](./architecture.md) to understand the system design
 - Check the [Component Guide](./components.md) to learn about UI components
 - See [Contributing](./contributing.md) to start making changes
-

@@ -73,6 +73,13 @@ describe('LinePerformanceCard', () => {
     
     // Should show clear filter button when a line is selected
     expect(screen.getByText('Clear filter')).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Explore L in Realtime' }),
+    ).toHaveAttribute('href', '/realtime?mode=subway&route=L&view=map');
+    expect(screen.getByRole('button', { name: /L line/i })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
   });
 
   it('clears selection when clicking clear filter', () => {
@@ -113,4 +120,3 @@ describe('LinePerformanceCard', () => {
     expect(buttons[0].textContent).toContain('95');
   });
 });
-

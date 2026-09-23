@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { NearbyClient } from "@/components/nearby/NearbyClient";
 
 export const metadata: Metadata = {
-  title: "Nearby Transit | NYC Transit Hub",
+  title: "Nearby Transit",
   description: "Find nearby subway stations, bus stops, and live departures.",
 };
 

@@ -35,6 +35,7 @@ vi.mock("@/lib/hooks", () => ({
     favorites: hookState.favorites,
     isLoaded: true,
   }),
+  useVisiblePolling: () => ({ isOnline: true }),
 }));
 
 vi.mock("@/components/dashboard/ReliabilityCard", () => ({

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, ReactNode } from "react";
 import { Card, CardBody, Chip, Spinner, Button } from "@heroui/react";
 import { 
@@ -12,9 +13,12 @@ import {
   CheckCircle2,
   Calendar,
   Bus,
-  Accessibility
+  Accessibility,
+  ArrowUpRight,
+  MapPin,
 } from "lucide-react";
 import { SubwayBullet } from "@/components/ui";
+import { classifyIncidentStatus } from "@/lib/incidents/status";
 import { formatDistanceToNow, format } from "date-fns";
 import type { ServiceAlert, AlertSeverity, AlertType } from "@/types/mta";
 
@@ -23,19 +27,6 @@ interface IncidentTimelineProps {
   isLoading?: boolean;
   error?: string | null;
   emptyMessage?: string;
-}
-
-// Determine incident status
-type IncidentStatus = "active" | "upcoming" | "resolved";
-
-function getIncidentStatus(incident: ServiceAlert): IncidentStatus {
-  const now = new Date();
-  const hasStarted = !incident.activePeriodStart || incident.activePeriodStart <= now;
-  const hasEnded = incident.activePeriodEnd && incident.activePeriodEnd <= now;
-  
-  if (hasEnded) return "resolved";
-  if (!hasStarted) return "upcoming";
-  return "active";
 }
 
 // Get icon for severity
@@ -232,18 +223,12 @@ function IncidentCard({ incident }: { incident: ServiceAlert }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const hasDescription = incident.descriptionText && incident.descriptionText !== incident.headerText;
   
-  const status = getIncidentStatus(incident);
+  const status = classifyIncidentStatus(incident);
+  const accessibilityText = `${incident.headerText} ${incident.descriptionText ?? ""}`;
+  const hasAccessibilityContext = /\[accessibility icon\]|elevator|escalator|accessible/i.test(accessibilityText);
   
   return (
-    <Card 
-      className={`transition-all ${
-        incident.severity === "SEVERE" 
-          ? "border-l-4 border-l-danger" 
-          : incident.severity === "WARNING"
-          ? "border-l-4 border-l-warning"
-          : "border-l-4 border-l-default-300"
-      }`}
-    >
+    <Card className="border border-border-subtle bg-surface-panel shadow-sm transition-colors">
       <CardBody className="py-3 px-4">
         {/* Header Row */}
         <div className="flex items-start justify-between gap-3">
@@ -253,7 +238,14 @@ function IncidentCard({ incident }: { incident: ServiceAlert }) {
               {/* Affected Lines */}
               <div className="flex items-center gap-1 flex-wrap">
                 {incident.affectedRoutes.slice(0, 6).map((line) => (
-                  <SubwayBullet key={line} line={line} size="sm" />
+                  <Link
+                    key={line}
+                    href={`/realtime?mode=subway&route=${encodeURIComponent(line)}&view=map`}
+                    aria-label={`View ${line} train in Realtime`}
+                    className="rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                  >
+                    <SubwayBullet line={line} size="sm" />
+                  </Link>
                 ))}
                 {incident.affectedRoutes.length > 6 && (
                   <span className="text-xs text-foreground/50">
@@ -370,6 +362,37 @@ function IncidentCard({ incident }: { incident: ServiceAlert }) {
           <div className="mt-3 pt-3 border-t border-divider">
             <FormattedDescription text={incident.descriptionText!} />
           </div>
+        )}
+
+        {(incident.affectedRoutes[0] || incident.affectedStops[0] || hasAccessibilityContext) && (
+          <nav aria-label="Related service information" className="mt-3 flex flex-wrap gap-x-4 gap-y-2 border-t border-divider pt-3 text-xs font-semibold">
+            {incident.affectedRoutes[0] && (
+              <Link
+                href={`/realtime?mode=subway&route=${encodeURIComponent(incident.affectedRoutes[0])}&view=map`}
+                className="inline-flex min-h-8 items-center gap-1 text-primary hover:underline"
+              >
+                Realtime route <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+              </Link>
+            )}
+            {incident.affectedStops[0] && (
+              <Link
+                href={`/board?station=${encodeURIComponent(incident.affectedStops[0])}`}
+                aria-label="Open affected station"
+                className="inline-flex min-h-8 items-center gap-1 text-primary hover:underline"
+              >
+                <MapPin className="h-3.5 w-3.5" aria-hidden="true" /> Station Board
+              </Link>
+            )}
+            {hasAccessibilityContext && (
+              <Link
+                href="/accessibility"
+                aria-label="View accessibility status"
+                className="inline-flex min-h-8 items-center gap-1 text-primary hover:underline"
+              >
+                <Accessibility className="h-3.5 w-3.5" aria-hidden="true" /> Accessibility
+              </Link>
+            )}
+          </nav>
         )}
       </CardBody>
     </Card>

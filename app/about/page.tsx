@@ -55,7 +55,7 @@ export default function AboutPage() {
           <FeatureCard
             icon={<Train className="h-6 w-6" />}
             title="Live Tracker"
-            description="Visual train positions on line diagrams showing where every train is right now."
+            description="Individual subway trips on maps and line diagrams, with between-stop geography clearly presented as an estimate."
             color="secondary"
           />
           <FeatureCard
@@ -137,7 +137,7 @@ export default function AboutPage() {
                 <h3 className="font-semibold">Frontend</h3>
               </div>
               <div className="space-y-2 text-sm">
-                <TechItem name="Next.js 15" description="React framework with App Router" />
+                <TechItem name="Next.js 16" description="React framework with App Router" />
                 <TechItem name="TypeScript" description="Type-safe development (strict mode)" />
                 <TechItem name="HeroUI v2" description="Modern React component library" />
                 <TechItem name="Tailwind CSS v4" description="Utility-first styling" />
@@ -374,4 +374,3 @@ function TechItem({ name, description }: { name: string; description: string }) 
     </div>
   );
 }
-

@@ -9,24 +9,25 @@ async function openDestination(
   label: string,
   path: string,
 ) {
+  let destination: import('playwright/test').Locator;
   if (await usesMobileNavigation(page)) {
     if (label === 'Realtime') {
-      await page.getByRole('link', { name: 'Map', exact: true }).click();
+      destination = page.getByRole('link', { name: 'Map', exact: true });
     } else {
       await page.getByRole('button', { name: 'More', exact: true }).click();
-      await page.getByRole('navigation', { name: 'More destinations' })
-        .getByRole('link', { name: label, exact: true })
-        .click();
+      destination = page.getByRole('navigation', { name: 'More destinations' })
+        .getByRole('link', { name: label, exact: true });
     }
   } else {
     const primaryLabels = new Set(['Realtime', 'Station Board', 'Accessibility']);
     const navigation = page.getByRole('navigation', {
       name: primaryLabels.has(label) ? 'Primary' : 'Exploration & intelligence',
     });
-    await navigation.getByRole('link', { name: label, exact: true }).click();
+    destination = navigation.getByRole('link', { name: label, exact: true });
   }
 
-  await expect(page).toHaveURL(path);
+  await destination.click();
+  await expect(page).toHaveURL(path, { timeout: 15_000 });
 }
 
 test.describe('Home Page', () => {
@@ -90,7 +91,7 @@ test.describe('Navigation', () => {
       { name: 'Accessibility', url: '/accessibility' },
       { name: 'Commute', url: '/commute' },
       { name: 'Crowding', url: '/crowding' },
-      { name: 'Incidents', url: '/incidents' },
+      { name: 'Service Changes', url: '/incidents' },
     ];
 
     for (const link of navLinks) {

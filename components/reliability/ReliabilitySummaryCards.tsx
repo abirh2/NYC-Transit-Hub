@@ -100,16 +100,16 @@ export function ReliabilitySummaryCards({
               </div>
               <div className="flex items-center gap-1">
                 <p className="text-sm text-foreground/60">
-                  System Score
+                  Incident-derived score
                 </p>
                 <Tooltip 
                   content={
                     <div className="px-1 py-2 max-w-xs">
-                      <p className="text-sm font-semibold mb-2">Reliability Score</p>
+                      <p className="text-sm font-semibold mb-2">Incident-derived score</p>
                       <p className="text-xs text-foreground/70">
-                        Based on average incidents per line per day. 
-                        Lower incidents = higher score. 
-                        100 = no incidents, 0 = 5+ incidents/day.
+                        Based only on recorded incidents per line per day.
+                        Fewer recorded incidents produce a higher score; this is
+                        not an on-time performance measure.
                       </p>
                     </div>
                   }
@@ -178,4 +178,3 @@ export function ReliabilitySummaryCards({
     </div>
   );
 }
-

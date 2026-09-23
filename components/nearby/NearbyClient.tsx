@@ -8,8 +8,8 @@ import Link from "next/link";
 import { NearbyDepartureRow } from "@/components/nearby/NearbyDepartureRow";
 import { NearbyMap } from "@/components/nearby/NearbyMap";
 import { NearbySubwayServicePanel } from "@/components/nearby/NearbySubwayServicePanel";
-import { EmptyState, StatusChip } from "@/components/ui";
-import { useGeolocation } from "@/lib/hooks";
+import { DataFreshness, EmptyState, StatusChip } from "@/components/ui";
+import { useGeolocation, useVisiblePolling } from "@/lib/hooks";
 import {
   buildNearbyServices,
   sortUniqueDepartures,
@@ -355,17 +355,23 @@ export function NearbyClient() {
   useEffect(() => {
     setSubwayRealtime(null);
     void loadSubwayRealtime();
-    if (!selectedStation) return;
-    const interval = window.setInterval(() => void loadSubwayRealtime(), REFRESH_INTERVAL_MS);
-    return () => window.clearInterval(interval);
   }, [loadSubwayRealtime, selectedStation]);
 
   useEffect(() => {
     if (filter === "subway" || busStopIds.length === 0) return;
     void loadBusRealtime();
-    const interval = window.setInterval(() => void loadBusRealtime(), REFRESH_INTERVAL_MS);
-    return () => window.clearInterval(interval);
   }, [busStopIds.length, filter, loadBusRealtime]);
+
+  const { isOnline } = useVisiblePolling(
+    loadSubwayRealtime,
+    REFRESH_INTERVAL_MS,
+    Boolean(selectedStation),
+  );
+  useVisiblePolling(
+    loadBusRealtime,
+    REFRESH_INTERVAL_MS,
+    filter !== "subway" && busStopIds.length > 0,
+  );
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(new Date()), REFRESH_INTERVAL_MS);
@@ -388,6 +394,19 @@ export function NearbyClient() {
   const visibleBusServices = useMemo(() => visibleServices.filter(
     (service) => service.mode === "bus",
   ), [visibleServices]);
+  const busLastUpdated = useMemo(() => {
+    const timestamps = busResults
+      .map((result) => result.feedTimestamp?.getTime() ?? Number.NaN)
+      .filter(Number.isFinite);
+    return timestamps.length > 0 ? new Date(Math.max(...timestamps)) : null;
+  }, [busResults]);
+  const activeLastUpdated = filter === "bus"
+    ? busLastUpdated
+    : filter === "subway"
+      ? subwayRealtime?.lastUpdated ?? null
+      : [subwayRealtime?.lastUpdated ?? null, busLastUpdated]
+          .filter((value): value is Date => value !== null)
+          .sort((left, right) => right.getTime() - left.getTime())[0] ?? null;
 
   useEffect(() => {
     const currentVisible = visibleServices.find((service) => service.id === selectedServiceId);
@@ -471,12 +490,19 @@ export function NearbyClient() {
             <p className="truncate text-xs text-foreground/55">
               {searchOrigin?.label ?? "Search or move the map"}
             </p>
+            {searchOrigin && (
+              <DataFreshness
+                updatedAt={activeLastUpdated}
+                isOffline={!isOnline}
+                className="mt-1 text-xs"
+              />
+            )}
           </div>
 
           {searchOrigin && (
             <StatusChip
-              state={activeError ? "unavailable" : selectedState === "ok" ? "normal" : selectedState === "stale" ? "stale" : "unavailable"}
-              label={activeError ? isPartialFailure ? "Partial" : "Offline" : selectedState === "ok" ? "Live" : selectedState === "stale" ? "Delayed" : "Checking"}
+              state={!isOnline || activeError ? "unavailable" : selectedState === "ok" ? "normal" : selectedState === "stale" ? "stale" : "unavailable"}
+              label={!isOnline ? "Offline" : activeError ? isPartialFailure ? "Partial" : "Unavailable" : selectedState === "ok" ? "Live" : selectedState === "stale" ? "Delayed" : "Checking"}
               size="sm"
             />
           )}

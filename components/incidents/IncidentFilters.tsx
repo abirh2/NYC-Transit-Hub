@@ -47,7 +47,7 @@ const UPCOMING_SORT_OPTIONS: { value: UpcomingSortOption; label: string }[] = [
 
 export type SortOption = ActiveSortOption | UpcomingSortOption;
 
-export type IncidentTab = "active" | "upcoming";
+export type IncidentTab = "active" | "upcoming" | "recent";
 
 export interface IncidentFiltersState {
   routeIds: string[];
@@ -81,12 +81,12 @@ export function IncidentFilters({
       routeIds: [],
       alertTypes: [],
       severities: [],
-      sortBy: activeTab === "active" ? "severity" : "soonest",
+      sortBy: activeTab === "upcoming" ? "soonest" : activeTab === "recent" ? "recent" : "severity",
     });
   };
 
-  const sortOptions = activeTab === "active" ? ACTIVE_SORT_OPTIONS : UPCOMING_SORT_OPTIONS;
-  const defaultSort = activeTab === "active" ? "severity" : "soonest";
+  const sortOptions = activeTab === "upcoming" ? UPCOMING_SORT_OPTIONS : ACTIVE_SORT_OPTIONS;
+  const defaultSort = activeTab === "upcoming" ? "soonest" : activeTab === "recent" ? "recent" : "severity";
 
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:flex-wrap">

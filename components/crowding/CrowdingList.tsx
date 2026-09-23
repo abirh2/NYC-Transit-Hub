@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { Card, CardBody, Chip, Accordion, AccordionItem, Button, Spinner, Modal, ModalContent, ModalHeader, ModalBody, useDisclosure } from "@heroui/react";
-import { SubwayBullet } from "@/components/ui";
+import { DataFreshness, SubwayBullet } from "@/components/ui";
+import { ChartSurface, EmptyChartState } from "@/components/analytics";
 import { Users, Info, TrendingUp, Clock, AlertTriangle, Navigation2, Sparkles, HelpCircle } from "lucide-react";
 import type { RouteCrowdingEnhanced, RouteCrowding, CrowdingLevel, SegmentCrowding, Direction, SubwayLine, NetworkCrowding } from "@/types/mta";
-// import { CrowdingFilters } from "./CrowdingFilters";
 import { ViewToggle } from "./ViewToggle";
 import { SegmentDiagram } from "./SegmentDiagram";
 
@@ -65,10 +65,11 @@ export function CrowdingList({ data, enhanced = false }: CrowdingListProps) {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-3xl font-bold flex items-center gap-3">
+            <h1 className="text-2xl font-bold flex items-center gap-3">
               <Users className="h-8 w-8" />
-              Real-Time Crowding
+              Estimated crowding conditions
             </h1>
+            <Chip size="sm" color="warning" variant="flat">Estimated</Chip>
             <Chip size="sm" color="primary" variant="flat" startContent={<Sparkles className="h-3 w-3" />}>
               Enhanced
             </Chip>
@@ -111,7 +112,7 @@ export function CrowdingList({ data, enhanced = false }: CrowdingListProps) {
           <ModalBody className="pb-6">
             <div className="space-y-4">
               <p className="text-sm">
-                Enhanced crowding analysis combines multiple real-time factors to provide accurate estimates of train crowding:
+                Enhanced crowding analysis combines multiple service conditions to estimate relative crowding pressure. It does not measure passenger occupancy:
               </p>
               
               <div className="space-y-3">
@@ -161,12 +162,12 @@ export function CrowdingList({ data, enhanced = false }: CrowdingListProps) {
                 <div className="text-xs space-y-1">
                   <p><span className="text-success font-medium">0-33:</span> Low crowding - good service</p>
                   <p><span className="text-warning font-medium">34-66:</span> Medium crowding - busy but manageable</p>
-                  <p><span className="text-danger font-medium">67-100:</span> High crowding - expect delays and packed trains</p>
+                  <p><span className="text-danger font-medium">67-100:</span> High estimated pressure - longer gaps or disruptions</p>
                 </div>
               </div>
 
               <p className="text-xs text-foreground/50">
-                Scores update every 60 seconds based on live MTA data. Click on routes to see segment-level breakdown by direction.
+                Scores update every 60 seconds from service data and modeled demand patterns. They are relative indicators, not passenger counts.
               </p>
             </div>
           </ModalBody>
@@ -378,8 +379,9 @@ function SimpleCrowdingList({ data, onEnhancedToggle, loading }: { data: RouteCr
           <div className="flex items-center gap-3 mb-2">
             <h1 className="text-3xl font-bold flex items-center gap-3">
               <Users className="h-8 w-8" />
-              Real-Time Crowding
+              Estimated crowding conditions
             </h1>
+            <Chip size="sm" color="warning" variant="flat">Estimated</Chip>
             <Button
               isIconOnly
               size="sm"
@@ -391,7 +393,7 @@ function SimpleCrowdingList({ data, onEnhancedToggle, loading }: { data: RouteCr
             </Button>
           </div>
           <p className="text-foreground/70 max-w-2xl">
-            Crowding estimates based on current train headways (time between trains).
+            Relative conditions inferred from current train gaps. These are not measured passenger counts or vehicle occupancy.
           </p>
         </div>
         <Button
@@ -412,7 +414,7 @@ function SimpleCrowdingList({ data, onEnhancedToggle, loading }: { data: RouteCr
           <ModalBody className="pb-6">
             <div className="space-y-4">
               <p className="text-sm">
-                Simple crowding analysis estimates crowding based on train headways - the time between consecutive trains at major stations.
+                This view estimates relative crowding pressure from train headways—the time between consecutive trains at major stations. It does not measure how many passengers are aboard.
               </p>
               
               <div className="space-y-2">
@@ -441,26 +443,30 @@ function SimpleCrowdingList({ data, onEnhancedToggle, loading }: { data: RouteCr
         </ModalContent>
       </Modal>
 
-      <Card className="bg-content2/50 border-none">
-        <CardBody>
-          <div className="flex items-start gap-3">
-            <Info className="h-5 w-5 text-primary mt-0.5" />
-            <div className="text-sm">
-              <p>Longer gaps between trains usually mean more crowded platforms and cars.</p>
-            </div>
+      <ChartSurface
+        title="Relative conditions by line"
+        description="Longer train gaps suggest more crowding pressure; compare lines rather than reading these estimates as occupancy."
+        freshness={<DataFreshness updatedAt={data[0]?.timestamp ?? null} />}
+      >
+        {data.length === 0 ? (
+          <EmptyChartState
+            title="No crowding estimate available"
+            description="Current train-gap data is unavailable. Try again shortly."
+          />
+        ) : (
+          <div className="space-y-6">
+            {high.length > 0 && (
+              <RouteSection title="High estimated pressure" routes={high} level="HIGH" />
+            )}
+            {medium.length > 0 && (
+              <RouteSection title="Moderate estimated pressure" routes={medium} level="MEDIUM" />
+            )}
+            {low.length > 0 && (
+              <RouteSection title="Lower estimated pressure" routes={low} level="LOW" />
+            )}
           </div>
-        </CardBody>
-      </Card>
-
-      {high.length > 0 && (
-        <RouteSection title="High Crowding / Delays" routes={high} level="HIGH" />
-      )}
-      {medium.length > 0 && (
-        <RouteSection title="Moderate Crowding" routes={medium} level="MEDIUM" />
-      )}
-      {low.length > 0 && (
-        <RouteSection title="Good Service / Low Crowding" routes={low} level="LOW" />
-      )}
+        )}
+      </ChartSurface>
     </div>
   );
 }
@@ -484,11 +490,10 @@ function RouteSection({ title, routes, level }: { title: string; routes: RouteCr
 
   return (
     <section>
-      <h2 className={`text-xl font-semibold mb-4 ${titleColorClass}`}>{title}</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <h3 className={`mb-3 text-base font-semibold ${titleColorClass}`}>{title}</h3>
+      <div className="divide-y divide-border-subtle border-y border-border-subtle">
         {routes.map((item) => (
-          <Card key={item.routeId} className={`${cardBorderClass}`}>
-            <CardBody className="flex flex-row items-center justify-between">
+          <article key={item.routeId} className={`flex items-center justify-between gap-4 py-3 ${cardBorderClass}`}>
               <div className="flex items-center gap-3">
                 <SubwayBullet line={item.routeId} />
                 <div>
@@ -497,8 +502,7 @@ function RouteSection({ title, routes, level }: { title: string; routes: RouteCr
                 </div>
               </div>
               <Chip color={color} variant="flat" size="sm">{label}</Chip>
-            </CardBody>
-          </Card>
+          </article>
         ))}
       </div>
     </section>

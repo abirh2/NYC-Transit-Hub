@@ -55,7 +55,7 @@ describe('ReliabilitySummaryCards', () => {
     // Average of 90, 80, 50, 70 = 72.5, rounded to 73
     expect(screen.getByText('73')).toBeInTheDocument();
     expect(screen.getByText('/100')).toBeInTheDocument();
-    expect(screen.getByText('System Score')).toBeInTheDocument();
+    expect(screen.getByText('Incident-derived score')).toBeInTheDocument();
   });
 
   it('renders most reliable line (highest score)', () => {
@@ -133,4 +133,3 @@ describe('ReliabilitySummaryCards', () => {
     expect(screen.getByText('Good')).toBeInTheDocument();
   });
 });
-

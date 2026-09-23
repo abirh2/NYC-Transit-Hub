@@ -19,7 +19,7 @@ describe('TimeOfDayChart', () => {
   it('renders chart header', () => {
     render(<TimeOfDayChart data={mockData} />);
     
-    expect(screen.getByText('Time of Day Analysis')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'When incidents happen' })).toBeInTheDocument();
   });
 
   it('renders loading skeleton when isLoading is true', () => {
@@ -66,4 +66,3 @@ describe('TimeOfDayChart', () => {
     expect(screen.getByText('Off-peak hours see more incidents than rush hours')).toBeInTheDocument();
   });
 });
-

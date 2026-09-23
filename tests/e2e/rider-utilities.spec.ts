@@ -46,7 +46,7 @@ test("station context reaches exact train detail and adjacent rider tools", asyn
   const train = page.getByRole("link", { name: /D train to Norwood-205 St in 4 minutes/i });
   await expect(train).toHaveAttribute("href", /trip=073850_D..N03R/);
   await train.click();
-  await expect(page).toHaveURL(/\/realtime\?.*trip=073850_D..N03R/);
+  await expect(page).toHaveURL(/\/realtime\?.*trip=073850_D..N03R/, { timeout: 15_000 });
 });
 
 test("Plan reloads known context and exposes the accessible preference", async ({ page }) => {

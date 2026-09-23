@@ -1,306 +1,213 @@
-# Rider Utility Modernization Tasks
+# Final Modernization Tasks
 
-## Task 1: Shared location search and query state
+## Task 1: Shared analytics primitives
 
-**Description:** Add pure query-state parsing/serialization and a reusable,
-keyboard-accessible location search field backed by `/api/locations`.
+**Status:** Complete
 
-**Acceptance criteria:**
-- [x] Known location/station context hydrates from and serializes to URL state.
-- [x] Search exposes loading, no-results, error, and keyboard-selection states.
-- [x] Consumers no longer need a direct browser call to an external geocoder.
+**Acceptance:** Repeated chart surface, tooltip, freshness, and empty-state treatments are token-backed, accessible, feature-agnostic, and consumed by at least two analytics features.
 
-**Verification:**
-- [x] Focused unit and component tests pass.
+**Verify:** Focused component tests, lint, typecheck.
 
 **Dependencies:** None
 
-**Files likely touched:**
-- `lib/transit/rider-query-state.ts`
-- `components/ui/LocationSearchField.tsx`
-- `components/ui/index.ts`
-- `tests/unit/rider-query-state.test.ts`
-- `tests/components/LocationSearchField.test.tsx`
+**Files:** `components/analytics/*`, `components/ui/index.ts`, `tests/components/AnalyticsPrimitives.test.tsx`
 
-**Estimated scope:** Medium
+## Task 2: Reliability exploration
 
-## Task 2: Shared station-complex search
+**Status:** Complete
 
-**Description:** Modernize the existing subway station search as the single
-board-oriented station picker with saved stations, route bullets, ambiguity
-context, and deterministic keyboard/data states.
+**Acceptance:** The page follows headline → route comparison → trend → time-of-day/detail; defines its incident-derived metric; supports keyboard route selection and contextual Realtime links; charts work in both themes and on mobile.
 
-**Acceptance criteria:**
-- [x] Results retain stable complex IDs and platform metadata.
-- [x] Saved stations appear through the existing preference hook.
-- [x] Keyboard, loading, empty, and unavailable behavior is tested.
-
-**Verification:**
-- [x] Focused StationSearch component tests pass.
+**Verify:** Reliability tests, lint, typecheck, manual widths/themes.
 
 **Dependencies:** Task 1
 
-**Files likely touched:**
-- `components/board/StationSearch.tsx`
-- `tests/components/StationSearch.test.tsx`
-- `components/ui/SubwayBullet.tsx`
+**Files:** Up to four reliability components plus focused tests per slice.
 
-**Estimated scope:** Medium
+## Task 3: Crowding exploration
 
-## Checkpoint: Tasks 1–2
+**Status:** Complete
 
-- [x] Focused tests pass.
-- [x] New shared contracts are strict-TypeScript clean.
+**Acceptance:** Estimated relative conditions, selected-line context, concise methodology, limitations, and unavailable states are explicit without implying occupancy.
 
-## Task 3: URL-driven Station Board shell
-
-**Description:** Make subway Station Board selection reload-safe and replace its
-old generic-card/header stack with a compact station identity and save action.
-
-**Acceptance criteria:**
-- [x] `?station=` selects a complex and changes when a rider selects another.
-- [x] Station name and route identity precede secondary controls.
-- [x] Unknown station and unavailable metadata states use rider-facing copy.
-
-**Verification:**
-- [x] Station Board component tests pass.
-
-**Dependencies:** Task 2
-
-**Files likely touched:**
-- `app/board/page.tsx`
-- `components/board/StationBoard.tsx`
-- `tests/components/StationBoard.test.tsx`
-
-**Estimated scope:** Medium
-
-## Task 4: Shared departure rows and station accessibility
-
-**Description:** Adapt board arrivals into shared exact-trip departure rows,
-retain directional grouping, and add compact current accessibility context.
-
-**Acceptance criteria:**
-- [x] All platform IDs are fetched and duplicate trips are removed by `tripId`.
-- [x] Every subway departure links to the exact existing train-detail flow.
-- [x] Accessibility failure never blocks departure content.
-
-**Verification:**
-- [x] Board/departure component tests pass.
-
-**Dependencies:** Task 3
-
-**Files likely touched:**
-- `components/board/StationBoard.tsx`
-- `components/board/ArrivalsList.tsx`
-- `components/accessibility/StationAccessibilityStatus.tsx`
-- `tests/components/StationBoard.test.tsx`
-- `tests/components/ArrivalsList.test.tsx`
-
-**Estimated scope:** Medium
-
-## Task 5: Canonical Plan form and context handoff
-
-**Description:** Rebuild the Plan form with shared location search, origin →
-destination → Plan hierarchy, accessible preference, swap, and URL state.
-
-**Acceptance criteria:**
-- [x] Home/Nearby/Board context pre-fills supported fields.
-- [x] Query state survives reload and back/forward navigation.
-- [x] Submit continues to use `/api/routes/trip` and handles unavailable input.
-
-**Verification:**
-- [x] Plan form component tests pass.
+**Verify:** Crowding unit/component tests and responsive check.
 
 **Dependencies:** Task 1
 
-**Files likely touched:**
-- `components/accessibility/RouteFinder.tsx`
-- `app/routes/RoutesClient.tsx`
-- `tests/components/RouteFinder.test.tsx`
-- `components/dashboard/HomeSections.tsx`
+**Files:** `app/crowding/page.tsx`, up to three crowding components, focused tests.
 
-**Estimated scope:** Medium
+## Task 4: Service Changes exploration
 
-## Task 6: Rider-first itinerary results
+**Status:** Complete
 
-**Description:** Simplify itinerary summaries and expandable legs around known
-duration, route identity, transfers, destination, timing, walking, and warnings.
+**Acceptance:** Active/planned/recent buckets obey alert timing; items show routes, type/severity, description, time, state; stable identifiers create useful links and missing IDs do not.
 
-**Acceptance criteria:**
-- [x] Raw routing fields never appear as visible copy.
-- [x] Missing values are omitted rather than invented.
-- [x] No-route and upstream-unavailable states are distinct and concise.
+**Verify:** Incident tests and responsive check.
 
-**Verification:**
-- [x] Planner result component tests pass.
+**Dependencies:** Task 1
+
+**Files:** `app/incidents/IncidentsClient.tsx`, up to three incident components, focused tests.
+
+## Checkpoint: Tasks 1–4
+
+- [ ] Focused tests, lint, and typecheck pass.
+- [ ] Required widths/themes pass for all analytics routes.
+
+## Task 5: Cache and freshness classification
+
+**Status:** Complete
+
+**Acceptance:** Every cached endpoint has a documented semantic class; realtime maximum age cannot masquerade as current; static geometry/metadata remains efficient.
+
+**Verify:** New cache-policy unit tests.
+
+**Dependencies:** None
+
+**Files:** `lib/transit/cache-policy.ts`, `tests/unit/cache-policy.test.ts`, `docs/architecture.md`
+
+## Task 6: Serwist and install metadata
+
+**Status:** Complete
+
+**Acceptance:** Realtime, slow-changing API, GTFS/static data, and assets use distinct cache rules; generated SW output is untouched; install metadata is valid and consistent.
+
+**Verify:** Typecheck, production build, installed metadata inspection.
 
 **Dependencies:** Task 5
 
-**Files likely touched:**
-- `components/accessibility/RouteFinder.tsx`
-- `components/accessibility/RouteResults.tsx`
-- `tests/components/RouteFinder.test.tsx`
-- `tests/components/RouteResults.test.tsx`
+**Files:** `app/sw.ts`, `public/manifest.json`, `app/layout.tsx`
 
-**Estimated scope:** Medium
+## Task 7: Shared polling and freshness
 
-## Checkpoint: Tasks 3–6
+**Status:** Complete
 
-- [x] Station Board exact-trip journey passes.
-- [x] Plan query-state journey passes.
-- [x] Lint and typecheck pass.
+**Acceptance:** Hidden documents pause/reduce polling and resume once; fresh/stale/offline/unavailable use shared copy and thresholds; all listeners/timers clean up.
 
-## Task 7: Accessibility data state and filtering
+**Verify:** Hook fake-timer tests and freshness component tests.
 
-**Description:** Extract outage parsing/filtering/sorting into pure helpers and
-distill the page around current affected stations and upcoming work.
+**Dependencies:** Task 5
 
-**Acceptance criteria:**
-- [x] Feed-unavailable and zero-outage states remain semantically distinct.
-- [x] Station, line, equipment, ADA, and current/upcoming filters compose.
-- [x] Rows lead with station, route, area, state, and updated/return time.
+**Files:** `lib/hooks/useVisiblePolling.ts`, `lib/hooks/index.ts`, `components/ui/DataFreshness.tsx`, tests.
 
-**Verification:**
-- [x] Accessibility unit tests and typecheck pass.
+## Task 8: Realtime consumer/offline migration
 
-**Dependencies:** Tasks 1–2
+**Status:** Complete
 
-**Files likely touched:**
-- `lib/transit/accessibility-status.ts`
-- `app/accessibility/AccessibilityClient.tsx`
-- `components/accessibility/OutageList.tsx`
-- `tests/unit/accessibility-status.test.ts`
-- `tests/components/AccessibilityClient.test.tsx`
+**Acceptance:** Primary surfaces share freshness semantics; offline says “Realtime unavailable offline”; no duplicate polls or lost trip/vehicle identity.
 
-**Estimated scope:** Medium
+**Verify:** Focused tests, build, offline/visibility browser check.
 
-## Task 8: Accessibility deep links and Plan consolidation
+**Dependencies:** Tasks 6–7
 
-**Description:** Remove the embedded duplicate planner, hydrate station/saved
-filter context from URL, and add stable Plan/Board handoffs.
+**Files:** Execute as consumer-sized slices of at most five files.
 
-**Acceptance criteria:**
-- [x] Accessibility contains no second Route Finder implementation.
-- [x] `?station=` filtering works when matching is reliable.
-- [x] Plan action carries the accessibility preference.
+## Checkpoint: Tasks 5–8
 
-**Verification:**
-- [x] Accessibility helper tests and typecheck pass.
+- [ ] Production build and focused tests pass.
+- [ ] Cache/offline/hidden-tab behavior is verified in browser.
 
-**Dependencies:** Tasks 5 and 7
+## Task 9: Impeccable evidence pass
 
-**Files likely touched:**
-- `app/accessibility/AccessibilityClient.tsx`
-- `components/accessibility/OutageFilters.tsx`
-- `components/accessibility/OutageList.tsx`
-- `tests/components/AccessibilityClient.test.tsx`
+**Status:** Complete
 
-**Estimated scope:** Medium
+**Acceptance:** Verified findings include severity, impact, location, and narrow fix across accessibility, performance, responsive, theming, and integrity; false positives are excluded.
 
-## Task 9: Commute setup and status integration
+**Verify:** Saved audit report and evidence.
 
-**Description:** Use shared location search in commute setup, simplify configured
-commute status, and link known endpoints into Plan while preserving auth/API state.
+**Dependencies:** Tasks 1–8
 
-**Acceptance criteria:**
-- [x] Create/edit/delete/default commute behavior is unchanged.
-- [x] Setup no longer owns a duplicate client geocoder.
-- [x] Summary exposes origin, route, destination, next action/status, and a
-  context-preserving Plan link.
+**Files:** `docs/ai/final-quality-audit.md`
 
-**Verification:**
-- [x] Commute component and API contract tests pass.
+## Task 10: Shared quality corrections
 
-**Dependencies:** Tasks 1, 5, and 6
+**Status:** Complete
 
-**Files likely touched:**
-- `components/commute/CommuteSetup.tsx`
-- `components/commute/CommuteSummary.tsx`
-- `app/commute/CommuteClient.tsx`
-- `tests/components/CommuteSetup.test.tsx`
-- `tests/components/CommuteSummary.test.tsx`
+**Acceptance:** Verified system-level landmark, focus, touch target, safe-area, reduced-motion, theme, and shared state defects are fixed without navigation redesign.
 
-**Estimated scope:** Medium
+**Verify:** Component tests, detector, keyboard/theme pass.
 
-## Task 10: Rider-first Service Changes
+**Dependencies:** Task 9
 
-**Description:** Reorder `/incidents` around active/upcoming rider impact and
-apply shared route/status/state presentation while preserving history filters.
+**Files:** Split shared corrections into at most five files per slice.
 
-**Acceptance criteria:**
-- [x] Active service changes appear before statistics/history controls.
-- [x] Active, upcoming, resolved, empty, and unavailable labels are explicit.
-- [x] Bracketed train references use shared route rendering.
+## Task 11: Route-specific responsive/failure fixes
 
-**Verification:**
-- [x] Incident unit/component tests pass.
+**Status:** Complete
 
-**Dependencies:** Task 1
+**Acceptance:** Required widths have no blocking overflow/clipping/nav overlap; independent failures remain isolated; maps, sheets, and charts are mobile-usable.
 
-**Files likely touched:**
-- `app/incidents/page.tsx`
-- `app/incidents/IncidentsClient.tsx`
-- `components/incidents/IncidentList.tsx`
-- `tests/components/IncidentsClient.test.tsx`
+**Verify:** Relevant component and Playwright specs.
 
-**Estimated scope:** Medium
+**Dependencies:** Task 10
 
-## Checkpoint: Tasks 7–10
+**Files:** Split by route into at most five files per slice.
 
-- [x] Accessibility, Commute, and Service Changes state matrices pass.
-- [x] Existing persistence and API contract coverage remains green.
+## Task 12: Verified client performance
 
-## Task 11: Cross-page rider journeys
+**Status:** Complete
 
-**Description:** Add deterministic Playwright coverage for required cross-page
-flows and the specified mobile/tablet/desktop widths.
+**Acceptance:** Static data is not recomputed/refetched on realtime ticks; identity-stable markers avoid remounts; map/chart libraries stay out of unrelated page bundles.
 
-**Acceptance criteria:**
-- [x] Home → Nearby → Station → exact train → Realtime is covered across focused rider journeys.
-- [x] Home/Nearby → Plan, Saved station → Board, and Station → Accessibility
-  are covered.
-- [x] 375, 393, 430, 768, and 1280 layouts have no blocking overflow.
+**Verify:** Network/render evidence, tests, production build.
 
-**Verification:**
-- [x] Relevant Playwright specs pass.
+**Dependencies:** Tasks 9–11
 
-**Dependencies:** Tasks 3–10
+**Files:** Split by verified finding.
 
-**Files likely touched:**
-- `tests/e2e/rider-utilities.spec.ts`
-- `playwright.config.ts`
+## Checkpoint: Tasks 9–12
 
-**Estimated scope:** Small
+- [x] Priority findings clear one confirmation pass.
+- [x] Lint, typecheck, tests, build, and relevant E2E pass.
 
-## Task 12: Impeccable finish and repository validation
+## Task 13: README and architecture accuracy
 
-**Description:** Run detector and one batched desktop/mobile inspection, apply
-one correction batch, confirm once, and execute every repository gate.
+**Status:** Complete
 
-**Acceptance criteria:**
-- [x] Old nested-card, border, radius, spacing, badge, and status-chip remnants
-  are addressed in changed rider surfaces.
-- [x] Keyboard/focus, screen-reader labels, contrast, reduced motion, and touch
-  targets meet the project quality bar.
-- [x] Lint, typecheck, full tests, build, and relevant E2E pass.
+**Acceptance:** Required portfolio topics are concise and source-verified; architecture shows the full pipeline and domain distinctions; subway estimates versus bus reported positions are unmistakable.
 
-**Verification:**
-- [x] `nvm use 24 && npm run lint`
-- [x] `nvm use 24 && npx tsc --noEmit`
-- [x] `nvm use 24 && npm run test`
-- [x] `nvm use 24 && npm run build`
-- [x] `nvm use 24 && npm run test:e2e -- tests/e2e/rider-utilities.spec.ts`
+**Verify:** Links, commands, versions, and claims checked against source.
 
-**Dependencies:** Task 11
+**Dependencies:** Tasks 1–12
 
-**Files likely touched:**
-- `.impeccable/review/*`
-- Changed UI files from detector/inspection findings only
+**Files:** `README.md`, `docs/architecture.md`, `app/about/page.tsx`
 
-**Estimated scope:** Medium
+## Task 14: Demo capture structure
+
+**Status:** Complete
+
+**Acceptance:** Required showcase states have a repeatable capture checklist; no unnecessary binaries or secrets/raw IDs are added.
+
+**Verify:** Documentation/link review.
+
+**Dependencies:** Task 13
+
+**Files:** `docs/demo-capture.md`, `README.md`
+
+## Task 15: Debris and test gaps
+
+**Status:** Complete
+
+**Acceptance:** Debris is traced before removal; critical normalization, geometry, selection, stale/offline, saved-station, and deep-link behaviors have meaningful outcome tests.
+
+**Verify:** Focused tests, then full unit/integration suite.
+
+**Dependencies:** Tasks 1–14
+
+**Files:** Split cleanup/test work into at most five files per slice.
+
+## Task 16: Final quality gate and flows
+
+**Status:** Complete
+
+**Acceptance:** All configured gates and required rider/visualization flows pass or exact external blockers are recorded; final delivery covers every requested category.
+
+**Verify:** Commands from all four specs plus final browser walkthrough.
+
+**Dependencies:** Tasks 1–15
+
+**Files:** `tasks/todo.md` and evidence documentation only.
 
 ## Checkpoint: Complete
 
-- [x] Every initiative spec criterion is satisfied.
-- [x] Final report covers pages, consolidation, shared components, Plan,
-  saved/commute, accessibility, URL state, performance, Impeccable, and tests.
+- [x] All four module specs are satisfied or limitations are explicit.
+- [x] Final delivery is ready for review.

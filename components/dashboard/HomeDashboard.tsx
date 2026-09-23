@@ -7,7 +7,7 @@ import type {
   HomeCommuteSummary,
   SavedStationSnapshot,
 } from "@/components/dashboard/home-types";
-import { useGeolocation, useStationPreferences } from "@/lib/hooks";
+import { useGeolocation, useStationPreferences, useVisiblePolling } from "@/lib/hooks";
 import {
   deriveRouteStatuses,
   extractCommuteRouteIds,
@@ -311,21 +311,19 @@ export function HomeDashboard() {
 
   useEffect(() => {
     void loadNearby();
-    const interval = window.setInterval(() => void loadNearby(), REALTIME_REFRESH_MS);
-    return () => window.clearInterval(interval);
   }, [loadNearby]);
 
   useEffect(() => {
     void loadSavedStations();
-    const interval = window.setInterval(() => void loadSavedStations(), REALTIME_REFRESH_MS);
-    return () => window.clearInterval(interval);
   }, [loadSavedStations]);
 
   useEffect(() => {
     void loadContext();
-    const interval = window.setInterval(() => void loadContext(), CONTEXT_REFRESH_MS);
-    return () => window.clearInterval(interval);
   }, [loadContext]);
+
+  useVisiblePolling(loadNearby, REALTIME_REFRESH_MS, Boolean(position));
+  useVisiblePolling(loadSavedStations, REALTIME_REFRESH_MS, favoritesLoaded);
+  useVisiblePolling(loadContext, CONTEXT_REFRESH_MS);
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(new Date()), 30_000);

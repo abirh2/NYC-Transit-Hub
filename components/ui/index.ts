@@ -22,3 +22,5 @@ export { BusBadge } from "./BusBadge";
 export { RailBadge } from "./RailBadge";
 export { LocationSearchField } from "./LocationSearchField";
 export type { LocationSearchFieldProps } from "./LocationSearchField";
+export { DataFreshness } from "./DataFreshness";
+export type { DataFreshnessProps } from "./DataFreshness";

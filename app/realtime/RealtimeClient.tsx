@@ -17,7 +17,7 @@
  * selected, so an empty state never costs the map width.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import {
   BusList,
@@ -28,7 +28,7 @@ import {
 } from "@/components/realtime";
 import { RealtimeMap } from "@/components/realtime/map";
 import { Surface } from "@/components/ui";
-import { useGeolocation, useRealtimeSelection } from "@/lib/hooks";
+import { useGeolocation, useRealtimeSelection, useVisiblePolling } from "@/lib/hooks";
 import {
   getLineColor,
   getLineName,
@@ -428,17 +428,11 @@ export function RealtimeClient() {
     else fetchRailArrivals();
   }, [mode, fetchTrains, fetchBuses, fetchRailArrivals]);
 
-  const refreshRef = useRef(refresh);
-  refreshRef.current = refresh;
-
-  useEffect(() => {
-    if (!routeId) return;
-    const interval = setInterval(
-      () => refreshRef.current(),
-      REFRESH_INTERVAL_SECONDS * 1000,
-    );
-    return () => clearInterval(interval);
-  }, [routeId, mode]);
+  const { isOnline } = useVisiblePolling(
+    refresh,
+    REFRESH_INTERVAL_SECONDS * 1000,
+    Boolean(routeId),
+  );
 
   // -------------------------------------------------------------------------
   // Derived route context
@@ -478,6 +472,7 @@ export function RealtimeClient() {
   }, []);
 
   const isStale =
+    !isOnline ||
     (mode === "subway" && trainData.sourceState === "stale") ||
     (mode === "bus" && busData.sourceState === "stale") ||
     (lastUpdated !== null && now - lastUpdated.getTime() > STALE_AFTER_MS);
@@ -892,9 +887,11 @@ export function RealtimeClient() {
     setStop(null);
   }, [setStation, setStop, setTrip]);
 
-  const updatedLabel = lastUpdated
-    ? `Updated ${formatDistanceToNow(lastUpdated, { addSuffix: true })}`
-    : null;
+  const updatedLabel = !isOnline
+    ? "Realtime unavailable offline"
+    : lastUpdated
+      ? `Updated ${formatDistanceToNow(lastUpdated, { addSuffix: true })}`
+      : null;
 
   return (
     // `min-h-0` lets the map region shrink inside the flex column instead of

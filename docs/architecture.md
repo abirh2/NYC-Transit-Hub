@@ -1,616 +1,118 @@
 # System Architecture
 
-This document describes the architecture and design decisions of the NYC Transit Hub application.
+NYC Transit Hub turns several MTA products with different identifiers and semantics into one shared transit model. This document describes the implementation boundaries and the accuracy guarantees that matter to riders and maintainers.
 
-## Overview
+## End-to-end data flow
 
-NYC Transit Hub is a Next.js application that consumes MTA real-time data feeds and presents them in a user-friendly dashboard interface.
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Client (Browser)                         │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
-│  │  Dashboard  │  │   Station   │  │    Live     │    ...       │
-│  │    Page     │  │    Board    │  │   Tracker   │              │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘              │
-└─────────┼────────────────┼────────────────┼─────────────────────┘
-          │                │                │
-          ▼                ▼                ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                     Next.js App Router                           │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │              Server Components (RSC)                     │    │
-│  │   - Initial data fetching                               │    │
-│  │   - SEO optimization                                    │    │
-│  └─────────────────────────────────────────────────────────┘    │
-│  ┌─────────────────────────────────────────────────────────┐    │
-│  │              API Routes (/api/*)                         │    │
-│  │   - /api/trains/realtime    - /api/alerts               │    │
-│  │   - /api/elevators          - /api/stations             │    │
-│  │   - /api/buses/realtime     - /api/routes               │    │
-│  │   - /api/status             - /api/ingest/*             │    │
-│  └─────────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────────┘
-          │                │                │
-          ▼                ▼                ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      Data Layer                                  │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
-│  │   MTA GTFS   │  │   Database   │  │  GTFS Static │          │
-│  │  RT Feeds    │  │  (Supabase)  │  │    Files     │          │
-│  └──────────────┘  └──────────────┘  └──────────────┘          │
-└─────────────────────────────────────────────────────────────────┘
+```text
+MTA static GTFS      MTA GTFS-Realtime      MTA Bus Time      MTA JSON feeds
+(stops/routes/shapes) (subway + commuter)   (SIRI)            (alerts/equipment)
+         \                    |                 |                    /
+          +-------------------+ source adapters +-------------------+
+                                      |
+                         normalized transit domain
+                     Departure / Trip / Vehicle / Station
+                                      |
+                           shared realtime services
+                              /                 \
+                  rider experience          visualization and analytics
+             Home / Nearby / Plan / Board   maps / diagrams / trends
 ```
 
----
+1. `lib/mta/` fetches and validates source-specific protobuf, SIRI, and JSON responses.
+2. `lib/gtfs/` supplies static stations, stops, route sequences, schedules, and shape geometry.
+3. Adapters under `lib/transit/` map source fields into `types/transit.ts`.
+4. Thin handlers under `app/api/` filter and serialize the normalized result.
+5. Feature components consume the same trip, departure, vehicle, station, health, and freshness semantics.
 
-## Folder Structure
+PostgreSQL on Supabase is accessed through Prisma for configured account, commute, ingestion, and historical-analysis flows. Live rider features can read MTA sources directly and do not silently substitute database history for a current feed.
 
-```
-NYC-Transit-Hub/
-├── app/                        # Next.js App Router
-│   ├── layout.tsx             # Root layout (providers, shell)
-│   ├── page.tsx               # Home dashboard
-│   ├── globals.css            # Global styles + Tailwind config
-│   ├── api/                   # API routes
-│   │   ├── alerts/            # Service alerts endpoint
-│   │   ├── buses/realtime/    # Bus arrivals endpoint
-│   │   ├── elevators/         # Elevator status endpoint
-│   │   ├── ingest/            # Data ingestion endpoints
-│   │   │   ├── alerts/
-│   │   │   ├── buses/
-│   │   │   ├── elevators/
-│   │   │   └── subway/
-│   │   ├── routes/            # Route info endpoint
-│   │   ├── stations/          # Station search endpoint
-│   │   ├── status/            # System health endpoint
-│   │   └── trains/realtime/   # Train arrivals endpoint
-│   ├── accessibility/
-│   ├── board/
-│   ├── commute/
-│   ├── crowding/
-│   ├── incidents/
-│   ├── realtime/
-│   └── reliability/
-│
-├── components/                 # React components
-│   ├── accessibility/         # Elevator outage and route components
-│   │   ├── OutageStats.tsx    # Summary statistics
-│   │   ├── OutageFilters.tsx  # Filter controls
-│   │   ├── OutageList.tsx     # Outage card list
-│   │   ├── RouteFinder.tsx    # Route planning UI
-│   │   ├── RouteResults.tsx   # Route display
-│   │   └── index.ts
-│   ├── board/                 # Station board components
-│   ├── dashboard/             # Dashboard card components
-│   ├── incidents/             # Incident explorer components
-│   ├── layout/                # Layout components
-│   ├── realtime/              # Live train tracker components
-│   │   ├── LineSelector.tsx   # Multi-select line picker
-│   │   ├── LineDiagram.tsx    # Vertical track diagram
-│   │   ├── TrainMarker.tsx    # Train position indicator
-│   │   ├── TrainDetailPopover.tsx # Train info popover
-│   │   └── index.ts
-│   ├── reliability/           # Line reliability components
-│   │   ├── ReliabilityClient.tsx    # Main client component
-│   │   ├── ReliabilitySummaryCards.tsx # Summary stats
-│   │   ├── LinePerformanceCard.tsx  # Per-line scores
-│   │   ├── ReliabilityChart.tsx     # Trend chart
-│   │   ├── TimeOfDayChart.tsx       # Time-of-day analysis
-│   │   └── index.ts
-│   ├── ui/                    # Reusable UI components
-│   └── Providers.tsx          # Context providers
-│
-├── lib/                       # Utilities and helpers
-│   ├── db.ts                  # Prisma client singleton
-│   ├── generated/prisma/      # Generated Prisma client
-│   ├── gtfs/                  # GTFS static data parser
-│   │   ├── parser.ts          # CSV parsing and station lookup
-│   │   ├── line-stations.ts   # Ordered station sequences per line
-│   │   └── index.ts
-│   ├── hooks/                 # React hooks
-│   │   ├── useStationPreferences.ts  # Favorite stations (localStorage)
-│   │   └── useGeolocation.ts         # Browser geolocation
-│   ├── utils/                 # Utility functions
-│   │   └── distance.ts        # Haversine distance calculations
-│   ├── mta/                   # MTA feed clients
-│   │   ├── config.ts          # Feed URLs and configuration
-│   │   ├── gtfs-rt.ts         # Protobuf parser for subway
-│   │   ├── alerts.ts          # Service alerts (JSON)
-│   │   ├── elevators.ts       # Elevator status (JSON)
-│   │   ├── buses.ts           # Bus feeds (protobuf)
-│   │   └── index.ts
-│   └── routing/               # Accessible route pathfinding
-│       ├── graph.ts           # Station graph + Dijkstra algorithm
-│       ├── realtime.ts        # Real-time travel time integration
-│       └── index.ts
-│
-├── types/                     # TypeScript definitions
-│   ├── gtfs.ts               # GTFS-RT message types
-│   ├── mta.ts                # MTA-specific types
-│   ├── api.ts                # API request/response types
-│   └── index.ts
-│
-├── data/                      # Static data files
-│   └── gtfs/                  # MTA GTFS static feed
-│       ├── stops.txt          # Station data (496 stations)
-│       ├── routes.txt         # Route data (29 routes)
-│       └── line-stations.json # Ordered station sequences per line
-│
-├── prisma/                    # Database schema
-│   └── schema.prisma          # Prisma schema definition
-│
-├── public/                    # Static assets
-│   └── icons/subway/          # MTA bullet SVGs
-│
-├── scripts/                   # Development scripts
-│   ├── test-all-apis.mjs      # API test suite
-│   ├── test-mta-apis.mjs      # Raw MTA API tester
-│   └── test-gtfs-parser.mjs   # GTFS parser tester
-│
-├── tests/                     # Test files
-│   ├── unit/                  # Unit tests
-│   ├── components/            # Component tests
-│   └── e2e/                   # End-to-end tests
-│
-├── docs/                      # Documentation
-└── stories/                   # Storybook stories
+## Domain model
+
+### Station and stop
+
+A `TransitStation` is the rider-facing complex. It can contain multiple source complex IDs and directional platform `stops`. Names are labels, not unique identifiers. Search merges same-name complexes and retains all source IDs; Station Board queries every relevant platform and deduplicates the result by `tripId`.
+
+A stop is a boardable, source-addressable location. Bus nearby discovery starts with static GTFS stops, caps the selected IDs, and asks SIRI StopMonitoring for those stops. Geographic vehicle proximity is not used as a substitute for boarding data.
+
+### Departure, trip, and vehicle
+
+- A `Departure` is one prediction at one stop.
+- A `TransitTrip` is one individual run with route, direction, destination, ordered stop updates, and source identity.
+- A `TransitVehicle` represents a vehicle associated with a trip. Its position records whether coordinates are `actual` or `inferred`.
+
+The same `tripId` connects a prediction, selected train or bus, line diagram, and map detail. Selection and React keys preserve this identity across refreshes.
+
+## Positioning accuracy
+
+### Subway: estimated geography
+
+MTA subway GTFS-Realtime reports individual trips, stop-time predictions, and operational progress; it does not provide consumer GPS coordinates. `lib/transit/subway-trip-position.ts` determines the adjacent stops and a conservative progress value. `lib/gtfs/subway-route-geometry.ts` can project that progress onto a compatible official static GTFS shape. If no shape matches, the projector falls back to the station-to-station segment.
+
+Therefore:
+
+- the trip identity and operational progress are realtime;
+- the geographic point between stops is estimated;
+- no UI or documentation may describe a subway marker as GPS or exact.
+
+Static route artifacts are loaded by route and cached separately from realtime updates, so a 30-second feed refresh does not reparse or refetch the geometry.
+
+### Bus: reported coordinates
+
+MTA Bus Time provides reported vehicle coordinates where available. Those coordinates can drive map markers. Predictions, next-stop roles, and stops-away wording come from SIRI fields. The app keeps `MonitoredCall` (the requested boarding stop) separate from `OnwardCall` (normally the vehicle's next stop).
+
+## Feed health and partial failure
+
+Normalized snapshots use `ok`, `stale`, `empty`, `unavailable`, or `malformed` source states. An empty list is not automatically treated as a healthy “no service” result. Multi-source views keep successful modes or stops visible when a sibling request fails.
+
+Alerts follow exact time semantics:
+
+```text
+active   = (no start or start <= now) and (no end or end > now)
+upcoming = start > now
+resolved = end exists and end <= now
 ```
 
----
+## Realtime lifecycle
 
-## API Endpoints
+Client polling uses a shared visibility- and connectivity-aware hook:
 
-### Public Read APIs
+- one interval runs only while the document is visible and online;
+- hiding the document or going offline stops the interval;
+- returning visible or online triggers one immediate refresh before restarting;
+- cleanup removes timers and listeners.
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/stations` | GET | Search stations by name, get by ID |
-| `/api/routes` | GET | Get subway route info and colors |
-| `/api/routes/accessible` | GET | Calculate accessible routes between stations |
-| `/api/routes/trip` | GET | Plan transit trip using MTA's OTP API (addresses) |
-| `/api/alerts` | GET | Get active service alerts (live) |
-| `/api/incidents` | GET | Get incidents with stats and filtering |
-| `/api/elevators` | GET | Get elevator/escalator outages (live) |
-| `/api/elevators/upcoming` | GET | Get planned elevator/escalator outages |
-| `/api/trains/realtime` | GET | Get train arrivals (live GTFS-RT) |
-| `/api/buses/realtime` | GET | Get bus arrivals (requires API key) |
-| `/api/buses/stops` | GET | Group and rank nearby static bus stops |
-| `/api/buses/nearby` | GET | Bounded multi-stop SIRI predictions with partial results |
-| `/api/reliability` | GET | Get line reliability metrics (30-day history) |
-| `/api/status` | GET | Get system health status |
+Primary Home, Nearby, Station Board, Realtime, Accessibility, Reliability, and Service Changes surfaces use this contract. Static station and geometry lookups remain independent from realtime polling where their ownership differs.
 
-### Ingestion APIs (Database)
+Freshness comes from source or successful-request timestamps. UI states distinguish a normal update, delayed realtime, unavailable data, and “Realtime unavailable offline.” A failed refresh can preserve previously usable context, but it cannot keep presenting an old ETA as live.
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/ingest/subway` | POST | Ingest subway GTFS-RT data |
-| `/api/ingest/alerts` | POST | Ingest service alerts |
-| `/api/ingest/elevators` | POST | Ingest elevator status |
-| `/api/ingest/buses` | POST | Ingest bus data |
-| `/api/ingest/reliability` | POST | Aggregate alerts into daily metrics + cleanup |
+## PWA caching
 
----
+`app/sw.ts` is the service-worker source; generated `public/sw.js` and Workbox output are never edited directly. `lib/transit/cache-policy.ts` classifies requests:
 
-## Data Sources
+| Class | Examples | Strategy |
+|---|---|---|
+| Realtime | arrivals, vehicles, alerts, incidents, train progress | Network first, short maximum age |
+| Slow-changing | reliability, crowding, status, commute summary | Network first, bounded longer age |
+| Static transit | stations, routes, bus stops, GTFS geometry | Stale-while-revalidate / longer age |
+| Unknown API | unclassified endpoints | Network only |
 
-### MTA GTFS-Realtime Feeds
+Offline use retains the shell and cached static context. Realtime predictions are explicitly unavailable rather than treated as current.
 
-| Feed | Format | Auth Required |
-|------|--------|---------------|
-| Subway (8 feeds) | Protobuf | No |
-| Alerts | JSON | No |
-| Elevator/Escalator | JSON | No |
-| Buses | Protobuf | Yes (API key) |
+## Rendering and module boundaries
 
-### Static GTFS Data
+- Server Components are the default route shell; client components own browser state, maps, polling, and interactions.
+- `components/ui/` contains product-wide primitives; `components/analytics/` contains small reusable chart/freshness patterns.
+- Leaflet and chart code stays inside the routes that use it. Realtime maps lazy-load their browser-only canvas.
+- Route-specific shaping stays close to the feature rather than growing a generic dashboard framework.
+- External data is validated with Zod at the boundary; Prisma is the only database abstraction.
 
-- **stops.txt** - 496 subway stations with coordinates
-- **routes.txt** - 29 subway routes with colors
-- **line-stations.json** - Ordered station sequences for all 26 subway lines
-- **subway-geometry/*.json** - Route-scoped generated MTA shape artifacts with
-  branch patterns, monotonic stop anchors, and realtime trip aliases
-- **subway-geometry/manifest.json** - Feed metadata and generated route list
-- **mnr-schedule-lookup.json** - Metro-North train schedules (1,541 trains)
-- **lirr-schedule-lookup.json** - LIRR train schedules (1,713 trains)
+## Testing and operating evidence
 
-Subway geometry is refreshed offline with `npm run data:subway-geometry` from
-the official MTA static feed. The browser loads only the compact route artifact
-for the selected line; it never parses the raw GTFS archive. The loader caches
-each route independently of realtime polling and falls back to ordered station
-coordinates if an artifact cannot be loaded or matched.
+- Vitest covers adapters, normalization, geometry matching, cache classification, polling, and component behavior.
+- React Testing Library checks accessible state, selection, links, and partial-failure presentation.
+- Playwright covers representative rider flows in a real browser.
+- Production builds verify Next.js and Serwist integration.
+- Current MTA responses are checked only through diagnostic scripts or sanitized fixtures; credentials and raw user data are never committed.
 
-### GTFS-RT Schedule Merging
-
-The MTA GTFS-RT feed is sometimes incomplete for certain trains. For example, Shore Line East inbound trains on the New Haven line may have intermediate stops (like Harlem-125th St) missing from the real-time feed, even though the train actually stops there.
-
-To address this, the rail API (`lib/mta/rail.ts`) automatically merges GTFS-RT data with static schedule data:
-
-1. Load static schedule for the train number
-2. Compare stops in GTFS-RT with scheduled stops
-3. Fill in missing stops from the schedule
-4. Apply real-time delays to scheduled times
-
-This ensures complete stop information is always available, matching what users see in the official MTA apps.
-
----
-
-## Database Schema (Supabase)
-
-| Table | Purpose |
-|-------|---------|
-| `stations` | Station metadata and accessibility |
-| `realtime_trips` | Train positions and arrivals |
-| `alerts` | Service alerts |
-| `elevator_status` | Elevator/escalator outages |
-| `bus_trips` | Bus positions and arrivals |
-| `feed_status` | Feed health tracking |
-| `daily_line_metrics` | Aggregated reliability metrics per line per day |
-
-### Data Retention
-
-| Table | Retention Policy |
-|-------|------------------|
-| `realtime_trips` | 2 hours (auto-cleanup during ingestion) |
-| `alerts` | Current only (deleted when inactive) |
-| `daily_line_metrics` | 30 days (auto-cleanup during ingestion) |
-
----
-
-## Key Design Decisions
-
-### 1. Next.js App Router
-
-We use the App Router (not Pages Router) for:
-- **Server Components** - Reduce client-side JavaScript
-- **Streaming** - Progressive page loading
-- **Nested Layouts** - Shared UI across routes
-- **Built-in SEO** - Metadata API
-
-### 2. Direct MTA Feed Access
-
-Public APIs fetch directly from MTA feeds in real-time:
-- No database required for basic functionality
-- Always fresh data (30-60 second cache)
-- Database used for historical analytics
-
-### 3. GTFS Static Data as Files
-
-Station and route data loaded from GTFS text files:
-- Faster than database queries for static data
-- Easy to update by replacing files
-- No network latency for lookups
-
-### 4. Prisma + Supabase
-
-Database layer for:
-- Historical data storage (analytics)
-- User preferences (future)
-- Caching heavy computations
-
-### 5. Zod Validation
-
-All external API responses validated with Zod schemas:
-- Type-safe parsing
-- Graceful error handling
-- Self-documenting API contracts
-
-### 6. Custom React Hooks
-
-Encapsulate complex state logic in reusable hooks:
-
-| Hook | Purpose |
-|------|---------|
-| `useStationPreferences` | Manage favorite stations in localStorage |
-| `useGeolocation` | Browser geolocation with permission handling |
-
-### 7. Multi-Complex Station Handling
-
-Some stations (like Times Sq-42 St) span multiple GTFS station complexes. The system handles this by:
-- Merging stations with identical names when searching
-- Returning `allIds` and `allPlatforms` for all platform IDs
-- Fetching arrivals from all platforms in parallel
-- Deduplicating results by trip ID
-
----
-
-## Data Flow
-
-### Real-time Train Data
-
-```
-MTA GTFS-RT Feed (Protobuf)
-       │
-       ▼
-┌──────────────┐
-│  lib/mta/    │  Parse protobuf
-│  gtfs-rt.ts  │  Extract arrivals
-└──────┬───────┘
-       │
-       ▼
-┌──────────────┐
-│  API Route   │  /api/trains/realtime
-│              │  Filter, sort, limit
-└──────┬───────┘
-       │
-       ▼
-┌──────────────┐
-│   Client     │  Display arrivals
-│  Component   │
-└──────────────┘
-```
-
-### Station Search
-
-```
-Client Request
-       │
-       ▼
-┌──────────────┐
-│  API Route   │  /api/stations?search=...
-└──────┬───────┘
-       │
-       ▼
-┌──────────────┐
-│  lib/gtfs/   │  Parse stops.txt (cached)
-│  parser.ts   │  Search stations
-└──────┬───────┘
-       │
-       ▼
-┌──────────────┐
-│   Response   │  Station list
-└──────────────┘
-```
-
-### Live Train Tracker
-
-```
-User Selects Lines (A, C, E)
-       │
-       ▼
-┌──────────────────┐
-│  LineSelector    │  Multi-select by trunk
-└────────┬─────────┘
-         │
-         ▼
-┌──────────────────┐
-│  LineDiagram     │  Fetches per-line data
-└────────┬─────────┘
-         │
-   ┌─────┴─────┐
-   ▼           ▼
-┌────────┐  ┌────────────────┐
-│ Static │  │  /api/trains/  │
-│ line-  │  │  realtime      │
-│stations│  │  ?routeId=A    │
-│.json   │  └───────┬────────┘
-└───┬────┘          │
-    │               │
-    ▼               ▼
-┌───────────────────────────────┐
-│       LineDiagram renders:     │
-│  - Station sequence (static)   │
-│  - Train markers (realtime)    │
-│  - Direction indicators        │
-│  - ETA badges                  │
-└───────────────────────────────┘
-         │
-         ▼ (click train)
-┌───────────────────────────────┐
-│     TrainDetailPopover        │
-│  - Destination                │
-│  - ETA / Delay status         │
-│  - Trip ID                    │
-└───────────────────────────────┘
-```
-
-### Accessible Route Finding
-
-```
-User enters origin + destination
-         │
-         ▼
-┌───────────────────┐
-│   RouteFinder     │  Station selection UI
-│   Component       │
-└────────┬──────────┘
-         │
-         ▼
-┌───────────────────┐
-│  /api/routes/     │  API endpoint
-│  accessible       │
-└────────┬──────────┘
-         │
-    ┌────┴────┐
-    ▼         ▼
-┌────────┐  ┌────────────────┐
-│  GTFS  │  │  /api/         │
-│ Static │  │  elevators     │
-│  Data  │  │  (outages)     │
-└───┬────┘  └───────┬────────┘
-    │               │
-    ▼               ▼
-┌───────────────────────────────┐
-│       lib/routing/graph.ts    │
-│                               │
-│  1. Build station graph       │
-│  2. Mark inaccessible nodes   │
-│     (elevator outages)        │
-│  3. Run Dijkstra's algorithm  │
-│  4. Calculate travel times    │
-│     (static + express/local)  │
-└───────────────────────────────┘
-         │
-         ▼
-┌───────────────────────────────┐
-│     RouteResults Component    │
-│  - Route summary              │
-│  - Segment details            │
-│  - Accessibility status       │
-│  - Alternative routes         │
-└───────────────────────────────┘
-```
-
-**Graph Structure:**
-
-| Element | Source |
-|---------|--------|
-| Nodes (Stations) | GTFS stops.txt + line-stations.json |
-| Edges (Train segments) | line-stations.json (ordered stops per line) |
-| Edge weights | Estimated travel time (2-3 min/stop, 1.5 min express) |
-| Accessibility | Real-time elevator outages from /api/elevators |
-
-**Algorithm:**
-- Uses Dijkstra's shortest-path algorithm
-- Edge weights are travel time in minutes
-- Transfer penalty: 3-5 minutes per platform change
-- Filters out inaccessible paths when `requireAccessible=true`
-
-### Address-Based Trip Planning
-
-```
-User enters origin/destination addresses
-         │
-         ▼
-┌───────────────────────────────────────┐
-│  OpenStreetMap Nominatim API          │  Geocoding
-│  (Convert addresses to coordinates)   │
-└─────────────────┬─────────────────────┘
-                  │
-         lat/lon coordinates
-                  │
-                  ▼
-┌───────────────────────────────────────┐
-│  /api/routes/trip                     │  Our API endpoint
-└─────────────────┬─────────────────────┘
-                  │
-                  ▼
-┌───────────────────────────────────────┐
-│  MTA OpenTripPlanner API              │  External API
-│  (otp-mta-prod.camsys-apps.com)       │
-│                                       │
-│  - Full NYC transit network           │
-│  - Real-time schedules                │
-│  - Wheelchair-accessible routing      │
-│  - Walking + transit combinations     │
-└─────────────────┬─────────────────────┘
-                  │
-                  ▼
-┌───────────────────────────────────────┐
-│  Response: Multiple Itineraries       │
-│                                       │
-│  Each itinerary contains:             │
-│  - Walking legs (with step-by-step)   │
-│  - Transit legs (subway/bus/rail)     │
-│  - Times, distances, stop counts      │
-│  - Route colors and headsigns         │
-└───────────────────────────────────────┘
-```
-
-**External Dependencies:**
-
-| Service | Purpose | Rate Limits |
-|---------|---------|-------------|
-| Nominatim (OSM) | Address geocoding | 1 req/sec (free) |
-| MTA OTP | Trip planning | Unknown (public API) |
-
-**Transit Types Supported:**
-
-| Mode | Display | Examples |
-|------|---------|----------|
-| SUBWAY | Bullet icon | A, 1, 7X |
-| BUS | Colored chip | Q44, BxM1 |
-| RAIL | Colored chip | Harlem, Hudson |
-| WALK | Dotted line | Walking directions |
-
----
-
-## Performance Considerations
-
-### Caching Strategy
-
-| Data Type | Cache Duration | Location |
-|-----------|----------------|----------|
-| Static GTFS | Permanent (in-memory) | Server |
-| Train arrivals | 30 seconds | Next.js cache |
-| Alerts | 60 seconds | Next.js cache |
-| Elevator status | 5 minutes | Next.js cache |
-| Routes/Stations | 1 hour+ | Next.js cache |
-
-### Optimization Strategies
-
-1. **Parallel Feed Fetching** - All subway feeds fetched concurrently
-2. **In-Memory GTFS Cache** - Static data parsed once, cached in memory
-3. **Incremental Compilation** - Turbopack for fast dev server
-4. **Code Splitting** - Dynamic imports for heavy components
-
----
-
-## Security
-
-### Environment Variables
-
-```env
-DATABASE_URL=...        # Supabase connection (server only)
-MTA_BUS_API_KEY=...     # Bus API key (server only)
-```
-
-### Best Practices
-
-1. **Server-only secrets** - Never exposed to client
-2. **Input validation** - Zod schemas for all external data
-3. **Parameterized queries** - Prisma prevents SQL injection
-4. **CORS** - Restricted API access
-
----
-
-## Progressive Web App (PWA)
-
-NYC Transit Hub is a fully installable PWA with offline support.
-
-### PWA Features
-
-| Feature | Implementation |
-|---------|----------------|
-| Installable | Web app manifest with icons |
-| Offline Support | Service worker with caching |
-| App Icon | Custom gradient train icon (192x192, 512x512) |
-| Apple Support | Apple touch icons, status bar styling |
-
-### Service Worker Strategy
-
-The service worker (`app/sw.ts`) uses Serwist with the following caching strategies:
-
-| Resource Type | Strategy | Cache Duration |
-|---------------|----------|----------------|
-| API routes (`/api/*`) | Network First | 5 minutes |
-| MTA API requests | Network First | 2 minutes |
-| Static assets | Cache First | Long-term |
-| Pages | Stale While Revalidate | Varies |
-
-### Offline Fallback
-
-When offline and a page isn't cached, users see a friendly offline page (`/offline`) that:
-- Shows the app branding
-- Explains what features work offline
-- Auto-refreshes when connection returns
-
-### Files
-
-| File | Purpose |
-|------|---------|
-| `public/manifest.json` | Web app manifest |
-| `public/icons/app-icon.svg` | Master SVG icon |
-| `public/icons/*.png` | PNG icons (various sizes) |
-| `app/sw.ts` | Service worker source |
-| `app/offline/page.tsx` | Offline fallback page |
-
----
-
-## Future Improvements
-
-- [ ] WebSocket for real-time updates (eliminate polling)
-- [x] PWA with offline support
-- [ ] User authentication (NextAuth)
-- [ ] Push notifications for alerts
-- [ ] Background sync for commute tracking
+See [API Contracts](./api.md), [Transit Domain Conventions](./ai/transit-domain.md), and [Testing](./testing.md) for narrower contracts.

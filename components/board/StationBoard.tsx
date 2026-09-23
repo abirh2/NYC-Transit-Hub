@@ -2,14 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { formatDistanceToNow } from "date-fns";
-import { Clock, RefreshCw, Star, Train } from "lucide-react";
+import { RefreshCw, Star, Train } from "lucide-react";
 import Link from "next/link";
 
 import { ArrivalsList } from "./ArrivalsList";
 import { StationSearch, type StationSearchResult } from "./StationSearch";
 import { StationAccessibilityStatus } from "@/components/accessibility/StationAccessibilityStatus";
-import { EmptyState, ErrorState, SubwayBullet, Surface } from "@/components/ui";
+import { DataFreshness, EmptyState, ErrorState, SubwayBullet, Surface } from "@/components/ui";
+import { useVisiblePolling } from "@/lib/hooks";
 import { useStationPreferences } from "@/lib/hooks/useStationPreferences";
 import type { TrainArrival } from "@/types/mta";
 import { buildPlanQueryString } from "@/lib/transit/rider-query-state";
@@ -152,11 +152,11 @@ export function StationBoard({
     if (selectedStationId) void fetchArrivals();
   }, [fetchArrivals, selectedStationId]);
 
-  useEffect(() => {
-    if (!autoRefresh || !selectedStationId) return;
-    const interval = window.setInterval(fetchArrivals, refreshInterval * 1000);
-    return () => window.clearInterval(interval);
-  }, [autoRefresh, fetchArrivals, refreshInterval, selectedStationId]);
+  const { isOnline } = useVisiblePolling(
+    fetchArrivals,
+    refreshInterval * 1000,
+    autoRefresh && Boolean(selectedStationId),
+  );
 
   const handleStationSelect = (
     stationId: string,
@@ -207,12 +207,11 @@ export function StationBoard({
                   {routeIds.map((routeId) => <SubwayBullet key={routeId} line={routeId} size="sm" />)}
                 </div>
               )}
-              {arrivals.lastUpdated && (
-                <p className="mt-2 flex items-center gap-1.5 text-xs text-foreground/60">
-                  <Clock className="h-3.5 w-3.5" aria-hidden="true" />
-                  Updated {formatDistanceToNow(arrivals.lastUpdated, { addSuffix: true })}
-                </p>
-              )}
+              <DataFreshness
+                updatedAt={arrivals.lastUpdated}
+                isOffline={!isOnline}
+                className="mt-2 text-xs"
+              />
             </div>
             <div className="flex items-center gap-1">
               {stationLocation && (
@@ -256,13 +255,19 @@ export function StationBoard({
             <StationAccessibilityStatus stationName={selectedStationName} />
           )}
 
-          {arrivals.error ? (
+          {arrivals.error && arrivals.northbound.length === 0 && arrivals.southbound.length === 0 ? (
             <ErrorState
               title="Departures unavailable"
               description={arrivals.error}
               onRetry={() => void fetchArrivals()}
             />
           ) : (
+            <>
+              {arrivals.error && (
+                <p role="status" className="mb-3 rounded-lg bg-warning/10 px-3 py-2 text-sm text-warning-700 dark:text-warning-400">
+                  New departures could not be loaded. Showing the last update.
+                </p>
+              )}
             <Surface as="section" className="overflow-hidden">
               <div className="grid divide-y divide-border-subtle md:grid-cols-2 md:divide-x md:divide-y-0">
                 <div className="p-4 sm:p-5">
@@ -283,6 +288,7 @@ export function StationBoard({
                 </div>
               </div>
             </Surface>
+            </>
           )}
         </>
       )}

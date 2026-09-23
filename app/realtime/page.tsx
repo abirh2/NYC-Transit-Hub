@@ -1,11 +1,10 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { PageHeader } from "@/components/layout";
 import { LoadingSkeleton } from "@/components/ui";
 import { RealtimeClient } from "./RealtimeClient";
 
 export const metadata: Metadata = {
-  title: "Live Map | NYC Transit Hub",
+  title: "Live Map",
   description:
     "Explore live subway, bus, LIRR, and Metro-North positions on an interactive NYC transit map",
 };
@@ -30,12 +29,11 @@ export const metadata: Metadata = {
 export default function RealtimePage() {
   return (
     <div className="flex h-full flex-col">
-      {/* One page heading per breakpoint: sr-only on mobile (BottomNav already
-          names this destination), the visible PageHeader on desktop. */}
-      <h1 className="sr-only lg:hidden">Live Map</h1>
-      <div className="hidden lg:block">
-        <PageHeader title="Live Map" />
-      </div>
+      <header className="shrink-0 lg:mb-5">
+        <h1 className="sr-only lg:not-sr-only lg:text-3xl lg:font-bold lg:text-foreground">
+          Live Map
+        </h1>
+      </header>
       <Suspense
         fallback={
           <div className="min-h-0 flex-1">

@@ -2,17 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@heroui/react";
-import { Calendar, Clock, Route, Zap } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { Calendar, Route, Zap } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { OutageFilters, OutageList, type OutageFiltersState, type OutageTab } from "@/components/accessibility";
 import { PageContainer, PageHeader } from "@/components/layout";
-import { StatusChip, Surface } from "@/components/ui";
+import { DataFreshness, StatusChip, Surface } from "@/components/ui";
 import { filterAndSortOutages, hydrateEquipmentOutage } from "@/lib/transit/accessibility-status";
 import type { EquipmentOutage } from "@/types/mta";
 import { useStationPreferences } from "@/lib/hooks/useStationPreferences";
+import { useVisiblePolling } from "@/lib/hooks";
 
 const REFRESH_INTERVAL_MS = 60_000;
 
@@ -73,9 +73,9 @@ export function AccessibilityClient() {
 
   useEffect(() => {
     void fetchOutages();
-    const interval = window.setInterval(fetchOutages, REFRESH_INTERVAL_MS);
-    return () => window.clearInterval(interval);
   }, [fetchOutages]);
+
+  const { isOnline } = useVisiblePolling(fetchOutages, REFRESH_INTERVAL_MS);
 
   const activeOutages = outageTab === "current" ? currentOutages : upcomingOutages;
   const filteredOutages = useMemo(
@@ -137,14 +137,14 @@ export function AccessibilityClient() {
           </div>
           <div className="flex items-center gap-3 text-xs text-foreground/60">
             <StatusChip state={error ? "unavailable" : filteredOutages.length ? "advisory" : "normal"} label={error ? "Unavailable" : `${filteredOutages.length} shown`} size="sm" />
-            {lastUpdated && <span className="inline-flex items-center gap-1"><Clock className="h-3.5 w-3.5" aria-hidden="true" />Updated {formatDistanceToNow(lastUpdated, { addSuffix: true })}</span>}
+            <DataFreshness updatedAt={lastUpdated} isOffline={!isOnline} className="text-xs" />
           </div>
         </div>
 
         <OutageList
           outages={filteredOutages}
           isLoading={isLoading && activeOutages.length === 0}
-          error={error}
+          error={currentOutages.length === 0 && upcomingOutages.length === 0 ? error : null}
           isUpcoming={outageTab === "upcoming"}
           emptyMessage={outageTab === "current" ? "No current outages match these filters." : "No upcoming work matches these filters."}
         />
