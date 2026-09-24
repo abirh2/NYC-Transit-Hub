@@ -21,6 +21,7 @@ import {
 import { Tooltip } from "@heroui/react";
 import { isRouteActive } from "@/lib/navigation/active-route";
 import { useMotionSafe } from "@/components/motion";
+import { isNativeApp } from "@/lib/api/client";
 
 /**
  * Sidebar — desktop primary navigation (Requirement 2).
@@ -241,7 +242,9 @@ export function Sidebar() {
                 {group.label}
               </h2>
             )}
-            {group.items.map((item) => (
+            {group.items.filter((item) => (
+              !isNativeApp || item.href !== "/commute"
+            )).map((item) => (
               <SidebarLink
                 key={item.href}
                 item={item}

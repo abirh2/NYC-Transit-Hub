@@ -16,6 +16,7 @@ import type { IncidentStats as IncidentStatsType } from "@/types/api";
 import { DataFreshness } from "@/components/ui";
 import { useVisiblePolling } from "@/lib/hooks";
 import { partitionIncidentsByStatus } from "@/lib/incidents/status";
+import { apiFetch } from "@/lib/api/client";
 
 const REFRESH_INTERVAL = 30; // seconds
 
@@ -159,7 +160,7 @@ export function IncidentsClient() {
     setError(null);
 
     try {
-      const response = await fetch("/api/incidents");
+      const response = await apiFetch("/api/incidents");
       const data: IncidentsApiResponse = await response.json();
 
       if (data.success && data.data) {

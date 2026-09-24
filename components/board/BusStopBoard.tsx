@@ -15,6 +15,7 @@ import { useGeolocation } from "@/lib/hooks/useGeolocation";
 import { haversineDistance } from "@/lib/utils/distance";
 import type { BusArrival } from "@/types/mta";
 import { formatDistanceToNow } from "date-fns";
+import { apiFetch } from "@/lib/api/client";
 
 interface BusStopBoardProps {
   /** Whether to auto-refresh arrivals */
@@ -60,7 +61,7 @@ export function BusStopBoard({
 
     try {
       // Fetch all active buses (will filter by distance)
-      const response = await fetch(`/api/buses/realtime?limit=200`);
+      const response = await apiFetch(`/api/buses/realtime?limit=200`);
       const data = await response.json();
 
       if (!data.success) {
@@ -304,4 +305,3 @@ export function BusStopBoard({
     </Card>
   );
 }
-

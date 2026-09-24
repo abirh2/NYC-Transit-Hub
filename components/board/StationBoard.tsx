@@ -13,6 +13,7 @@ import { useVisiblePolling } from "@/lib/hooks";
 import { useStationPreferences } from "@/lib/hooks/useStationPreferences";
 import type { TrainArrival } from "@/types/mta";
 import { buildPlanQueryString } from "@/lib/transit/rider-query-state";
+import { apiFetch } from "@/lib/api/client";
 
 interface StationBoardProps {
   initialStationId?: string;
@@ -81,7 +82,7 @@ export function StationBoard({
     setArrivals((previous) => ({ ...previous, isLoading: true, error: null }));
 
     try {
-      const stationResponse = await fetch(`/api/stations?id=${encodeURIComponent(selectedStationId)}`);
+      const stationResponse = await apiFetch(`/api/stations?id=${encodeURIComponent(selectedStationId)}`);
       const stationPayload = await stationResponse.json() as {
         success: boolean;
         data?: { stations: StationSearchResult[] };
@@ -102,7 +103,7 @@ export function StationBoard({
         : [`${selectedStationId}S`];
 
       const requestPlatforms = (platforms: string[]) => Promise.all(platforms.map(async (platformId) => {
-        const response = await fetch(`/api/trains/realtime?stationId=${encodeURIComponent(platformId)}&limit=10`);
+        const response = await apiFetch(`/api/trains/realtime?stationId=${encodeURIComponent(platformId)}&limit=10`);
         const payload = await response.json() as {
           success: boolean;
           data?: { arrivals?: TrainArrival[] };

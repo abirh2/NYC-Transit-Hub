@@ -177,7 +177,10 @@ export function RailList({
         </div>
 
         {/* Train List by Direction */}
-        <div className="overflow-y-auto" style={{ maxHeight: "calc(100vh - 400px)" }}>
+        <div
+          className="overflow-y-auto"
+          style={{ maxHeight: "calc(100dvh - 400px)" }}
+        >
           {Object.entries(trainsByDirection).map(([direction, directionTrains]) => (
             <div key={direction} className="border-b border-divider last:border-b-0">
               {/* Direction Header */}
@@ -265,4 +268,3 @@ export function RailList({
     </Card>
   );
 }
-

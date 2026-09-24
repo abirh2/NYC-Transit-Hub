@@ -6,6 +6,7 @@ import { AlertCircle, ArrowRight, AlertTriangle, Info } from "lucide-react";
 import Link from "next/link";
 import { SubwayBullet } from "@/components/ui";
 import type { ServiceAlert, AlertSeverity } from "@/types/mta";
+import { apiFetch } from "@/lib/api/client";
 
 // Valid train line identifiers for parsing [X] references
 const TRAIN_LINES = new Set([
@@ -67,7 +68,7 @@ export function AlertsCard() {
   useEffect(() => {
     async function fetchAlerts() {
       try {
-        const response = await fetch("/api/alerts?limit=3");
+        const response = await apiFetch("/api/alerts?limit=3");
         const data: AlertsApiResponse = await response.json();
         
         if (data.success) {

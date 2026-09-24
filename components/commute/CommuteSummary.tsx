@@ -28,6 +28,7 @@ import Link from "next/link";
 import { CommuteRoutePreview, AlternativeRoute, RouteLineSummary } from "./CommuteRoutePreview";
 import type { CommuteData } from "./CommuteSetup";
 import { buildPlanQueryString } from "@/lib/transit/rider-query-state";
+import { apiFetch } from "@/lib/api/client";
 
 interface RouteLeg {
   mode: string;
@@ -93,7 +94,7 @@ export function CommuteSummary({ commuteId, onSetupClick, planContext }: Commute
       const url = commuteId 
         ? `/api/commute/summary?id=${commuteId}` 
         : "/api/commute/summary";
-      const response = await fetch(url);
+      const response = await apiFetch(url);
       const result = await response.json();
 
       if (result.success) {

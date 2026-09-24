@@ -12,6 +12,7 @@ import { Button, Card, CardBody, Spinner } from "@heroui/react";
 import { MapPin, Star, Navigation, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
 import { useGeolocation } from "@/lib/hooks/useGeolocation";
 import { formatDistance, formatWalkingTime, estimateWalkingTime } from "@/lib/utils/distance";
+import { apiFetch } from "@/lib/api/client";
 
 interface NearbyStation {
   id: string;
@@ -65,7 +66,7 @@ export function NearbyStations({
     setStationsError(null);
 
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/stations?near=${position.latitude},${position.longitude}&radius=${radiusMiles}&limit=${maxStations}`
       );
       const data = await response.json();
@@ -263,4 +264,3 @@ export function NearbyStations({
     </Card>
   );
 }
-

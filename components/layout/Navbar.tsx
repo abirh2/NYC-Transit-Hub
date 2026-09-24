@@ -4,6 +4,7 @@ import { TrainFront } from "lucide-react";
 import Link from "next/link";
 import { ThemeToggle } from "./ThemeToggle";
 import { AuthButton } from "@/components/auth";
+import { isNativeApp } from "@/lib/api/client";
 
 interface NavbarProps {
   /** Optional additional classes for the top-level header landmark. */
@@ -41,7 +42,7 @@ export function Navbar({ className = "" }: NavbarProps) {
         {/* Controls — kept right-aligned even when the brand is hidden (lg+) */}
         <div className="ml-auto flex items-center gap-2">
           <ThemeToggle />
-          <AuthButton />
+          {!isNativeApp && <AuthButton />}
         </div>
       </div>
     </header>

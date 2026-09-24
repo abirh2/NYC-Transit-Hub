@@ -28,6 +28,7 @@ import {
 } from "@/components/realtime";
 import { RealtimeMap } from "@/components/realtime/map";
 import { Surface } from "@/components/ui";
+import { apiFetch } from "@/lib/api/client";
 import { useGeolocation, useRealtimeSelection, useVisiblePolling } from "@/lib/hooks";
 import {
   getLineColor,
@@ -198,7 +199,7 @@ export function RealtimeClient() {
     setTrainData((prev) => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/trains/realtime?routeId=${encodeURIComponent(routeId)}&limit=500`,
       );
       const data = await response.json();
@@ -232,7 +233,7 @@ export function RealtimeClient() {
     setBusData((prev) => ({ ...prev, isRoutesLoading: true }));
 
     try {
-      const response = await fetch("/api/buses/routes");
+      const response = await apiFetch("/api/buses/routes");
       const data = await response.json();
 
       if (data.success) {
@@ -275,7 +276,7 @@ export function RealtimeClient() {
       const stopQuery = selection.stopId
         ? `&stopId=${encodeURIComponent(selection.stopId)}`
         : "";
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/buses/realtime?routeId=${encodeURIComponent(routeId)}${stopQuery}&limit=50`,
       );
       const data = await response.json();
@@ -322,7 +323,7 @@ export function RealtimeClient() {
         railMode === "lirr" ? "/api/lirr/realtime" : "/api/metro-north/realtime";
 
       try {
-        const response = await fetch(`${endpoint}?limit=1`);
+        const response = await apiFetch(`${endpoint}?limit=1`);
         const data = await response.json();
 
         if (data.success && data.data?.branches) {
@@ -363,7 +364,7 @@ export function RealtimeClient() {
     try {
       const endpoint =
         mode === "lirr" ? "/api/lirr/realtime" : "/api/metro-north/realtime";
-      const response = await fetch(
+      const response = await apiFetch(
         `${endpoint}?routeId=${encodeURIComponent(routeId)}&limit=100`,
       );
       const data = await response.json();

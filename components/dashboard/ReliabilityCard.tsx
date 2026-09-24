@@ -6,6 +6,7 @@ import { TrendingUp, ArrowRight, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { SubwayBullet } from "@/components/ui";
 import type { ReliabilityResponse, LineReliabilitySummary } from "@/types/api";
+import { apiFetch } from "@/lib/api/client";
 
 function getScoreColor(score: number) {
   if (score >= 80) return "text-success";
@@ -34,7 +35,7 @@ export function ReliabilityCard() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const response = await fetch("/api/reliability?days=7");
+        const response = await apiFetch("/api/reliability?days=7");
         const result: ReliabilityApiResponse = await response.json();
 
         if (result.success && result.data) {

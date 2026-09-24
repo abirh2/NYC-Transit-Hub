@@ -6,6 +6,7 @@ import Link from "next/link";
 import { SubwayBullet } from "@/components/ui";
 import { useEffect, useState } from "react";
 import { RouteCrowding } from "@/types/mta";
+import { apiFetch } from "@/lib/api/client";
 
 function getCrowdingChip(level: string) {
   switch (level) {
@@ -27,7 +28,7 @@ export function CrowdingCard() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const res = await fetch("/api/metrics/crowding");
+        const res = await apiFetch("/api/metrics/crowding");
         if (res.ok) {
           const json = await res.json();
           setData(json);

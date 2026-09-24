@@ -5,6 +5,7 @@ import { Card, CardBody } from "@heroui/react";
 import { Wifi, WifiOff, AlertTriangle } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import type { SystemStatusResponse } from "@/types/api";
+import { apiFetch } from "@/lib/api/client";
 
 interface StatusApiResponse {
   success: boolean;
@@ -19,7 +20,7 @@ export function SystemStatusCard() {
   useEffect(() => {
     async function fetchStatus() {
       try {
-        const response = await fetch("/api/status");
+        const response = await apiFetch("/api/status");
         const data: StatusApiResponse = await response.json();
         
         if (data.success) {

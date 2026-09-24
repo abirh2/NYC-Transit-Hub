@@ -13,6 +13,7 @@ import { filterAndSortOutages, hydrateEquipmentOutage } from "@/lib/transit/acce
 import type { EquipmentOutage } from "@/types/mta";
 import { useStationPreferences } from "@/lib/hooks/useStationPreferences";
 import { useVisiblePolling } from "@/lib/hooks";
+import { apiFetch } from "@/lib/api/client";
 
 const REFRESH_INTERVAL_MS = 60_000;
 
@@ -49,7 +50,7 @@ export function AccessibilityClient() {
     setError(null);
     try {
       const [currentResponse, upcomingResponse] = await Promise.all([
-        fetch("/api/elevators"), fetch("/api/elevators/upcoming"),
+        apiFetch("/api/elevators"), apiFetch("/api/elevators/upcoming"),
       ]);
       const [currentPayload, upcomingPayload] = await Promise.all([
         currentResponse.json() as Promise<ElevatorsApiResponse>,

@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { LoaderCircle, Search, Star } from "lucide-react";
 
 import { SubwayBullet } from "@/components/ui";
+import { apiFetch } from "@/lib/api/client";
 
 export interface StationSearchResult {
   id: string;
@@ -68,7 +69,7 @@ export function StationSearch({
       setState("loading");
       setIsOpen(true);
       try {
-        const response = await fetch(
+        const response = await apiFetch(
           `/api/stations?search=${encodeURIComponent(trimmed)}&limit=10`,
           { signal: controller.signal },
         );
@@ -114,7 +115,7 @@ export function StationSearch({
     }
 
     const controller = new AbortController();
-    fetch(`/api/stations?id=${encodeURIComponent(selectedId)}`, { signal: controller.signal })
+    apiFetch(`/api/stations?id=${encodeURIComponent(selectedId)}`, { signal: controller.signal })
       .then((response) => response.json())
       .then((payload: { success: boolean; data?: { stations: StationSearchResult[] } }) => {
         if (payload.success && payload.data?.stations[0]) setSelectedName(payload.data.stations[0].name);

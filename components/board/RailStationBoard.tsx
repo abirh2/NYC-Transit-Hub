@@ -14,6 +14,7 @@ import { RailStationSearch } from "./RailStationSearch";
 import { RailArrivalsList } from "./RailArrivalsList";
 import type { RailArrival, TransitMode } from "@/types/mta";
 import { formatDistanceToNow } from "date-fns";
+import { apiFetch } from "@/lib/api/client";
 
 interface RailStationBoardProps {
   /** Transit mode (lirr or metro-north) */
@@ -76,7 +77,7 @@ export function RailStationBoard({
     setArrivals((prev) => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `${apiEndpoint}?stopId=${selectedStationId}&limit=20`
       );
       const data = await response.json();
@@ -269,4 +270,3 @@ export function RailStationBoard({
     </Card>
   );
 }
-

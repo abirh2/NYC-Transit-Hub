@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { LoaderCircle, MapPin, Search, TrainFront } from "lucide-react";
 
 import type { LocationSearchResponse, LocationSearchResult } from "@/types/location";
+import { apiFetch } from "@/lib/api/client";
 
 export interface LocationSearchFieldProps {
   label: string;
@@ -49,7 +50,7 @@ export function LocationSearchField({
       setState("loading");
       setIsOpen(true);
       try {
-        const response = await fetch(
+        const response = await apiFetch(
           `/api/locations?query=${encodeURIComponent(trimmed)}&limit=8`,
           { signal: controller.signal },
         );

@@ -1,0 +1,211 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-09-18T03:46:49.164Z",
+  "source": "https://rrgtfsfeeds.s3.amazonaws.com/gtfs_subway.zip",
+  "feedVersion": "20260826-X-long-term-supplement-trip-ids",
+  "routes": [
+    {
+      "routeId": "1",
+      "shapes": 9,
+      "patterns": 9,
+      "aliases": 954,
+      "bytes": 42030
+    },
+    {
+      "routeId": "2",
+      "shapes": 10,
+      "patterns": 10,
+      "aliases": 786,
+      "bytes": 60681
+    },
+    {
+      "routeId": "3",
+      "shapes": 7,
+      "patterns": 7,
+      "aliases": 697,
+      "bytes": 33843
+    },
+    {
+      "routeId": "4",
+      "shapes": 22,
+      "patterns": 22,
+      "aliases": 700,
+      "bytes": 68478
+    },
+    {
+      "routeId": "5",
+      "shapes": 35,
+      "patterns": 35,
+      "aliases": 698,
+      "bytes": 102009
+    },
+    {
+      "routeId": "6",
+      "shapes": 7,
+      "patterns": 7,
+      "aliases": 1004,
+      "bytes": 41489
+    },
+    {
+      "routeId": "6X",
+      "shapes": 3,
+      "patterns": 3,
+      "aliases": 113,
+      "bytes": 9893
+    },
+    {
+      "routeId": "7",
+      "shapes": 6,
+      "patterns": 6,
+      "aliases": 1178,
+      "bytes": 43277
+    },
+    {
+      "routeId": "7X",
+      "shapes": 2,
+      "patterns": 2,
+      "aliases": 107,
+      "bytes": 6352
+    },
+    {
+      "routeId": "A",
+      "shapes": 25,
+      "patterns": 25,
+      "aliases": 766,
+      "bytes": 91911
+    },
+    {
+      "routeId": "B",
+      "shapes": 5,
+      "patterns": 5,
+      "aliases": 220,
+      "bytes": 19562
+    },
+    {
+      "routeId": "C",
+      "shapes": 3,
+      "patterns": 3,
+      "aliases": 519,
+      "bytes": 22701
+    },
+    {
+      "routeId": "D",
+      "shapes": 9,
+      "patterns": 9,
+      "aliases": 554,
+      "bytes": 48306
+    },
+    {
+      "routeId": "E",
+      "shapes": 11,
+      "patterns": 11,
+      "aliases": 778,
+      "bytes": 50135
+    },
+    {
+      "routeId": "F",
+      "shapes": 15,
+      "patterns": 15,
+      "aliases": 774,
+      "bytes": 86999
+    },
+    {
+      "routeId": "FS",
+      "shapes": 2,
+      "patterns": 2,
+      "aliases": 238,
+      "bytes": 7827
+    },
+    {
+      "routeId": "FX",
+      "shapes": 2,
+      "patterns": 2,
+      "aliases": 4,
+      "bytes": 8896
+    },
+    {
+      "routeId": "G",
+      "shapes": 5,
+      "patterns": 5,
+      "aliases": 779,
+      "bytes": 33460
+    },
+    {
+      "routeId": "GS",
+      "shapes": 4,
+      "patterns": 4,
+      "aliases": 1016,
+      "bytes": 30762
+    },
+    {
+      "routeId": "H",
+      "shapes": 4,
+      "patterns": 4,
+      "aliases": 611,
+      "bytes": 21668
+    },
+    {
+      "routeId": "J",
+      "shapes": 10,
+      "patterns": 10,
+      "aliases": 686,
+      "bytes": 37886
+    },
+    {
+      "routeId": "L",
+      "shapes": 5,
+      "patterns": 5,
+      "aliases": 1325,
+      "bytes": 44930
+    },
+    {
+      "routeId": "M",
+      "shapes": 10,
+      "patterns": 10,
+      "aliases": 758,
+      "bytes": 33308
+    },
+    {
+      "routeId": "N",
+      "shapes": 14,
+      "patterns": 14,
+      "aliases": 487,
+      "bytes": 48720
+    },
+    {
+      "routeId": "Q",
+      "shapes": 9,
+      "patterns": 9,
+      "aliases": 674,
+      "bytes": 39158
+    },
+    {
+      "routeId": "R",
+      "shapes": 9,
+      "patterns": 9,
+      "aliases": 518,
+      "bytes": 35147
+    },
+    {
+      "routeId": "SI",
+      "shapes": 7,
+      "patterns": 7,
+      "aliases": 184,
+      "bytes": 19681
+    },
+    {
+      "routeId": "W",
+      "shapes": 5,
+      "patterns": 5,
+      "aliases": 187,
+      "bytes": 16731
+    },
+    {
+      "routeId": "Z",
+      "shapes": 2,
+      "patterns": 2,
+      "aliases": 12,
+      "bytes": 4633
+    }
+  ]
+}

@@ -12,6 +12,7 @@ import { Search, MapPin, Star, Train } from "lucide-react";
 import { RailBadge } from "@/components/ui/RailBadge";
 import { getAllLirrBranches, getAllMnrLines } from "@/lib/gtfs/rail-stations";
 import type { TransitMode } from "@/types/mta";
+import { apiFetch } from "@/lib/api/client";
 
 interface RailStation {
   id: string;
@@ -76,7 +77,7 @@ export function RailStationSearch({
 
     setIsLoading(true);
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `${apiEndpoint}?search=${encodeURIComponent(searchQuery)}&limit=10`
       );
       const data = await response.json();
@@ -124,7 +125,7 @@ export function RailStationSearch({
   // Load selected station name
   useEffect(() => {
     if (selectedId && !selectedName) {
-      fetch(`${apiEndpoint}?id=${selectedId}`)
+      apiFetch(`${apiEndpoint}?id=${selectedId}`)
         .then((res) => res.json())
         .then((data) => {
           if (data.success && data.data.stations.length > 0) {
@@ -246,4 +247,3 @@ export function RailStationSearch({
     </div>
   );
 }
-

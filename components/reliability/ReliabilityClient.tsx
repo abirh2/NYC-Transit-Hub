@@ -10,6 +10,7 @@ import { LinePerformanceCard } from "./LinePerformanceCard";
 import { ReliabilityChart } from "./ReliabilityChart";
 import { TimeOfDayChart } from "./TimeOfDayChart";
 import type { ReliabilityResponse } from "@/types/api";
+import { apiFetch } from "@/lib/api/client";
 
 const REFRESH_INTERVAL = 60; // seconds
 
@@ -40,7 +41,7 @@ export function ReliabilityClient() {
       const params = new URLSearchParams({ days: timePeriod });
       if (selectedLine) params.set("routeId", selectedLine);
       
-      const response = await fetch(`/api/reliability?${params}`);
+      const response = await apiFetch(`/api/reliability?${params}`);
       const result: ReliabilityApiResponse = await response.json();
 
       if (result.success && result.data) {

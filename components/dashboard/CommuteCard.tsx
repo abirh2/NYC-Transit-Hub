@@ -5,6 +5,7 @@ import { Card, CardBody, CardHeader, Chip, Skeleton } from "@heroui/react";
 import { Clock, ArrowRight, Home, Briefcase, AlertTriangle, LogIn } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/components/auth";
+import { apiFetch } from "@/lib/api/client";
 
 interface CommuteSummaryData {
   isAuthenticated: boolean;
@@ -27,7 +28,7 @@ export function CommuteCard() {
 
   const fetchSummary = useCallback(async () => {
     try {
-      const response = await fetch("/api/commute/summary");
+      const response = await apiFetch("/api/commute/summary");
       const result = await response.json();
       if (result.success) {
         setData(result.data);
@@ -156,4 +157,3 @@ export function CommuteCard() {
     </Link>
   );
 }
-

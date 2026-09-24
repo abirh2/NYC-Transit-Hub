@@ -44,6 +44,7 @@ import {
 } from "lucide-react";
 import { isRouteActive } from "@/lib/navigation/active-route";
 import { AuthButton } from "@/components/auth";
+import { isNativeApp } from "@/lib/api/client";
 
 interface MoreDrawerItem {
   href: string;
@@ -95,7 +96,9 @@ export function MoreDrawer({ isOpen, onClose }: MoreDrawerProps) {
         <DrawerBody className="pb-[max(1rem,env(safe-area-inset-bottom))]">
           <nav aria-label="More destinations">
             <ul className="flex flex-col gap-1">
-              {MORE_DESTINATIONS.map((item) => {
+              {MORE_DESTINATIONS.filter((item) => (
+                !isNativeApp || item.href !== "/commute"
+              )).map((item) => {
                 const active = isRouteActive(pathname, item.href);
                 return (
                   <li key={item.href}>
@@ -124,10 +127,12 @@ export function MoreDrawer({ isOpen, onClose }: MoreDrawerProps) {
             </ul>
           </nav>
 
-          <div className="mt-2 flex items-center justify-between border-t border-border-subtle pt-4">
-            <span className="text-sm text-foreground/60">Account</span>
-            <AuthButton />
-          </div>
+          {!isNativeApp && (
+            <div className="mt-2 flex items-center justify-between border-t border-border-subtle pt-4">
+              <span className="text-sm text-foreground/60">Account</span>
+              <AuthButton />
+            </div>
+          )}
         </DrawerBody>
       </DrawerContent>
     </Drawer>

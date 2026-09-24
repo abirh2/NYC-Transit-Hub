@@ -8,6 +8,7 @@ import type {
   SavedStationSnapshot,
 } from "@/components/dashboard/home-types";
 import { useGeolocation, useStationPreferences, useVisiblePolling } from "@/lib/hooks";
+import { apiFetch, isNativeApp } from "@/lib/api/client";
 import {
   deriveRouteStatuses,
   extractCommuteRouteIds,
@@ -125,7 +126,7 @@ export function HomeDashboard() {
   const [savedStations, setSavedStations] = useState<SavedStationSnapshot[]>([]);
   const [savedLoading, setSavedLoading] = useState(true);
   const [commute, setCommute] = useState<HomeCommuteSummary | null>(null);
-  const [commuteLoading, setCommuteLoading] = useState(true);
+  const [commuteLoading, setCommuteLoading] = useState(!isNativeApp);
   const [commuteError, setCommuteError] = useState<string | null>(null);
   const [alerts, setAlerts] = useState<ServiceAlert[]>([]);
   const [alertsLoading, setAlertsLoading] = useState(true);
@@ -136,7 +137,7 @@ export function HomeDashboard() {
     const existing = inFlightRequests.current.get(url) as Promise<T> | undefined;
     if (existing) return existing;
 
-    const request = fetch(url)
+    const request = apiFetch(url)
       .then(async (response) => {
         const payload = await response.json() as ApiEnvelope<T>;
         if (!response.ok || !payload.success || !payload.data) {
@@ -287,10 +288,12 @@ export function HomeDashboard() {
   }, [favorites, favoritesLoaded, loadStationRealtime, requestData]);
 
   const loadContext = useCallback(async () => {
-    const [alertsResult, commuteResult] = await Promise.allSettled([
+    const alertsResult = await Promise.resolve(
       requestData<AlertsPayload>("/api/alerts?limit=25"),
-      requestData<HomeCommuteSummary>("/api/commute/summary"),
-    ]);
+    ).then(
+      (value) => ({ status: "fulfilled" as const, value }),
+      (reason: unknown) => ({ status: "rejected" as const, reason }),
+    );
 
     if (alertsResult.status === "fulfilled") {
       setAlerts(alertsResult.value.alerts.map(hydrateAlert));
@@ -300,13 +303,15 @@ export function HomeDashboard() {
     }
     setAlertsLoading(false);
 
-    if (commuteResult.status === "fulfilled") {
-      setCommute(commuteResult.value);
-      setCommuteError(null);
-    } else {
-      setCommuteError("Commute information is temporarily unavailable.");
+    if (!isNativeApp) {
+      try {
+        setCommute(await requestData<HomeCommuteSummary>("/api/commute/summary"));
+        setCommuteError(null);
+      } catch {
+        setCommuteError("Commute information is temporarily unavailable.");
+      }
+      setCommuteLoading(false);
     }
-    setCommuteLoading(false);
   }, [requestData]);
 
   useEffect(() => {
@@ -378,6 +383,7 @@ export function HomeDashboard() {
         latitude: position.latitude,
         longitude: position.longitude,
       } : null}
+      showCommute={!isNativeApp}
     />
   );
 }

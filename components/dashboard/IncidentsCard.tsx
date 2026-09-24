@@ -5,6 +5,7 @@ import { Card, CardBody, CardHeader, Spinner } from "@heroui/react";
 import { AlertTriangle, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import type { IncidentStats } from "@/types/api";
+import { apiFetch } from "@/lib/api/client";
 
 interface IncidentsApiResponse {
   success: boolean;
@@ -52,7 +53,7 @@ export function IncidentsCard() {
     async function fetchIncidents() {
       try {
         // Use status=active to get only currently active incidents (not upcoming planned work)
-        const response = await fetch("/api/incidents?status=active");
+        const response = await apiFetch("/api/incidents?status=active");
         const data: IncidentsApiResponse = await response.json();
 
         if (data.success && data.data) {

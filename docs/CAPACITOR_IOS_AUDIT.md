@@ -4,6 +4,16 @@ Audit date: 2026-09-23
 
 Scope: repository audit, production-site inspection, and build/test baseline only. No Capacitor package was installed, no iOS project was created, and no application or Next.js configuration was changed.
 
+> Implementation update (2026-09-23): the production architecture recommended
+> by this audit is now implemented. A sibling Vite/React graph under `native/`
+> emits bundled assets to `capacitor-web/`; shared UI requests use
+> `lib/api/client.ts`; public read APIs have exact-origin native CORS handling;
+> Serwist is omitted from the native output; native crowding loads from the
+> hosted API; and `npm run ios:build` builds, verifies, and syncs without
+> `server.url`. Native authentication/Commute remains intentionally withheld,
+> and physical-device capability validation remains outstanding. See
+> [`IOS_BUILD.md`](./IOS_BUILD.md) for the current commands and configuration.
+
 ## 1. Executive Summary
 
 The NYC Transit Hub user interface can be bundled for iOS, but the repository cannot safely become a Capacitor asset bundle by merely adding `output: "export"` to the existing Next.js configuration. The recommended conclusion is **C: a separate native build configuration/target is required**.

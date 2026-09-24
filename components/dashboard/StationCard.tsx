@@ -6,6 +6,7 @@ import { TrainFront, ArrowRight, Settings, RefreshCw, MapPin } from "lucide-reac
 import Link from "next/link";
 import { SubwayBullet } from "@/components/ui";
 import { useStationPreferences } from "@/lib/hooks/useStationPreferences";
+import { apiFetch } from "@/lib/api/client";
 
 interface Departure {
   line: string;
@@ -29,7 +30,7 @@ export function StationCard() {
     try {
       // First, get the full station info to get all platform IDs
       // (for stations like Times Sq with multiple complexes)
-      const stationRes = await fetch(
+      const stationRes = await apiFetch(
         `/api/stations?search=${encodeURIComponent(primaryStation.stationName)}&limit=1`
       );
       const stationData = await stationRes.json();
@@ -50,10 +51,10 @@ export function StationCard() {
 
       // Fetch all platforms in parallel
       const northPromises = northPlatforms.map(id =>
-        fetch(`/api/trains/realtime?stationId=${id}&limit=5`).then(r => r.json())
+        apiFetch(`/api/trains/realtime?stationId=${id}&limit=5`).then(r => r.json())
       );
       const southPromises = southPlatforms.map(id =>
-        fetch(`/api/trains/realtime?stationId=${id}&limit=5`).then(r => r.json())
+        apiFetch(`/api/trains/realtime?stationId=${id}&limit=5`).then(r => r.json())
       );
 
       const [northResults, southResults] = await Promise.all([

@@ -8,6 +8,7 @@ import { Users, Info, TrendingUp, Clock, AlertTriangle, Navigation2, Sparkles, H
 import type { RouteCrowdingEnhanced, RouteCrowding, CrowdingLevel, SegmentCrowding, Direction, SubwayLine, NetworkCrowding } from "@/types/mta";
 import { ViewToggle } from "./ViewToggle";
 import { SegmentDiagram } from "./SegmentDiagram";
+import { apiFetch } from "@/lib/api/client";
 
 interface CrowdingListProps {
   data: RouteCrowding[] | RouteCrowdingEnhanced[];
@@ -29,7 +30,7 @@ export function CrowdingList({ data, enhanced = false }: CrowdingListProps) {
       const fetchEnhancedData = async () => {
         try {
           setLoading(true);
-          const res = await fetch("/api/metrics/crowding?enhanced=true");
+          const res = await apiFetch("/api/metrics/crowding?enhanced=true");
           const networkData: NetworkCrowding = await res.json();
           setEnhancedData(networkData.routes);
         } catch (err) {

@@ -5,11 +5,26 @@
  * This keeps user sessions fresh and handles cookie management.
  */
 
-import { type NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
+import { createCorsHeaders, isNativeCorsRoute } from "@/lib/api/cors";
 import { updateSession } from "@/lib/supabase/middleware";
 
 export async function middleware(request: NextRequest) {
-  return await updateSession(request);
+  const corsHeaders = isNativeCorsRoute(request.nextUrl.pathname)
+    ? createCorsHeaders(request.headers.get("origin"))
+    : null;
+
+  if (request.method === "OPTIONS" && corsHeaders) {
+    return new NextResponse(null, { status: 204, headers: corsHeaders });
+  }
+
+  const response = await updateSession(request);
+  if (corsHeaders) {
+    Object.entries(corsHeaders).forEach(([name, value]) => {
+      response.headers.set(name, value);
+    });
+  }
+  return response;
 }
 
 export const config = {
@@ -25,4 +40,3 @@ export const config = {
     "/((?!_next/static|_next/image|favicon.ico|icons/|manifest.json|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
-

@@ -6,6 +6,7 @@ import { Radio, ArrowRight, Train, Bus, TrainFront } from "lucide-react";
 import Link from "next/link";
 import { SubwayBullet, BusBadge, RailBadge } from "@/components/ui";
 import type { TrainArrival, SubwayLine } from "@/types/mta";
+import { apiFetch } from "@/lib/api/client";
 
 interface SubwaySummary {
   totalTrains: number;
@@ -79,7 +80,7 @@ export function LiveTrackerCard() {
   useEffect(() => {
     async function fetchSubwaySummary() {
       try {
-        const response = await fetch("/api/trains/realtime?limit=500");
+        const response = await apiFetch("/api/trains/realtime?limit=500");
         if (!response.ok) throw new Error("Failed to fetch trains");
         
         const data = await response.json();
@@ -117,7 +118,7 @@ export function LiveTrackerCard() {
   useEffect(() => {
     async function fetchBusSummary() {
       try {
-        const response = await fetch("/api/buses/routes");
+        const response = await apiFetch("/api/buses/routes");
         if (!response.ok) throw new Error("Failed to fetch buses");
         
         const data = await response.json();
@@ -148,7 +149,7 @@ export function LiveTrackerCard() {
   useEffect(() => {
     async function fetchLirrSummary() {
       try {
-        const response = await fetch("/api/lirr/realtime?limit=100");
+        const response = await apiFetch("/api/lirr/realtime?limit=100");
         if (!response.ok) throw new Error("Failed to fetch LIRR");
         
         const data = await response.json();
@@ -183,7 +184,7 @@ export function LiveTrackerCard() {
   useEffect(() => {
     async function fetchMnrSummary() {
       try {
-        const response = await fetch("/api/metro-north/realtime?limit=100");
+        const response = await apiFetch("/api/metro-north/realtime?limit=100");
         if (!response.ok) throw new Error("Failed to fetch Metro-North");
         
         const data = await response.json();

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Accessibility, ArrowUpRight, LoaderCircle } from "lucide-react";
 
 import type { EquipmentOutage } from "@/types/mta";
+import { apiFetch } from "@/lib/api/client";
 
 type StatusState = "loading" | "ready" | "error";
 
@@ -15,7 +16,7 @@ export function StationAccessibilityStatus({ stationName }: { stationName: strin
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch(`/api/elevators?stationName=${encodeURIComponent(stationName)}&limit=3`, {
+    apiFetch(`/api/elevators?stationName=${encodeURIComponent(stationName)}&limit=3`, {
       signal: controller.signal,
     })
       .then(async (response) => {

@@ -8,7 +8,7 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { 
+import {
   Card, 
   CardBody, 
   Tabs, 
@@ -31,6 +31,7 @@ import {
   MoreVertical,
   Star,
 } from "lucide-react";
+import { apiFetch } from "@/lib/api/client";
 import { CommuteSetup, CommuteSummary, type CommuteData } from "@/components/commute";
 import { useAuth } from "@/components/auth";
 import { AuthModal } from "@/components/auth";
@@ -56,7 +57,7 @@ export function CommuteClient() {
 
     setIsLoadingCommutes(true);
     try {
-      const response = await fetch("/api/commute/settings");
+      const response = await apiFetch("/api/commute/settings");
       const data = await response.json();
 
       if (data.success && data.data.commutes) {
@@ -97,7 +98,7 @@ export function CommuteClient() {
 
   const handleDeleteCommute = async (commuteId: string) => {
     try {
-      const response = await fetch(`/api/commute/settings?id=${commuteId}`, {
+      const response = await apiFetch(`/api/commute/settings?id=${commuteId}`, {
         method: "DELETE",
       });
       

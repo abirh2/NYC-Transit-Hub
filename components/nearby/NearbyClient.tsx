@@ -27,6 +27,7 @@ import type {
 } from "@/types/transit";
 import type { NearbySearchOrigin } from "@/types/location";
 import { buildPlanQueryString } from "@/lib/transit/rider-query-state";
+import { apiFetch } from "@/lib/api/client";
 
 interface NearbyStationResponse extends TransitStation {
   distance: number;
@@ -206,7 +207,7 @@ export function NearbyClient() {
     setSubwayError(null);
     setSubwayIsPartial(false);
     try {
-      const response = await fetch(`/api/stations?near=${searchOrigin.latitude},${searchOrigin.longitude}&radius=1.5&limit=5`);
+      const response = await apiFetch(`/api/stations?near=${searchOrigin.latitude},${searchOrigin.longitude}&radius=1.5&limit=5`);
       const json = await response.json() as {
         success: boolean;
         data?: { stations: NearbyStationResponse[] };
@@ -235,7 +236,7 @@ export function NearbyClient() {
     setBusError(null);
     setBusIsPartial(false);
     try {
-      const response = await fetch(`/api/buses/stops?near=${searchOrigin.latitude},${searchOrigin.longitude}&radius=0.75&limit=6`);
+      const response = await apiFetch(`/api/buses/stops?near=${searchOrigin.latitude},${searchOrigin.longitude}&radius=0.75&limit=6`);
       const json = await response.json() as {
         success: boolean;
         data?: { groups: NearbyBusStopGroup[] };
@@ -272,7 +273,7 @@ export function NearbyClient() {
         ? selectedStation.sourceIds
         : [selectedStation.id];
       const payloads = await Promise.all(sourceIds.map((sourceId) =>
-        fetch(`/api/trains/realtime?stationId=${encodeURIComponent(sourceId)}&limit=100`)
+        apiFetch(`/api/trains/realtime?stationId=${encodeURIComponent(sourceId)}&limit=100`)
           .then(async (response) => {
             const json = await response.json() as {
               success: boolean;
@@ -313,7 +314,7 @@ export function NearbyClient() {
     try {
       const query = new URLSearchParams();
       busStopIds.forEach((stopId) => query.append("stopId", stopId));
-      const response = await fetch(`/api/buses/nearby?${query}`);
+      const response = await apiFetch(`/api/buses/nearby?${query}`);
       const json = await response.json() as {
         success: boolean;
         data?: {

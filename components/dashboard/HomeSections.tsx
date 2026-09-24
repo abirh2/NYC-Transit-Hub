@@ -45,6 +45,7 @@ interface HomeSectionsProps {
   alertsError: string | null;
   routeStatuses: ServiceStatus[];
   planOrigin: { name: string; latitude: number; longitude: number } | null;
+  showCommute?: boolean;
 }
 
 const SUBWAY_ROUTES = new Set([
@@ -439,10 +440,11 @@ export function HomeSections({
   alertsError,
   routeStatuses,
   planOrigin,
+  showCommute = true,
 }: HomeSectionsProps) {
   const prioritizePersonalTransit = !nearbyLoading
     && nearbyServices.length === 0
-    && (savedStations.length > 0 || commute?.isConfigured === true);
+    && (savedStations.length > 0 || (showCommute && commute?.isConfigured === true));
   const nearbySection = (
     <NearbySection
       now={now}
@@ -495,9 +497,11 @@ export function HomeSections({
             <div className="min-w-0 lg:col-start-2 lg:row-start-1">
               {serviceSection}
             </div>
-            <div className="min-w-0 lg:col-start-1 lg:row-start-2">
-              {commuteSection}
-            </div>
+            {showCommute && (
+              <div className="min-w-0 lg:col-start-1 lg:row-start-2">
+                {commuteSection}
+              </div>
+            )}
             <div className="min-w-0 lg:col-start-2 lg:row-start-2 lg:row-span-2">
               {alertsSection}
             </div>
@@ -519,9 +523,11 @@ export function HomeSections({
             <div className="min-w-0 lg:col-start-2 lg:row-start-2 lg:row-span-2">
               {alertsSection}
             </div>
-            <div className="min-w-0 lg:col-start-1 lg:row-start-3">
-              {commuteSection}
-            </div>
+            {showCommute && (
+              <div className="min-w-0 lg:col-start-1 lg:row-start-3">
+                {commuteSection}
+              </div>
+            )}
           </>
         )}
       </div>

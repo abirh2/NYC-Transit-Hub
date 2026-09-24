@@ -20,6 +20,7 @@ import {
   type RiderLocationContext,
 } from "@/lib/transit/rider-query-state";
 import type { LocationSearchResult } from "@/types/location";
+import { apiFetch } from "@/lib/api/client";
 
 interface OTPLeg {
   startTime: number;
@@ -235,7 +236,7 @@ export function RouteFinder() {
     });
 
     try {
-      const response = await fetch(`/api/routes/trip?${params.toString()}`);
+      const response = await apiFetch(`/api/routes/trip?${params.toString()}`);
       const payload = await response.json() as TripResponse;
       if (payload.success && payload.data) {
         setResultState({ type: "ready", response: { ...payload, data: payload.data } });

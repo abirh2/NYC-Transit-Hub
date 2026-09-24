@@ -6,6 +6,7 @@ import { AlertCircle, ArrowDownUp, CheckCircle2, Clock, Save, Star, Tag } from "
 
 import { LocationSearchField, Surface } from "@/components/ui";
 import type { LocationSearchResult } from "@/types/location";
+import { apiFetch } from "@/lib/api/client";
 
 export interface CommuteData {
   id?: string;
@@ -56,7 +57,7 @@ export function CommuteSetup({ initialData, onSave, onCancel, isNew }: CommuteSe
     setIsSaving(true);
     setError(null);
     try {
-      const response = await fetch("/api/commute/settings", {
+      const response = await apiFetch("/api/commute/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
