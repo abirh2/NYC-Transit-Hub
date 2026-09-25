@@ -109,6 +109,24 @@ nvm use 24 && npm run build
 nvm use 24 && npm run test:e2e
 ```
 
+## iOS development
+
+The Capacitor iOS app uses a bundled Vite frontend and the deployed Vercel APIs; production does not use `server.url`.
+
+```bash
+npm ci
+npm run ios:build
+npm run cap:ios
+```
+
+In Xcode, select the **App** target, choose your own team under **Signing & Capabilities**, verify `com.abirhossain.nyctransithub`, select an iPhone, and run. Do not commit a Team ID. The current native icon is development placeholder artwork and must be replaced before distribution.
+
+- [Capacitor/iOS audit](./docs/CAPACITOR_IOS_AUDIT.md)
+- [iOS build and configuration](./docs/IOS_BUILD.md)
+- [Physical-device testing](./docs/IOS_DEVICE_TESTING.md)
+- [iOS release checklist](./docs/IOS_RELEASE_CHECKLIST.md)
+- [iOS privacy implementation notes](./docs/IOS_PRIVACY_NOTES.md)
+
 ## Showcase material
 
 The repository keeps capture instructions rather than committing large image binaries. The repeatable state list covers Home, Nearby direction selection, an individual subway train, the full Realtime map, a reported bus vehicle, and Reliability analytics. See [Demo Capture Guide](./docs/demo-capture.md).

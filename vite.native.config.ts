@@ -2,10 +2,10 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
 import { readdirSync, rmSync } from "node:fs";
+import { resolveNativeApiBaseUrl } from "./scripts/native-build-config";
 
 const repositoryRoot = __dirname;
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ||
-  "https://nyctransithub.vercel.app";
+const apiBaseUrl = resolveNativeApiBaseUrl(process.env.NEXT_PUBLIC_API_BASE_URL);
 const nativeOutputDirectory = path.join(repositoryRoot, "capacitor-web");
 
 function omitWebServiceWorker() {
@@ -26,6 +26,9 @@ export default defineConfig({
   publicDir: path.join(repositoryRoot, "public"),
   base: "./",
   plugins: [react(), omitWebServiceWorker()],
+  esbuild: {
+    drop: ["console", "debugger"],
+  },
   define: {
     "process.env.NEXT_PUBLIC_APP_TARGET": JSON.stringify("ios"),
     "process.env.NEXT_PUBLIC_API_BASE_URL": JSON.stringify(apiBaseUrl),

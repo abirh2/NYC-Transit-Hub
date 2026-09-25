@@ -48,12 +48,15 @@ export default function OfflinePage() {
 
           {/* What works offline */}
           <div className="bg-content2 rounded-lg p-4 text-left">
-            <p className="text-sm font-medium mb-2">While offline, you can still:</p>
+            <p className="text-sm font-medium mb-2">Depending on how the app was installed, you may still:</p>
             <ul className="text-sm text-foreground/70 space-y-1">
-              <li>• View previously cached pages</li>
-              <li>• Access saved station preferences</li>
-              <li>• Browse static content</li>
+              <li>• Open bundled or previously cached screens</li>
+              <li>• Access saved station preferences on this device</li>
+              <li>• Browse static route and station context</li>
             </ul>
+            <p className="mt-3 text-xs text-foreground/60">
+              Live arrivals, service status, maps, and trip planning require a connection.
+            </p>
           </div>
 
           {/* Retry button */}

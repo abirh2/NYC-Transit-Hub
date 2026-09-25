@@ -1,8 +1,9 @@
 # NYC Transit Hub Capacitor/iOS Audit
 
-Audit date: 2026-09-23
+Initial architecture audit: 2026-09-23
+Native project readiness audit: 2026-09-25
 
-Scope: repository audit, production-site inspection, and build/test baseline only. No Capacitor package was installed, no iOS project was created, and no application or Next.js configuration was changed.
+Scope: repository, generated iOS project, production/native build configuration, native plugins, assets, privacy declarations, release guardrails, and production-site regression baseline. Apple account enrollment, signing-team selection, physical-device testing, App Store Connect, and signed distribution were not performed.
 
 > Implementation update (2026-09-23): the production architecture recommended
 > by this audit is now implemented. A sibling Vite/React graph under `native/`
@@ -13,6 +14,45 @@ Scope: repository audit, production-site inspection, and build/test baseline onl
 > `server.url`. Native authentication/Commute remains intentionally withheld,
 > and physical-device capability validation remains outstanding. See
 > [`IOS_BUILD.md`](./IOS_BUILD.md) for the current commands and configuration.
+
+## Current native-project readiness
+
+The original architecture sections below explain why NYC Transit Hub uses a separate bundled Vite frontend. The following table is the authoritative audit of the generated Capacitor 8.5.2 iOS project now checked into `ios/`.
+
+| Concern | Current repository state | Readiness |
+|---|---|---|
+| Display name | `NYC Transit Hub` in Capacitor config and `CFBundleDisplayName` | Ready |
+| Bundle identifier | `com.abirhossain.nyctransithub` in Capacitor and both Xcode configurations | Ready, subject to availability in the owner's Apple team |
+| Deployment target | iOS 15.0 in project/target settings, CapApp-SPM, Capacitor iOS, and every installed plugin | Ready; this is the lowest dependency-supported target and retains older iPhones |
+| Version/build | `MARKETING_VERSION = 1.0`, `CURRENT_PROJECT_VERSION = 1`; `Info.plist` references those settings | Ready for development; increment in Xcode before each uploaded build |
+| Signing | Automatic signing; no `DEVELOPMENT_TEAM` or provisioning profile is committed | Prepared; team selection remains manual |
+| Permissions | Foreground location only in application code; both location strings required by the current Geolocation plugin are present and user-facing | Prepared; prompt/denial must be verified on device |
+| Privacy manifest | App manifest declares Preferences/UserDefaults reason `CA92.1`; Capacitor core packages provide their own manifests | Ready for current plugin set; App Store answers remain manual |
+| Orientations | iPhone portrait + both landscapes; iPad all four orientations | Configured; rotate/map/sheet behavior needs device testing |
+| Status bar | Does not overlay WebView; light/dark style is synchronized by the native adapter | Configured; visual validation remains manual |
+| Launch screen | Project-specific transit launch artwork, manual hide after React commit, 200 ms fade | Development-ready; owner must approve final branding/layout |
+| App icon | 1024×1024 opaque image exists, but it is the default Capacitor logo | **Not App Store-ready; replacement artwork is required** |
+| Plugins | App, Browser, Geolocation, Haptics, Keyboard, Network, Preferences, SplashScreen, and StatusBar are integrated through SPM | Ready for build; device behavior remains unverified |
+| Capabilities | No entitlements file; no push, background modes, associated domains, or other unused capability | Correct for current implementation |
+| ATS | Only `NSAllowsLocalNetworking` is enabled for explicit LAN development; arbitrary loads are not allowed | Acceptable for development; can be removed if LAN HTTP mode is retired |
+| Release safety | HTTPS public origin validation, bundle scan, console/debug stripping, cleared remote-server environment, and an Xcode Release build phase rejecting `server.url`/local URLs | Ready |
+
+### Asset finding
+
+Xcode's single-size app-icon catalog accepts one 1024×1024 iOS source image and generates device variants. The committed image has no alpha, but it is Capacitor placeholder artwork. Supply an approved 1024×1024 sRGB PNG with an opaque background, square corners, no baked-in corner mask, and safe detail at small sizes; replace `ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png` without changing the catalog filename. App Store listing screenshots and promotional artwork are separate App Store Connect assets.
+
+The Splash catalog contains 2732×2732 1×/2×/3× entries generated from `ios/App/Branding/splash-source.svg`. They are useful for development and already wired to `LaunchScreen.storyboard`, but final visual approval on real devices is still required.
+
+### Concrete App Store review risks
+
+- The placeholder app icon blocks credible App Store submission.
+- Physical-device behavior remains unverified for permission prompts, safe areas, keyboard resizing, maps/tiles, VoiceOver, rotation, offline recovery, and background/resume.
+- CARTO and Esri mobile-app terms, attribution, quotas, and privacy implications require owner review.
+- Native auth/Commute is deliberately hidden rather than partially implemented; it is not a dead-end route in native navigation.
+- The bundled shell and native adapters provide substantial functionality beyond a remote website wrapper, but review should demonstrate the rider flows in [`IOS_RELEASE_CHECKLIST.md`](./IOS_RELEASE_CHECKLIST.md).
+- No payment flow, push notification, background mode, associated domain, analytics SDK, or debug screen was found in the native route graph.
+
+See [`IOS_PRIVACY_NOTES.md`](./IOS_PRIVACY_NOTES.md) for the factual data-flow inventory and [`IOS_RELEASE_CHECKLIST.md`](./IOS_RELEASE_CHECKLIST.md) for remaining device, signing, and distribution work.
 
 ## 1. Executive Summary
 

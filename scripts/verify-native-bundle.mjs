@@ -5,9 +5,12 @@ const outputDirectory = path.resolve("capacitor-web");
 const forbiddenPatterns = [
   ["server-only database URL name", /DATABASE_URL/],
   ["server-only MTA key name", /MTA_BUS_API_KEY/],
+  ["server-only Supabase service role name", /SUPABASE_SERVICE_ROLE_KEY/],
   ["Prisma client", /@prisma\/client/],
-  ["development server URL", /(?:localhost|127\.0\.0\.1|192\.168\.)[:/]\d{2,5}/],
+  ["local or private-network URL", /https?:\/\/(?:localhost\.?|127\.0\.0\.1|10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.|[^/\s]+\.local\.?)(?::|\/|$)/i],
   ["service-worker registration", /serviceWorker\.register/],
+  ["verbose release console statement", /\bconsole\.(?:debug|info|log)\b/],
+  ["debugger statement", /\bdebugger\b/],
 ];
 
 async function collectFiles(directory) {

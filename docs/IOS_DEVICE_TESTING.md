@@ -23,7 +23,26 @@ Capacitor uses `capacitor-web/` as its deterministic generated web directory.
 Build and sync a production bundle with `npm run ios:build`. Development app
 content is enabled explicitly with `CAPACITOR_USE_REMOTE_SERVER=true`.
 
-## Fastest path: use the deployed website
+## Recommended path: test the bundled app
+
+Use the bundled build for release-like device testing:
+
+```bash
+npm run ios:build
+npm run cap:ios
+```
+
+In Xcode:
+
+1. Select the **App** project and **App** target.
+2. Open **Signing & Capabilities**, keep automatic signing enabled, and choose your own team.
+3. Verify the bundle identifier is `com.abirhossain.nyctransithub`.
+4. Connect/trust the iPhone, enable Developer Mode if requested, and choose it as the run destination.
+5. Press `Command-R`.
+
+This path proves the app shell comes from installed assets. A free Personal Team is sufficient for development on the account owner's devices, subject to Apple's provisioning limits and expiration. TestFlight and App Store distribution require paid Apple Developer Program membership.
+
+## Optional fast iteration: use the deployed website
 
 Run:
 
@@ -135,6 +154,12 @@ Dynamic Island device. For each size, verify that:
 The repository checks can validate the web build and native project, but they
 cannot substitute for these physical-device checks. Do not record them as
 passed until they have been exercised on an iPhone.
+
+Use the full install, permission, rider-flow, map, connectivity, UI,
+accessibility, archive, and distribution matrix in
+[`IOS_RELEASE_CHECKLIST.md`](./IOS_RELEASE_CHECKLIST.md). That checklist also
+covers location denial/Settings changes, Wi-Fi/cellular/airplane mode,
+Vercel/MTA failure, and TestFlight/App Store boundaries.
 
 ## LAN troubleshooting
 

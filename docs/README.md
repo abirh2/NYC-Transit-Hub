@@ -19,6 +19,10 @@ Welcome to the NYC Transit Hub documentation. This guide will help you understan
 - [API Reference](./api.md)
 - [Testing Guide](./testing.md)
 - [Contributing](./contributing.md)
+- [iOS Build and Configuration](./IOS_BUILD.md)
+- [iOS Device Testing](./IOS_DEVICE_TESTING.md)
+- [iOS Release Checklist](./IOS_RELEASE_CHECKLIST.md)
+- [iOS Privacy Notes](./IOS_PRIVACY_NOTES.md)
 - [Agent Engineering Workflow](./ai/engineering-workflow.md)
 - [Transit Domain Conventions](./ai/transit-domain.md)
 
@@ -30,7 +34,7 @@ Welcome to the NYC Transit Hub documentation. This guide will help you understan
 
 ## Project Overview
 
-NYC Transit Hub is a personal, non-commercial web application that provides real-time MTA transit information, reliability analytics, and accessibility-aware routing for New York City's subway, bus, LIRR, and Metro-North systems.
+NYC Transit Hub is a personal, non-commercial application that provides real-time MTA transit information, reliability analytics, and accessibility-aware routing for New York City's subway, bus, LIRR, and Metro-North systems on the web and in its bundled iOS frontend.
 
 ### Key Features
 

@@ -19,17 +19,33 @@ Native authentication and Commute are intentionally withheld until callback deep
 - npm dependencies installed with `npm ci`
 - A deployed NYC Transit Hub backend; production uses `https://nyctransithub.vercel.app`
 
+The checked-in target supports iOS 15.0. Capacitor iOS 8.5.2 and every installed plugin also declare iOS 15 as their minimum, so the project does not attempt to lower it. This keeps the widest dependency-supported device range while remaining buildable with the current Xcode toolchain.
+
+## Native identity and versioning
+
+| Setting | Source of truth | Current value |
+|---|---|---|
+| Display name | `capacitor.config.ts` and `Info.plist` | `NYC Transit Hub` |
+| Bundle identifier | `capacitor.config.ts` and Xcode target build settings | `com.abirhossain.nyctransithub` |
+| Marketing version | Xcode target `MARKETING_VERSION` / General > Identity > Version | `1.0` |
+| Build number | Xcode target `CURRENT_PROJECT_VERSION` / General > Identity > Build | `1` |
+| Minimum iOS | Xcode project/target plus `ios/App/CapApp-SPM/Package.swift` | `15.0` |
+
+`Info.plist` reads `CFBundleShortVersionString` and `CFBundleVersion` from the Xcode settings. `package.json` version describes the private JavaScript workspace and is not an iOS release version. This avoids pretending that npm and App Store versions are synchronized.
+
+For a new App Store version, change Version using semantic `major.minor.patch` intent as appropriate. Increment Build for every archive uploaded to App Store Connect, including retries of the same marketing version. Xcode's distribution workflow can manage build numbers when that option is selected; otherwise update Build manually before archiving.
+
 ## Environment variables
 
 | Variable | Used by | Purpose |
 | --- | --- | --- |
 | `NEXT_PUBLIC_APP_TARGET` | Shared client code | Set by the native Vite config to `ios`; web defaults to `web`. Do not set this for the normal web build. |
-| `NEXT_PUBLIC_API_BASE_URL` | Native build only | Public HTTPS origin for hosted NYC Transit Hub APIs. Defaults to `https://nyctransithub.vercel.app`. It must be an HTTPS origin with no path or credentials. |
+| `NEXT_PUBLIC_API_BASE_URL` | Native build only | Public HTTPS origin for hosted NYC Transit Hub APIs. Defaults to `https://nyctransithub.vercel.app`. The release build rejects paths, credentials, localhost, `.local`, loopback, link-local, and private-network hosts. |
 | `NATIVE_API_ALLOWED_ORIGINS` | Vercel server only | Optional comma-separated extra development origins. Production always permits the exact iOS origin `capacitor://localhost`; only enumerated read APIs are CORS-enabled, so commute, ingestion, and future endpoints remain excluded by default. |
 | `CAPACITOR_USE_REMOTE_SERVER` | Capacitor development only | Must equal `true` before `server.url` is emitted. Never use it for a production build. |
 | `CAPACITOR_SERVER_URL` | Capacitor development only | HTTPS deployed site or LAN live-reload URL. Ignored unless remote mode is explicitly enabled. |
 
-`DATABASE_URL`, `MTA_BUS_API_KEY`, and other private server configuration stay in Vercel. The production native build verifies that server-only names/modules, local development URLs, and service-worker registration are absent from the generated bundle.
+`DATABASE_URL`, `MTA_BUS_API_KEY`, Supabase service-role configuration, and other private server configuration stay in Vercel. The production native build verifies that server-only names/modules, local/private-network URLs, verbose console statements, debugger statements, and service-worker registration are absent from the generated bundle. Application console diagnostics are stripped; Capacitor may retain its own internal error bridge.
 
 ## Web development
 
@@ -103,6 +119,8 @@ The command:
 3. clears remote-server environment variables for the Capacitor sync; and
 4. copies the bundled assets into the iOS project.
 
+Xcode also runs **Verify Release Configuration** for Release builds. It fails before compilation when the synced Capacitor configuration contains a development `server.url`, `CAPACITOR_DEBUG` is true, bundled `index.html` is missing, or synced assets contain a local/private-network URL. This protects archives created after an earlier live-reload session; the normal recovery is to rerun `npm run ios:build`.
+
 Open the already-synced project afterward:
 
 ```bash
@@ -110,6 +128,15 @@ npm run cap:ios
 ```
 
 The production app loads HTML, CSS, JavaScript, icons, subway bullets, and route geometry from its installed bundle. Realtime and planning data still require the deployed Vercel APIs and network access.
+
+## Signing preparation
+
+The project uses automatic signing and intentionally commits no Team ID. In Xcode, select the **App** target, open **Signing & Capabilities**, keep **Automatically manage signing** enabled, choose your own Personal Team or paid Developer Program team, and verify the bundle identifier. Do not commit personal provisioning profiles or another developer's Team ID.
+
+- A free Personal Team is suitable for development installation on the account owner's devices, subject to Apple's provisioning limits and expiration.
+- A paid Apple Developer Program membership is required for TestFlight, App Store Connect distribution/submission, and broader registered-device distribution.
+
+The target has no entitlements file and enables no Push Notifications, Background Modes, or Associated Domains capability because the current implementation does not use them.
 
 ## Routing, assets, and freshness
 
@@ -160,7 +187,15 @@ The iOS target declares both required usage descriptions in `Info.plist`:
 - `NSLocationAlwaysAndWhenInUseUsageDescription`
 
 Both explain that location is used to show nearby stations, bus stops, and live
-departures. The app currently requests foreground location only.
+departures. The app currently requests foreground location only. The installed
+Geolocation plugin requires the second string because its underlying iOS
+library references background-capable APIs; no background mode or background
+location behavior is enabled.
+
+The target also includes `PrivacyInfo.xcprivacy` with the Preferences plugin's
+required `UserDefaults` reason (`CA92.1`). See
+[`IOS_PRIVACY_NOTES.md`](./IOS_PRIVACY_NOTES.md) for the implementation data
+inventory; it is not a substitute for App Store Connect disclosures.
 
 ### Lifecycle and connectivity
 
@@ -208,3 +243,5 @@ storage behavior.
 ## Device-only validation
 
 After `npm run ios:build`, validate on a physical iPhone using the checklist in [`IOS_DEVICE_TESTING.md`](./IOS_DEVICE_TESTING.md). Simulator/build checks cannot prove location permission prompts, map gestures and tile policies, keyboard avoidance, safe areas, VoiceOver, background/resume refresh, Universal Links, or App Store signing.
+
+The checked-in launch artwork is wired for development. The current 1024×1024 app icon is still Capacitor placeholder artwork and must be replaced with approved opaque production artwork before TestFlight/App Store distribution. See [`IOS_RELEASE_CHECKLIST.md`](./IOS_RELEASE_CHECKLIST.md) for asset, archive, and distribution gates.

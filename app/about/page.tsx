@@ -25,7 +25,7 @@ export default function AboutPage() {
     <PageContainer>
       <PageHeader
         title="NYC Transit Hub"
-        description="A personal, non-commercial web application providing real-time MTA transit information, reliability analytics, and accessibility-aware routing for New York City."
+        description="A personal, non-commercial application providing real-time MTA transit information, reliability analytics, and accessibility-aware routing for New York City."
       />
       <div className="space-y-12">
       {/* Hero Section */}
@@ -279,11 +279,11 @@ export default function AboutPage() {
                 <h3 className="font-semibold">Privacy</h3>
               </div>
               <ul className="text-sm text-foreground/70 space-y-1">
-                <li>• No personal data collected or stored</li>
                 <li>• No account required for basic features</li>
-                <li>• Favorites saved locally in browser</li>
-                <li>• Location used only for nearby stations</li>
-                <li>• No tracking or analytics</li>
+                <li>• Favorites saved on this browser or device</li>
+                <li>• Location used for nearby transit only when requested</li>
+                <li>• No third-party tracking or analytics SDK</li>
+                <li>• Search and nearby requests are sent to the NYC Transit Hub backend</li>
               </ul>
             </CardBody>
           </Card>
