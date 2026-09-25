@@ -53,7 +53,7 @@ export function AppShell({ children }: AppShellProps) {
 
         {/* Bottom clearance = BottomNav height (4rem) + bottom safe inset on
             mobile; dropped to the desktop gutter at lg+ (no BottomNav there). */}
-        <main className="flex-1 p-4 pb-[calc(4rem+env(safe-area-inset-bottom))] md:p-6 md:pb-[calc(4rem+env(safe-area-inset-bottom))] lg:p-8 lg:pb-8">
+        <main className="flex-1 p-4 pb-[var(--mobile-nav-clearance)] md:p-6 md:pb-[var(--mobile-nav-clearance)] lg:p-8 lg:pb-8">
           {children}
         </main>
       </div>

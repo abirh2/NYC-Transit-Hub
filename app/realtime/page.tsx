@@ -28,7 +28,7 @@ export const metadata: Metadata = {
  */
 export default function RealtimePage() {
   return (
-    <div className="flex h-full flex-col">
+    <div data-realtime-page className="flex h-full flex-col">
       <header className="shrink-0 lg:mb-5">
         <h1 className="sr-only lg:not-sr-only lg:text-3xl lg:font-bold lg:text-foreground">
           Live Map

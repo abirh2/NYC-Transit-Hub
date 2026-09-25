@@ -11,6 +11,7 @@
 
 /* MTA-inspired color tokens (Layer 1 — raw palette, theme-independent) */
 :root {
+  --mobile-nav-clearance: calc(4rem + env(safe-area-inset-bottom));
   --mta-blue: #0039A6;
   --mta-orange: #FF6319;
   --mta-green: #00933C;
@@ -193,15 +194,66 @@
 }
 
 html {
+  background-color: var(--surface-app);
   scroll-behavior: smooth;
 }
 
 body {
+  background-color: var(--surface-app);
   font-family: var(--font-sans);
   min-height: 100vh;
   min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* WKWebView keyboard events set this attribute through NativePlatformEffects.
+   Hiding the fixed nav returns scarce vertical space to the focused form while
+   the native resize mode keeps the active control inside the visible WebView. */
+html[data-native-keyboard-open="true"] {
+  --mobile-nav-clearance: var(--space-page-gutter);
+}
+
+html[data-native-keyboard-open="true"] [data-mobile-bottom-nav] {
+  display: none;
+}
+
+/* Remove touch-only browser artifacts from controls without making useful
+   rider text unselectable or disabling pinch zoom. */
+@media (hover: none) and (pointer: coarse) {
+  a,
+  button,
+  [role="button"],
+  [role="tab"],
+  [role="radio"] {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    touch-action: manipulation;
+    user-select: none;
+  }
+
+  img,
+  svg {
+    -webkit-user-drag: none;
+  }
+}
+
+/* Realtime is intentionally map-dominant. On a short landscape iPhone, the
+   global brand bar and a 22rem map floor cannot coexist without placing the
+   map's primary state behind fixed navigation. Bottom navigation still gives
+   the rider an exit, so collapse only that redundant bar and relax the map
+   floor for this route/orientation. */
+@media (orientation: landscape) and (max-height: 500px) {
+  body:has([data-realtime-page]) [data-app-navbar] {
+    display: none;
+  }
+
+  [data-realtime-visualization] {
+    flex: none;
+    height: max(7.5rem, calc(100dvh - 13.5rem));
+    min-height: max(7.5rem, calc(100dvh - 13.5rem)) !important;
+    max-height: max(7.5rem, calc(100dvh - 13.5rem));
+  }
 }
 
 /* Ensure proper dark mode support */
@@ -296,6 +348,14 @@ body {
   background: var(--surface-app);
   font-family: var(--font-sans);
   outline: none;
+}
+
+/* Nearby shares the page with arrival cards. In its collapsed state, reserve
+   vertical one-finger motion for page scrolling while Leaflet still receives
+   horizontal drags and two-finger pinch gestures. Expanded Nearby and the
+   map-dominant Realtime surface keep Leaflet's full touch handling. */
+.nearby-map[data-expanded="false"] .leaflet-container {
+  touch-action: pan-y !important;
 }
 
 /* Leaflet's own zoom/attribution chrome is replaced by MapControls. */

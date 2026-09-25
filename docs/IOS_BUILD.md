@@ -136,6 +136,7 @@ browser globals are read lazily.
 | Preferences | `@capacitor/preferences` | `localStorage` |
 | Status bar | `@capacitor/status-bar` | No-op |
 | Launch screen | `@capacitor/splash-screen` | No-op |
+| Keyboard | `@capacitor/keyboard` | Native browser behavior |
 | Feedback | `@capacitor/haptics` | No-op |
 | External HTTP(S) links | `@capacitor/browser` | Normal browser navigation |
 
@@ -181,6 +182,20 @@ bundled transit artwork and remains visible until the initial React route has
 committed, then fades out. Haptics are deliberately sparse: light feedback is
 used for meaningful realtime service/vehicle selections, not scrolling,
 polling, or every tap.
+
+### Keyboard and orientation
+
+The keyboard uses Capacitor's native WebView resize mode. While it is visible,
+the fixed mobile navigation is hidden and its reserved content inset collapses
+to the normal page gutter, leaving the focused Plan or search control in the
+usable viewport. The keyboard style follows the app's selected light/dark
+theme, and its backdrop color is derived from the current DOM surface.
+
+The iPhone target intentionally supports portrait plus landscape-left and
+landscape-right. It does not support upside-down portrait on iPhone; iPad keeps
+all four orientations. Map containers use dynamic viewport units and Leaflet's
+existing size invalidation so supported rotations can recover without a page
+reload.
 
 ### Preference migration
 

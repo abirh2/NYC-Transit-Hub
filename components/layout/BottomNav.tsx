@@ -91,8 +91,9 @@ export function BottomNav({ onMoreClick }: BottomNavProps) {
 
   return (
     <nav
+      data-mobile-bottom-nav
       aria-label="Primary mobile navigation"
-      className="fixed inset-x-0 bottom-0 z-40 flex items-stretch border-t border-border-subtle bg-surface-panel pb-[env(safe-area-inset-bottom)] lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 flex items-stretch border-t border-border-subtle bg-surface-panel pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] lg:hidden"
     >
       {NAV_SLOTS.map((slot) => {
         if (slot.type === "action") {

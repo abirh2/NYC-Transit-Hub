@@ -130,7 +130,7 @@ export function RealtimeToolbar({
             isDisabled={!routeId}
             isLoading={isRefreshing}
             onPress={onRefresh}
-            className="h-9 w-9 min-w-9"
+            className="h-11 w-11 min-w-11"
           >
             {!isRefreshing && <RefreshCw className="h-4 w-4" aria-hidden="true" />}
           </Button>

@@ -110,5 +110,20 @@ describe('ModeSelector', () => {
     // In compact mode, Metro-North should show as MNR
     expect(screen.getByText('MNR')).toBeInTheDocument();
   });
-});
 
+  it('keeps compact mode controls at the iPhone touch-target floor', () => {
+    render(
+      <ModeSelector
+        selectedMode="subway"
+        onModeChange={vi.fn()}
+        compact
+      />
+    );
+
+    expect(screen.getByRole('radiogroup', { name: /transit mode/i }))
+      .toHaveClass('max-w-full');
+    for (const option of screen.getAllByRole('radio')) {
+      expect(option).toHaveClass('min-h-[44px]');
+    }
+  });
+});

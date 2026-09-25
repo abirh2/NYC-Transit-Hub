@@ -28,7 +28,7 @@ export function ThemeToggle() {
         isIconOnly
         variant="light"
         aria-label="Toggle theme"
-        className="text-foreground"
+        className="h-11 w-11 min-w-11 text-foreground"
       >
         <Sun className="h-5 w-5" />
       </Button>
@@ -41,7 +41,7 @@ export function ThemeToggle() {
       variant="light"
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
       onPress={() => setTheme(isDark ? "light" : "dark")}
-      className="text-foreground"
+      className="h-11 w-11 min-w-11 text-foreground"
     >
       {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
     </Button>

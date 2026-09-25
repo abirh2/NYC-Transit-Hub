@@ -26,11 +26,12 @@ interface NavbarProps {
 export function Navbar({ className = "" }: NavbarProps) {
   return (
     <header
+      data-app-navbar
       className={`sticky top-0 z-30 min-h-16 w-full border-b border-divider bg-background/80 pt-[env(safe-area-inset-top)] backdrop-blur-md ${className}`}
     >
       <div className="flex h-16 items-center justify-between px-4">
         {/* Brand — visible on mobile where the Sidebar is hidden */}
-        <Link href="/" className="flex items-center gap-2 lg:hidden">
+        <Link href="/" className="flex min-h-11 items-center gap-2 lg:hidden">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
             <TrainFront className="h-5 w-5 text-white" />
           </div>

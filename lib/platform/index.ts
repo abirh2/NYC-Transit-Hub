@@ -1,4 +1,5 @@
 export * from "./haptics";
+export * from "./keyboard";
 export * from "./lifecycle";
 export * from "./location";
 export * from "./network";

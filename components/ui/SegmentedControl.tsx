@@ -19,6 +19,7 @@ import { useCallback, useId, useRef } from "react";
 export interface SegmentedControlOption<T extends string> {
   value: T;
   label: string;
+  ariaLabel?: string;
   icon?: React.ReactNode;
 }
 
@@ -101,12 +102,13 @@ export function SegmentedControl<T extends string>({
             }}
             type="button"
             role="radio"
+            aria-label={option.ariaLabel}
             aria-checked={isSelected}
             id={`${groupId}-${option.value}`}
             tabIndex={index === activeIndex ? 0 : -1}
             onClick={() => onChange(option.value)}
             onKeyDown={(event) => handleKeyDown(event, index)}
-            className={`inline-flex min-h-[36px] items-center justify-center gap-1.5 rounded-sm px-3 py-1.5 text-body-secondary font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-1 focus-visible:ring-offset-surface-panel ${
+            className={`inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-sm px-3 py-1.5 text-body-secondary font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-1 focus-visible:ring-offset-surface-panel ${
               isSelected
                 ? "bg-surface-selected text-foreground"
                 : "text-foreground/70 hover:bg-surface-hover hover:text-foreground"

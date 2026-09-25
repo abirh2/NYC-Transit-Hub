@@ -1,4 +1,5 @@
 import type { CapacitorConfig } from "@capacitor/cli";
+import { KeyboardResize, KeyboardStyle } from "@capacitor/keyboard";
 
 const useRemoteServer = process.env.CAPACITOR_USE_REMOTE_SERVER === "true";
 const configuredServerUrl = process.env.CAPACITOR_SERVER_URL?.trim();
@@ -45,6 +46,11 @@ const config: CapacitorConfig = {
       overlaysWebView: false,
       style: "LIGHT",
       backgroundColor: "#0a0a0aff",
+    },
+    Keyboard: {
+      resize: KeyboardResize.Native,
+      style: KeyboardStyle.Default,
+      autoBackdropColor: "dom",
     },
   },
 };

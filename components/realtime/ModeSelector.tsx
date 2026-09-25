@@ -28,7 +28,7 @@ const MODE_CONFIG: Record<
   TransitMode,
   { label: string; shortLabel: string; icon: typeof Train }
 > = {
-  subway: { label: "Subway", shortLabel: "Subway", icon: Train },
+  subway: { label: "Subway", shortLabel: "Sub", icon: Train },
   bus: { label: "Bus", shortLabel: "Bus", icon: Bus },
   lirr: { label: "LIRR", shortLabel: "LIRR", icon: TrainFront },
   "metro-north": { label: "Metro-North", shortLabel: "MNR", icon: TrainFront },
@@ -43,6 +43,10 @@ export function ModeSelector({
   availableModes = DEFAULT_MODES,
   className,
 }: ModeSelectorProps) {
+  const resolvedClassName = [
+    compact ? "max-w-full [&>button]:px-1.5" : "",
+    className ?? "",
+  ].filter(Boolean).join(" ");
   const options: SegmentedControlOption<TransitMode>[] = availableModes.map(
     (mode) => {
       const config = MODE_CONFIG[mode];
@@ -50,6 +54,7 @@ export function ModeSelector({
       return {
         value: mode,
         label: compact ? config.shortLabel : config.label,
+        ariaLabel: config.label,
         icon: <Icon className={compact ? "h-3.5 w-3.5" : "h-4 w-4"} />,
       };
     },
@@ -61,7 +66,7 @@ export function ModeSelector({
       value={selectedMode}
       onChange={onModeChange}
       ariaLabel="Transit mode"
-      className={className}
+      className={resolvedClassName}
     />
   );
 }

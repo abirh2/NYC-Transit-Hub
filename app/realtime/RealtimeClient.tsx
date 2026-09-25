@@ -923,7 +923,7 @@ export function RealtimeClient() {
         map stays dominant however the toolbar wraps. The floor keeps it usable
         on short landscape phones, at the cost of scrolling there.
       */}
-      <div className="min-h-[22rem] flex-1">
+      <div data-realtime-visualization className="min-h-[22rem] flex-1">
         {view === "map" ? (
           <div className="grid h-full min-h-0 grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_360px]">
             <Surface

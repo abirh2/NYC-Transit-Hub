@@ -113,7 +113,24 @@ Verify these flows in both light and dark mode:
 - Header clearance around the notch/Dynamic Island
 - Bottom navigation and sheets above the home indicator
 - Keyboard visibility for search and route-planning inputs
-- Portrait and landscape layout
+- External informational links open in the Capacitor browser while internal
+  routes stay inside the application
+- Background the app for at least ten minutes from a live-arrival screen, then
+  resume and confirm stale ETAs refresh promptly without losing the selection
+- Portrait, landscape-left, and landscape-right layout
+
+Repeat the visual/interaction pass at representative iPhone widths: a compact
+width, the 390/393-point class, and the 430-point class. Include at least one
+Dynamic Island device. For each size, verify that:
+
+- the header, map controls, sheets, and bottom navigation clear system areas;
+- the last scrollable item remains visible above the home indicator;
+- collapsed Nearby allows a normal vertical page scroll while horizontal map
+  movement and pinch zoom still work;
+- Realtime remains map-dominant and its detail sheet does not scroll the map
+  underneath it; and
+- focusing Plan, station, and destination fields hides the fixed bottom nav,
+  keeps the active control visible, and restores navigation after dismissal.
 
 The repository checks can validate the web build and native project, but they
 cannot substitute for these physical-device checks. Do not record them as
