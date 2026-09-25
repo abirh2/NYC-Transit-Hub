@@ -29,6 +29,10 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>NYC Transit Hub uses your location to show nearby subway stations, bus stops, and live departures.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>NYC Transit Hub uses your location to show nearby subway stations, bus stops, and live departures.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

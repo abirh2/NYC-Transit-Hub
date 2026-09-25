@@ -1,6 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import {
+  getLifecycleAdapter,
+  getNetworkService,
+  platformRuntime,
+  shouldRefreshAfterResume,
+} from "@/lib/platform";
 
 interface VisiblePollingState {
   isOnline: boolean;
@@ -28,8 +34,12 @@ export function useVisiblePolling(
   const onlineRef = useRef(isOnline);
 
   useEffect(() => {
-    onlineRef.current = navigator.onLine;
-    setIsOnline(onlineRef.current);
+    const networkService = getNetworkService();
+    const lifecycle = getLifecycleAdapter();
+    const initialNetwork = networkService.getSnapshot();
+    onlineRef.current = initialNetwork.connected;
+    let isActive = true;
+    let lastRefreshAt = Date.now();
 
     const stop = () => {
       if (intervalRef.current !== null) {
@@ -40,44 +50,54 @@ export function useVisiblePolling(
 
     const start = (refreshNow: boolean) => {
       stop();
-      if (!enabled || !onlineRef.current || document.visibilityState === "hidden") {
+      if (!enabled || !onlineRef.current || !isActive) {
         return;
       }
 
-      if (refreshNow) callbackRef.current();
+      if (refreshNow) {
+        lastRefreshAt = Date.now();
+        callbackRef.current();
+      }
       intervalRef.current = window.setInterval(
-        () => callbackRef.current(),
+        () => {
+          lastRefreshAt = Date.now();
+          callbackRef.current();
+        },
         intervalMs,
       );
     };
 
-    const handleVisibility = () => {
-      if (document.visibilityState === "hidden") stop();
-      else start(true);
-    };
-
-    const handleOnline = () => {
-      onlineRef.current = true;
-      setIsOnline(true);
-      start(true);
-    };
-
-    const handleOffline = () => {
-      onlineRef.current = false;
-      setIsOnline(false);
-      stop();
-    };
-
-    document.addEventListener("visibilitychange", handleVisibility);
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
+    const unsubscribeNetwork = networkService.subscribe(() => {
+      const status = networkService.getSnapshot();
+      const wasOnline = onlineRef.current;
+      onlineRef.current = status.connected;
+      setIsOnline(status.connected);
+      if (!status.connected) stop();
+      else if (!wasOnline) start(true);
+    });
+    const unsubscribeLifecycle = lifecycle.subscribe({
+      onPause() {
+        isActive = false;
+        stop();
+      },
+      onResume() {
+        isActive = true;
+        const refreshNow = platformRuntime.isNative
+          ? shouldRefreshAfterResume({
+              lastRefreshAt,
+              resumedAt: Date.now(),
+              staleAfterMs: intervalMs,
+            })
+          : true;
+        start(refreshNow);
+      },
+    });
     start(false);
 
     return () => {
       stop();
-      document.removeEventListener("visibilitychange", handleVisibility);
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
+      unsubscribeNetwork();
+      unsubscribeLifecycle();
     };
   }, [enabled, intervalMs]);
 

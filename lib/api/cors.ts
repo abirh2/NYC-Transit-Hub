@@ -1,6 +1,28 @@
 const DEFAULT_NATIVE_ORIGINS = ["capacitor://localhost"] as const;
 
-const EXCLUDED_API_PREFIXES = ["/api/commute/", "/api/ingest/"] as const;
+const PUBLIC_NATIVE_API_PATHS = new Set([
+  "/api/alerts",
+  "/api/buses/nearby",
+  "/api/buses/realtime",
+  "/api/buses/routes",
+  "/api/buses/stops",
+  "/api/elevators",
+  "/api/elevators/upcoming",
+  "/api/incidents",
+  "/api/lirr/realtime",
+  "/api/lirr/stations",
+  "/api/locations",
+  "/api/metrics/crowding",
+  "/api/metro-north/realtime",
+  "/api/metro-north/stations",
+  "/api/reliability",
+  "/api/routes",
+  "/api/routes/accessible",
+  "/api/routes/trip",
+  "/api/stations",
+  "/api/status",
+  "/api/trains/realtime",
+]);
 
 function allowedNativeOrigins(): ReadonlySet<string> {
   const configuredOrigins = process.env.NATIVE_API_ALLOWED_ORIGINS
@@ -12,8 +34,7 @@ function allowedNativeOrigins(): ReadonlySet<string> {
 }
 
 export function isNativeCorsRoute(pathname: string): boolean {
-  return pathname.startsWith("/api/") &&
-    !EXCLUDED_API_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+  return PUBLIC_NATIVE_API_PATHS.has(pathname);
 }
 
 export function createCorsHeaders(

@@ -125,7 +125,7 @@ function NearbySection({
   locationLoading: boolean;
   onRequestLocation: () => void;
 }) {
-  const canRequest = permission !== "unsupported";
+  const canRequest = permission !== "restricted" && permission !== "unavailable";
   return (
     <Surface as="section" className="overflow-hidden">
       <SectionHeading
@@ -175,7 +175,7 @@ function NearbySection({
               <p className="mt-0.5 text-sm text-foreground/60">
                 {locationError
                   ? "Try again or open Nearby to search by place."
-                  : permission === "unsupported"
+                  : permission === "restricted" || permission === "unavailable"
                   ? "Use saved stations or open Nearby to search the map."
                   : "Use your current location for the closest departures."}
               </p>

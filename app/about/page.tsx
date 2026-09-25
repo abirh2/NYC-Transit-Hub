@@ -15,10 +15,10 @@ import {
   Zap,
   Shield,
   Github,
-  ExternalLink
+  ExternalLink as ExternalLinkIcon
 } from "lucide-react";
-import Link from "next/link";
 import { PageContainer, PageHeader } from "@/components/layout";
+import { ExternalLink } from "@/components/ui";
 
 export default function AboutPage() {
   return (
@@ -297,13 +297,12 @@ export default function AboutPage() {
               <p className="text-sm text-foreground/70">
                 This is a personal, non-commercial project. The source code is available on GitHub.
               </p>
-              <Link 
+              <ExternalLink
                 href="https://github.com/abirh2/NYC-Transit-Hub" 
-                target="_blank"
                 className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
               >
-                View on GitHub <ExternalLink className="h-3 w-3" />
-              </Link>
+                View on GitHub <ExternalLinkIcon className="h-3 w-3" />
+              </ExternalLink>
             </CardBody>
           </Card>
         </div>
@@ -313,9 +312,9 @@ export default function AboutPage() {
       <section className="space-y-4 text-center pb-8">
         <h2 className="text-2xl font-bold">Credits</h2>
         <div className="text-sm text-foreground/70 space-y-1">
-          <p>Data provided by <Link href="https://new.mta.info/" target="_blank" className="text-primary hover:underline">Metropolitan Transportation Authority (MTA)</Link></p>
-          <p>Subway icons from <Link href="https://github.com/louh/mta-subway-bullets" target="_blank" className="text-primary hover:underline">mta-subway-bullets</Link></p>
-          <p>Built with <Link href="https://nextjs.org/" target="_blank" className="text-primary hover:underline">Next.js</Link> and <Link href="https://heroui.com/" target="_blank" className="text-primary hover:underline">HeroUI</Link></p>
+          <p>Data provided by <ExternalLink href="https://new.mta.info/" className="text-primary hover:underline">Metropolitan Transportation Authority (MTA)</ExternalLink></p>
+          <p>Subway icons from <ExternalLink href="https://github.com/louh/mta-subway-bullets" className="text-primary hover:underline">mta-subway-bullets</ExternalLink></p>
+          <p>Built with <ExternalLink href="https://nextjs.org/" className="text-primary hover:underline">Next.js</ExternalLink> and <ExternalLink href="https://heroui.com/" className="text-primary hover:underline">HeroUI</ExternalLink></p>
         </div>
       </section>
       </div>

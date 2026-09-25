@@ -1,23 +1,25 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Card, CardBody, Button } from "@heroui/react";
 import { WifiOff, RefreshCw, Train } from "lucide-react";
+import { useConnectivity } from "@/lib/hooks";
 
 export default function OfflinePage() {
+  const { connected } = useConnectivity();
+  const wasOffline = useRef(false);
+
   const handleRefresh = () => {
     window.location.reload();
   };
 
-  // Auto-refresh when back online
   useEffect(() => {
-    const handleOnline = () => {
+    if (!connected) {
+      wasOffline.current = true;
+    } else if (wasOffline.current) {
       window.location.reload();
-    };
-
-    window.addEventListener("online", handleOnline);
-    return () => window.removeEventListener("online", handleOnline);
-  }, []);
+    }
+  }, [connected]);
 
   return (
     <div className="min-h-[60vh] flex items-center justify-center p-4">
@@ -73,4 +75,3 @@ export default function OfflinePage() {
     </div>
   );
 }
-

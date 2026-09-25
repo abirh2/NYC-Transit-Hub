@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { AppShell } from "@/components/layout";
 import { NativeRoutes } from "./NativeRoutes";
+import { NativePlatformEffects } from "./NativePlatformEffects";
 
 export function NativeApp() {
   const router = useRouter();
@@ -28,6 +29,7 @@ export function NativeApp() {
                 </div>
               )}
             >
+              <NativePlatformEffects />
               <NativeRoutes />
             </Suspense>
           </AppShell>

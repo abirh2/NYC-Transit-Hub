@@ -28,6 +28,7 @@ import type {
 import type { NearbySearchOrigin } from "@/types/location";
 import { buildPlanQueryString } from "@/lib/transit/rider-query-state";
 import { apiFetch } from "@/lib/api/client";
+import { haptics } from "@/lib/platform/haptics";
 
 interface NearbyStationResponse extends TransitStation {
   distance: number;
@@ -101,13 +102,13 @@ function LocationState({
 }) {
   const title = permissionState === "denied"
     ? "Location access is off"
-    : permissionState === "unsupported"
-      ? "Location is not supported"
+    : permissionState === "restricted" || permissionState === "unavailable"
+      ? "Location is unavailable"
       : "Find transit near you";
   const description = permissionState === "denied"
     ? "Allow location in your browser settings, or search and move the map above."
     : error ?? "Use your current location, or search and move the map above.";
-  const retryAction = permissionState !== "unsupported" && (
+  const retryAction = permissionState !== "restricted" && permissionState !== "unavailable" && (
     <Button
       color="primary"
       variant="solid"
@@ -443,6 +444,7 @@ export function NearbyClient() {
       candidate.relatedDepartures.some((related) => related.tripId === departure.tripId));
     if (!service) return;
 
+    void haptics.selection();
     setSelectedServiceId(service.id);
     setExpandedTrainTripId(departure.tripId);
   }, [allServices]);
@@ -599,6 +601,7 @@ export function NearbyClient() {
                 now={now}
                 selected={service.id === selectedService?.id}
                 onSelect={(nextService: NearbyService) => {
+                  void haptics.selection();
                   setExpandedTrainTripId(null);
                   setSelectedServiceId(nextService.id);
                 }}

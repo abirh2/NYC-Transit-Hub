@@ -105,11 +105,11 @@ export function NearbyStations({
       );
     }
 
-    if (permissionState === "unsupported") {
+    if (permissionState === "restricted" || permissionState === "unavailable") {
       return (
         <div className="text-center py-4">
           <p className="text-sm text-foreground/60">
-            Location is not supported by your browser.
+            Location is unavailable. Search for a station instead.
           </p>
         </div>
       );

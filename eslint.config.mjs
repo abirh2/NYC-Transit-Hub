@@ -15,6 +15,8 @@ const eslintConfig = defineConfig([
     ".next/**",
     "out/**",
     "build/**",
+    "capacitor-web/**",
+    "ios/App/App/public/**",
     "next-env.d.ts",
     // Generated service worker file
     "public/sw.js",

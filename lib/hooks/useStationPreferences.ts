@@ -3,11 +3,12 @@
 /**
  * Station Preferences Hook
  * 
- * Manages user's favorite stations with localStorage persistence.
+ * Manages user's favorite stations with platform-aware persistence.
  * Designed for future Supabase sync when authentication is added.
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { getPreferenceStorage } from "@/lib/platform/storage";
 
 const STORAGE_KEY = "nyc-transit-favorites";
 
@@ -39,11 +40,8 @@ export interface UseStationPreferencesReturn {
 /**
  * Load favorites from localStorage
  */
-function loadFromStorage(): StationPreference[] {
-  if (typeof window === "undefined") return [];
-  
+function parseStoredFavorites(stored: string | null): StationPreference[] {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) return [];
     
     const parsed = JSON.parse(stored);
@@ -65,45 +63,34 @@ function loadFromStorage(): StationPreference[] {
 }
 
 /**
- * Save favorites to localStorage
- */
-function saveToStorage(favorites: StationPreference[]): void {
-  if (typeof window === "undefined") return;
-  
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(favorites));
-  } catch (e) {
-    console.error("Failed to save station preferences:", e);
-  }
-}
-
-/**
  * Hook for managing station preferences
  */
 export function useStationPreferences(): UseStationPreferencesReturn {
-  // Initialize with empty array - will be populated on mount
-  const [favorites, setFavorites] = useState<StationPreference[]>([]);
-  const [isLoaded, setIsLoaded] = useState(false);
-  
-  // Track if this is the initial mount
-  const isInitialMount = useRef(true);
+  const storage = getPreferenceStorage();
+  const [initialValue] = useState(() => storage.getSync?.(STORAGE_KEY));
+  const [favorites, setFavorites] = useState<StationPreference[]>(() =>
+    parseStoredFavorites(initialValue ?? null));
+  const [isLoaded, setIsLoaded] = useState(initialValue !== undefined);
+  const isInitialMount = useRef(initialValue === undefined);
 
-  // Load from localStorage on mount - this is a valid use case for setState in effect
-  // because we need to access browser APIs that aren't available during SSR
   useEffect(() => {
-    const stored = loadFromStorage();
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: loading from localStorage on mount
-    setFavorites(stored);
-    setIsLoaded(true);
-    isInitialMount.current = false;
-  }, []);
+    if (storage.getSync) return;
+    let active = true;
+    void storage.get(STORAGE_KEY).then((stored) => {
+      if (!active) return;
+      setFavorites(parseStoredFavorites(stored));
+      setIsLoaded(true);
+      isInitialMount.current = false;
+    });
+    return () => { active = false; };
+  }, [storage]);
 
   // Save to localStorage whenever favorites change (after initial load)
   useEffect(() => {
     // Skip the initial mount and the load effect
     if (isInitialMount.current || !isLoaded) return;
-    saveToStorage(favorites);
-  }, [favorites, isLoaded]);
+    void storage.set(STORAGE_KEY, JSON.stringify(favorites));
+  }, [favorites, isLoaded, storage]);
 
   const addFavorite = useCallback((stationId: string, stationName: string) => {
     setFavorites((prev) => {

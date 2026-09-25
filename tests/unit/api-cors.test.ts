@@ -34,6 +34,7 @@ describe("native API CORS policy", () => {
     "/api/commute/settings",
     "/api/commute/summary",
     "/api/ingest/subway",
+    "/api/future-admin-endpoint",
     "/auth/callback",
   ])("keeps sensitive route %s outside native CORS", (pathname) => {
     expect(isNativeCorsRoute(pathname)).toBe(false);

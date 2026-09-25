@@ -29,6 +29,7 @@ import {
 import { RealtimeMap } from "@/components/realtime/map";
 import { Surface } from "@/components/ui";
 import { apiFetch } from "@/lib/api/client";
+import { haptics } from "@/lib/platform/haptics";
 import { useGeolocation, useRealtimeSelection, useVisiblePolling } from "@/lib/hooks";
 import {
   getLineColor,
@@ -865,6 +866,7 @@ export function RealtimeClient() {
 
   const handleSelectVehicle = useCallback(
     (tripId: string | null) => {
+      if (tripId) void haptics.selection();
       if ((mode === "subway" || mode === "bus") && tripId) {
         const trip = mode === "subway"
           ? trainData.trips.find((item) => item.id === tripId)

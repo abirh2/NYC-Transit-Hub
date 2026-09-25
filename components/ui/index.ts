@@ -24,3 +24,4 @@ export { LocationSearchField } from "./LocationSearchField";
 export type { LocationSearchFieldProps } from "./LocationSearchField";
 export { DataFreshness } from "./DataFreshness";
 export type { DataFreshnessProps } from "./DataFreshness";
+export { ExternalLink } from "./ExternalLink";

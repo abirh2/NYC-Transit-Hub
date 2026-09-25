@@ -34,6 +34,7 @@ export default defineConfig({
   },
   resolve: {
     alias: [
+      { find: "@/components/auth", replacement: path.join(repositoryRoot, "native/shims/auth.tsx") },
       { find: "next/navigation", replacement: path.join(repositoryRoot, "native/shims/next-navigation.ts") },
       { find: "next/link", replacement: path.join(repositoryRoot, "native/shims/next-link.tsx") },
       { find: "next/dynamic", replacement: path.join(repositoryRoot, "native/shims/next-dynamic.tsx") },

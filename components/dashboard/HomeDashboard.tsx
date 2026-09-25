@@ -288,17 +288,11 @@ export function HomeDashboard() {
   }, [favorites, favoritesLoaded, loadStationRealtime, requestData]);
 
   const loadContext = useCallback(async () => {
-    const alertsResult = await Promise.resolve(
-      requestData<AlertsPayload>("/api/alerts?limit=25"),
-    ).then(
-      (value) => ({ status: "fulfilled" as const, value }),
-      (reason: unknown) => ({ status: "rejected" as const, reason }),
-    );
-
-    if (alertsResult.status === "fulfilled") {
-      setAlerts(alertsResult.value.alerts.map(hydrateAlert));
+    try {
+      const payload = await requestData<AlertsPayload>("/api/alerts?limit=25");
+      setAlerts(payload.alerts.map(hydrateAlert));
       setAlertsError(null);
-    } else {
+    } catch {
       setAlertsError("Service alerts are temporarily unavailable.");
     }
     setAlertsLoading(false);

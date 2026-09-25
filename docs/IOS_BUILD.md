@@ -25,7 +25,7 @@ Native authentication and Commute are intentionally withheld until callback deep
 | --- | --- | --- |
 | `NEXT_PUBLIC_APP_TARGET` | Shared client code | Set by the native Vite config to `ios`; web defaults to `web`. Do not set this for the normal web build. |
 | `NEXT_PUBLIC_API_BASE_URL` | Native build only | Public HTTPS origin for hosted NYC Transit Hub APIs. Defaults to `https://nyctransithub.vercel.app`. It must be an HTTPS origin with no path or credentials. |
-| `NATIVE_API_ALLOWED_ORIGINS` | Vercel server only | Optional comma-separated extra development origins. Production always permits the exact iOS origin `capacitor://localhost`; sensitive commute and ingestion endpoints remain excluded. |
+| `NATIVE_API_ALLOWED_ORIGINS` | Vercel server only | Optional comma-separated extra development origins. Production always permits the exact iOS origin `capacitor://localhost`; only enumerated read APIs are CORS-enabled, so commute, ingestion, and future endpoints remain excluded by default. |
 | `CAPACITOR_USE_REMOTE_SERVER` | Capacitor development only | Must equal `true` before `server.url` is emitted. Never use it for a production build. |
 | `CAPACITOR_SERVER_URL` | Capacitor development only | HTTPS deployed site or LAN live-reload URL. Ignored unless remote mode is explicitly enabled. |
 
@@ -119,6 +119,76 @@ The production app loads HTML, CSS, JavaScript, icons, subway bullets, and route
 - `next/image` is replaced only in the native graph by a plain static image component, so native subway icons never depend on the Next image optimizer.
 - The native graph does not include or register the Serwist service worker. API requests continue to use the existing polling/cancellation behavior and are not precached as bundled resources.
 - Public read APIs accept the exact `capacitor://localhost` origin. Authenticated commute and ingestion APIs are deliberately not CORS-enabled.
+
+## Native capability adapters
+
+Shared client code uses the adapters under `lib/platform/` instead of checking
+the user agent. `Capacitor.getPlatform()` and `Capacitor.isNativePlatform()`
+select the native implementation; the normal browser keeps standards-based
+fallbacks. Importing these modules during server rendering is safe because
+browser globals are read lazily.
+
+| Capability | iOS implementation | Web fallback |
+| --- | --- | --- |
+| Location | `@capacitor/geolocation` | Permissions and Geolocation browser APIs |
+| App lifecycle | `@capacitor/app` pause/resume events | `visibilitychange` |
+| Connectivity | `@capacitor/network` | `navigator.onLine` and online/offline events |
+| Preferences | `@capacitor/preferences` | `localStorage` |
+| Status bar | `@capacitor/status-bar` | No-op |
+| Launch screen | `@capacitor/splash-screen` | No-op |
+| Feedback | `@capacitor/haptics` | No-op |
+| External HTTP(S) links | `@capacitor/browser` | Normal browser navigation |
+
+`@capacitor/share` is intentionally not installed. The current app has no
+share action, and its native deep-link/Universal Link contract is not yet
+defined. Add Share only alongside a concrete product flow and a tested URL
+contract.
+
+### Location permissions and errors
+
+All current-location consumers share one `LocationService`, so concurrent page
+requests coalesce instead of presenting duplicate permission requests. The
+service exposes a normalized permission state (`prompt`, `granted`, `denied`,
+`restricted`, or `unavailable`) and stable errors for denial, restriction,
+unavailability, timeout, and temporary failures. A denial never falls back to
+a guessed coordinate; station search remains available as the recovery path.
+
+The iOS target declares both required usage descriptions in `Info.plist`:
+
+- `NSLocationWhenInUseUsageDescription`
+- `NSLocationAlwaysAndWhenInUseUsageDescription`
+
+Both explain that location is used to show nearby stations, bus stops, and live
+departures. The app currently requests foreground location only.
+
+### Lifecycle and connectivity
+
+Realtime polling stops when the app is paused, the document is hidden, or the
+device reports no network connection. On native resume, data refreshes only
+when the previous refresh is older than the polling interval. This preserves
+the current route, selected mode, trip or vehicle, map state, and scroll state;
+the lifecycle adapter never reloads the page.
+
+Network state is a UI and polling hint, not proof that Vercel or an MTA upstream
+is reachable. Request-level failures still use the existing error handling. The
+offline page listens for a real offline-to-online transition before reloading.
+
+### Native chrome, splash, and haptics
+
+The status bar follows the resolved light/dark theme, uses a matching
+background, and does not overlay the WebView. The native launch screen uses the
+bundled transit artwork and remains visible until the initial React route has
+committed, then fades out. Haptics are deliberately sparse: light feedback is
+used for meaningful realtime service/vehicle selections, not scrolling,
+polling, or every tap.
+
+### Preference migration
+
+Station preferences use the native Preferences store on iOS. On the first
+native read, an existing value in the WebView's `localStorage` is copied into
+Preferences, preserving data from older bundled builds. Plugin failures degrade
+to `localStorage`; the web build continues to use its existing synchronous
+storage behavior.
 
 ## Device-only validation
 

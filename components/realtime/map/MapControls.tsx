@@ -82,10 +82,10 @@ export function MapControls({
   isLegendOpen,
 }: MapControlsProps) {
   const locationDenied = locationPermission === "denied";
-  const locationUnsupported = locationPermission === "unsupported";
+  const locationUnsupported = locationPermission === "restricted" || locationPermission === "unavailable";
 
   const locationLabel = locationUnsupported
-    ? "Location not supported by this browser"
+    ? "Location unavailable; search by station or place"
     : locationDenied
       ? "Location permission denied"
       : hasUserLocation

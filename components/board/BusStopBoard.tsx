@@ -160,7 +160,7 @@ export function BusStopBoard({
       );
     }
 
-    if (permissionState === "unsupported") {
+    if (permissionState === "restricted" || permissionState === "unavailable") {
       return (
         <div className="text-center py-8">
           <WifiOff className="h-12 w-12 mx-auto text-foreground/30 mb-4" />
@@ -168,7 +168,7 @@ export function BusStopBoard({
             Location Not Supported
           </h3>
           <p className="text-foreground/60 text-sm max-w-md mx-auto">
-            Your browser doesn&apos;t support location services.
+            Location is unavailable. Search for a stop instead.
           </p>
         </div>
       );

@@ -33,6 +33,20 @@ const config: CapacitorConfig = {
   appName: "NYC Transit Hub",
   webDir: "capacitor-web",
   server: getRemoteServerConfig(),
+  plugins: {
+    SplashScreen: {
+      launchAutoHide: false,
+      launchShowDuration: 0,
+      launchFadeOutDuration: 200,
+      backgroundColor: "#0a0a0aff",
+      showSpinner: false,
+    },
+    StatusBar: {
+      overlaysWebView: false,
+      style: "LIGHT",
+      backgroundColor: "#0a0a0aff",
+    },
+  },
 };
 
 export default config;

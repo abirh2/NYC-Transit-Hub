@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { useGeolocation } from "@/lib/hooks/useGeolocation";
+import { resetLocationServiceForTests } from "@/lib/platform/location";
 
 // Mock geolocation API
 const mockGeolocation = {
@@ -16,6 +17,7 @@ const mockPermissions = {
 describe("useGeolocation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetLocationServiceForTests();
     
     // Setup navigator.geolocation mock
     Object.defineProperty(navigator, "geolocation", {

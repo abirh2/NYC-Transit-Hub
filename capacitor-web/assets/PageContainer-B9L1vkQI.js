@@ -1,1 +1,0 @@
-import{j as e}from"./index-C-bX0hZm.js";const n={default:"max-w-5xl",wide:"max-w-7xl",full:"max-w-none"};function i({children:a,width:l="default",className:t}){return e.jsx("div",{className:["mx-auto w-full px-page-gutter","overflow-x-hidden",n[l],t].filter(Boolean).join(" "),children:e.jsx("div",{className:"min-w-0",children:a})})}export{i as P};
